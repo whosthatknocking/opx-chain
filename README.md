@@ -16,6 +16,7 @@ The output is designed to be data-focused rather than decision-focused. It does 
 - Adds quote quality, freshness, liquidity, and pricing metrics
 - Adds underlying volatility context with `VIX` and trailing historical volatility
 - Adds expiration-level expected move estimates
+- Adds roll-yield metrics across expirations at the same strike
 - Computes Black-Scholes `delta`, true ITM probability, `gamma`, `vega`, and `theta`
 - Exports a timestamped CSV file for each run
 
@@ -131,6 +132,11 @@ The exported CSV contains both raw option data and derived fields. Some values m
 - `expected_move_pct`: `expected_move` as a percentage of spot. Use it to compare expected move across underlyings.
 - `expected_move_lower_bound`: Spot minus `expected_move`. Use it as the lower expected-move boundary into expiration.
 - `expected_move_upper_bound`: Spot plus `expected_move`. Use it as the upper expected-move boundary into expiration.
+- `roll_from_expiration_date`: The nearest earlier expiration used as the roll source for the same underlying, option type, and strike. Use it to see which expiry the roll comparison came from.
+- `roll_days_added`: Extra calendar days gained by rolling from `roll_from_expiration_date` to the current expiration. Use it as the time-extension denominator.
+- `roll_from_premium_reference_price`: Premium reference price on the earlier expiration used for the roll comparison. Use it to audit the roll credit calculation.
+- `roll_net_credit`: Current premium reference price minus `roll_from_premium_reference_price`. Use it to measure the extra credit from extending time.
+- `roll_yield`: `roll_net_credit / roll_days_added`. Use it to compare net credit earned per extra day of time extension.
 
 ### Greek Fields
 

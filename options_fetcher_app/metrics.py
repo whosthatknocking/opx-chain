@@ -269,3 +269,32 @@ def add_expected_move_by_expiration(df):
             "expected_move_upper_bound_computed",
         ]
     )
+
+
+def add_roll_yield_metrics(df):
+    """Compare each expiry to the nearest earlier expiry at the same strike and side."""
+    df = df.copy()
+    group_keys = ["underlying_symbol", "option_type", "strike"]
+    ordered = df.sort_values(group_keys + ["days_to_expiration", "expiration_date"]).copy()
+
+    ordered["roll_from_expiration_date"] = ordered.groupby(group_keys)["expiration_date"].shift(1)
+    ordered["roll_from_days_to_expiration"] = ordered.groupby(group_keys)["days_to_expiration"].shift(1)
+    ordered["roll_from_premium_reference_price"] = ordered.groupby(group_keys)["premium_reference_price"].shift(1)
+    ordered["roll_days_added"] = (
+        ordered["days_to_expiration"] - ordered["roll_from_days_to_expiration"]
+    )
+    ordered["roll_net_credit"] = (
+        ordered["premium_reference_price"] - ordered["roll_from_premium_reference_price"]
+    )
+    ordered["roll_yield"] = np.where(
+        ordered["roll_days_added"] > 0,
+        ordered["roll_net_credit"] / ordered["roll_days_added"],
+        np.nan,
+    )
+
+    ordered.loc[
+        ordered["roll_from_premium_reference_price"].isna() | (ordered["roll_days_added"] <= 0),
+        ["roll_days_added", "roll_net_credit", "roll_yield"],
+    ] = np.nan
+
+    return ordered.sort_index()

@@ -12,7 +12,7 @@ from options_fetcher_app.config import (
     TRADING_DAYS_PER_YEAR,
     today,
 )
-from options_fetcher_app.metrics import add_expected_move_by_expiration
+from options_fetcher_app.metrics import add_expected_move_by_expiration, add_roll_yield_metrics
 from options_fetcher_app.normalize import enrich_option_frame
 from options_fetcher_app.utils import coerce_float, normalize_timestamp
 
@@ -157,7 +157,8 @@ def fetch_ticker_option_chain(ticker):
             return pd.DataFrame()
 
         combined = pd.concat(rows, ignore_index=True)
-        return add_expected_move_by_expiration(combined)
+        combined = add_expected_move_by_expiration(combined)
+        return add_roll_yield_metrics(combined)
 
     except Exception as exc:
         print(f"{ticker} error: {exc}")
