@@ -1,6 +1,6 @@
 import pandas as pd
 
-from options_fetcher_app.config import DATA_SOURCE, RISK_FREE_RATE, SCRIPT_VERSION, today
+from options_fetcher_app.config import DATA_SOURCE, RISK_FREE_RATE, today
 from options_fetcher_app.metrics import (
     add_derived_pricing_metrics,
     add_quote_quality_metrics,
@@ -33,9 +33,7 @@ def normalize_vendor_option_frame(df, underlying_price, expiration_date, option_
     df["expiration_date"] = expiration_date
     df["days_to_expiration"] = days_to_expiration
     df["time_to_expiration_years"] = time_to_expiration_years
-    df["fetched_at"] = fetched_at
     df["data_source"] = DATA_SOURCE
-    df["script_version"] = SCRIPT_VERSION
     df["risk_free_rate_used"] = RISK_FREE_RATE
     df["underlying_price"] = underlying_price
 

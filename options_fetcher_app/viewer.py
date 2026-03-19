@@ -14,7 +14,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC_ROOT = Path(__file__).resolve().parent / "viewer_static"
 README_PATH = REPO_ROOT / "README.md"
 CSV_PATTERN = "options_engine_output_*.csv"
-HIDDEN_COLUMNS = {"roll_from_days_to_expiration"}
+HIDDEN_COLUMNS = {
+    "currency",
+    "underlying_currency",
+    "roll_from_days_to_expiration",
+    "roll_from_expiration_date",
+    "roll_days_added",
+    "roll_from_premium_reference_price",
+    "roll_net_credit",
+    "roll_yield",
+    "fetch_status",
+    "fetch_error",
+    "script_version",
+    "fetched_at",
+}
 
 
 def discover_csv_files():

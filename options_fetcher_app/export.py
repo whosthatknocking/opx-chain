@@ -10,7 +10,6 @@ COLUMN_ORDER = [
     "time_to_expiration_years",
     "strike",
     "underlying_price",
-    "underlying_currency",
     "underlying_market_state",
     "underlying_day_change_pct",
     "historical_volatility",
@@ -62,11 +61,6 @@ COLUMN_ORDER = [
     "expected_move_pct",
     "expected_move_lower_bound",
     "expected_move_upper_bound",
-    "roll_from_expiration_date",
-    "roll_days_added",
-    "roll_from_premium_reference_price",
-    "roll_net_credit",
-    "roll_yield",
     "delta",
     "delta_abs",
     "delta_itm_proxy",
@@ -91,23 +85,37 @@ COLUMN_ORDER = [
     "passes_primary_screen",
     "quote_quality_score",
     "contract_size",
-    "fetched_at",
     "data_source",
-    "script_version",
     "risk_free_rate_used",
-    "fetch_status",
-    "fetch_error",
 ]
 
 
 def format_export_timestamps(df):
     """Format timestamps consistently so the CSV stays stable across runs."""
-    for column in ["option_quote_time", "underlying_price_time", "vix_quote_time", "fetched_at"]:
+    for column in ["option_quote_time", "underlying_price_time", "vix_quote_time"]:
         if column in df.columns:
             df[column] = pd.to_datetime(df[column], utc=True, errors="coerce").dt.strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             )
     return df
+
+
+def drop_unwanted_columns(df):
+    unwanted = {
+        "currency",
+        "underlying_currency",
+        "roll_from_expiration_date",
+        "roll_days_added",
+        "roll_from_premium_reference_price",
+        "roll_net_credit",
+        "roll_yield",
+        "fetch_status",
+        "fetch_error",
+        "script_version",
+        "fetched_at",
+    }
+    existing = [column for column in df.columns if column in unwanted]
+    return df.drop(columns=existing) if existing else df
 
 
 def reorder_export_columns(df):
@@ -120,6 +128,7 @@ def reorder_export_columns(df):
 def write_options_csv(ticker_frames, output_path):
     """Combine fetched frames, format the schema, and write the final CSV."""
     df = pd.concat(ticker_frames, ignore_index=True)
+    df = drop_unwanted_columns(df)
     df = format_export_timestamps(df)
     df = reorder_export_columns(df)
     df.to_csv(output_path, index=False)

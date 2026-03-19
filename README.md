@@ -92,8 +92,6 @@ The exported CSV contains both raw option data and derived fields. Some values m
 ### Underlying Snapshot Fields
 
 - `underlying_price`: Current underlying stock price used in calculations. Use it as the reference price for moneyness and Greeks.
-- `underlying_currency`: Currency of the underlying quote. Use it to interpret all monetary fields correctly.
-- `currency`: Vendor-supplied currency field preserved from the raw data. Use `underlying_currency` as the normalized currency field in downstream analysis.
 - `underlying_market_state`: Market session state from Yahoo Finance. Use it to judge whether prices are regular-session or extended-hours.
 - `underlying_day_change_pct`: Underlying percentage move versus previous close. Use it to add context to the option chain.
 - `historical_volatility`: Annualized realized volatility computed from the underlying's trailing 30 daily log returns. Use it to compare recent realized movement against option-implied pricing.
@@ -155,11 +153,6 @@ The exported CSV contains both raw option data and derived fields. Some values m
 - `expected_move_pct`: `expected_move` as a percentage of spot. Use it to compare expected move across underlyings.
 - `expected_move_lower_bound`: Spot minus `expected_move`. Use it as the lower expected-move boundary into expiration.
 - `expected_move_upper_bound`: Spot plus `expected_move`. Use it as the upper expected-move boundary into expiration.
-- `roll_from_expiration_date`: The nearest earlier expiration used as the roll source for the same underlying, option type, and strike. Use it to see which expiry the roll comparison came from.
-- `roll_days_added`: Extra calendar days gained by rolling from `roll_from_expiration_date` to the current expiration. Use it as the time-extension denominator.
-- `roll_from_premium_reference_price`: Premium reference price on the earlier expiration used for the roll comparison. Use it to audit the roll credit calculation.
-- `roll_net_credit`: Current premium reference price minus `roll_from_premium_reference_price`. Use it to measure the extra credit from extending time.
-- `roll_yield`: `roll_net_credit / roll_days_added`. Use it to compare net credit earned per extra day of time extension.
 
 ### Greek Fields
 
@@ -194,12 +187,16 @@ The exported CSV contains both raw option data and derived fields. Some values m
 
 ### Run Metadata Fields
 
-- `fetched_at`: Timestamp when the script fetched the data. Use it to tie all rows to a single collection run.
 - `data_source`: Source name for the data, currently `yfinance`. Use it for lineage and auditability.
-- `script_version`: Internal script version string. Use it to track which schema or logic version generated the file.
 - `risk_free_rate_used`: Risk-free rate used in Greek calculations. Use it to reproduce the Black-Scholes outputs.
-- `fetch_status`: Fetch outcome marker for the row. Use it to identify successful versus degraded loads.
-- `fetch_error`: Error text when a fetch issue is recorded. Use it for troubleshooting upstream data problems.
+
+Execution details that are not row-specific are written to a per-run log file in `logs/`, including:
+
+- run start time
+- script version
+- per-ticker success or error status
+- fetch timestamps
+- final output file path
 
 ## Project Structure
 

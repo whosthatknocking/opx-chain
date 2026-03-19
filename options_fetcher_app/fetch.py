@@ -12,7 +12,7 @@ from options_fetcher_app.config import (
     TRADING_DAYS_PER_YEAR,
     today,
 )
-from options_fetcher_app.metrics import add_expected_move_by_expiration, add_roll_yield_metrics
+from options_fetcher_app.metrics import add_expected_move_by_expiration
 from options_fetcher_app.normalize import enrich_option_frame
 from options_fetcher_app.utils import coerce_float, normalize_timestamp
 
@@ -88,7 +88,6 @@ def load_underlying_snapshot(stock):
     return {
         "underlying_price": last_price,
         "underlying_price_time": normalize_timestamp(info.get("regularMarketTime")),
-        "underlying_currency": info.get("currency") or fast_info.get("currency"),
         "underlying_market_state": info.get("marketState"),
         "underlying_day_change_pct": underlying_day_change_pct,
         "historical_volatility": compute_historical_volatility(stock),
@@ -100,7 +99,6 @@ def load_underlying_snapshot(stock):
 def append_underlying_snapshot_fields(df, snapshot, fetched_at):
     """Add underlying snapshot metadata to each option row."""
     df["underlying_price_time"] = snapshot["underlying_price_time"]
-    df["underlying_currency"] = snapshot["underlying_currency"]
     df["underlying_market_state"] = snapshot["underlying_market_state"]
     df["underlying_day_change_pct"] = snapshot["underlying_day_change_pct"]
     df["historical_volatility"] = snapshot["historical_volatility"]
@@ -116,12 +114,10 @@ def append_underlying_snapshot_fields(df, snapshot, fetched_at):
         df["underlying_price_age_seconds"] > STALE_QUOTE_SECONDS,
         None,
     )
-    df["fetch_status"] = "ok"
-    df["fetch_error"] = ""
     return df
 
 
-def fetch_ticker_option_chain(ticker):
+def fetch_ticker_option_chain(ticker, logger=None):
     """Fetch and normalize all near-term option chains for one ticker."""
     try:
         fetched_at = pd.Timestamp.now(tz=timezone.utc)
@@ -130,6 +126,8 @@ def fetch_ticker_option_chain(ticker):
         underlying_price = snapshot["underlying_price"]
 
         if pd.isna(underlying_price) or underlying_price <= 0:
+            if logger:
+                logger.warning("ticker=%s status=skipped reason=invalid_underlying_price", ticker)
             return pd.DataFrame()
 
         rows = []
@@ -154,12 +152,24 @@ def fetch_ticker_option_chain(ticker):
                 rows.append(append_underlying_snapshot_fields(normalized, snapshot, fetched_at))
 
         if not rows:
+            if logger:
+                logger.warning("ticker=%s status=ok rows=0 expirations=0", ticker)
             return pd.DataFrame()
 
         combined = pd.concat(rows, ignore_index=True)
         combined = add_expected_move_by_expiration(combined)
-        return add_roll_yield_metrics(combined)
+        if logger:
+            logger.info(
+                "ticker=%s status=ok fetched_at=%s rows=%s expirations=%s",
+                ticker,
+                fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                len(combined),
+                combined["expiration_date"].nunique(),
+            )
+        return combined
 
     except Exception as exc:
         print(f"{ticker} error: {exc}")
+        if logger:
+            logger.exception("ticker=%s status=error message=%s", ticker, exc)
         return pd.DataFrame()
