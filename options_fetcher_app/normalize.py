@@ -1,6 +1,12 @@
 import pandas as pd
 
-from options_fetcher_app.config import DATA_SOURCE, MAX_STRIKE_DISTANCE_PCT, RISK_FREE_RATE, today
+from options_fetcher_app.config import (
+    DATA_SOURCE,
+    MAX_SPREAD_PCT_OF_MID,
+    MAX_STRIKE_DISTANCE_PCT,
+    RISK_FREE_RATE,
+    today,
+)
 from options_fetcher_app.metrics import (
     add_derived_pricing_metrics,
     add_quote_quality_metrics,
@@ -71,6 +77,11 @@ def filter_zero_bid_quotes(df):
     return df[df["bid"] != 0].copy()
 
 
+def filter_wide_spread_quotes(df):
+    """Exclude contracts whose spread exceeds the configured share of mid price."""
+    return df[df["bid_ask_spread_pct_of_mid"] < MAX_SPREAD_PCT_OF_MID].copy()
+
+
 def enrich_option_frame(df, underlying_price, expiration_date, option_type, ticker, fetched_at):
     """Normalize the vendor frame, then add derived metrics and quality flags."""
     df = normalize_vendor_option_frame(
@@ -84,6 +95,7 @@ def enrich_option_frame(df, underlying_price, expiration_date, option_type, tick
     df = filter_zero_bid_quotes(df)
     df = filter_strikes_near_spot(df, underlying_price)
     df = add_quote_quality_metrics(df, underlying_price)
+    df = filter_wide_spread_quotes(df)
     df = add_derived_pricing_metrics(df, underlying_price)
     df = add_screening_and_freshness_flags(df, fetched_at)
     return df
