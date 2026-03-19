@@ -14,6 +14,7 @@ The output is designed to be data-focused rather than decision-focused. It does 
 - Limits expirations to a rolling three-month window
 - Normalizes vendor fields into a stable CSV schema
 - Adds quote quality, freshness, liquidity, and pricing metrics
+- Adds underlying volatility context with `VIX` and trailing historical volatility
 - Computes Black-Scholes `delta`, true ITM probability, `gamma`, `vega`, and `theta`
 - Exports a timestamped CSV file for each run
 
@@ -73,6 +74,9 @@ The exported CSV contains both raw option data and derived fields. Some values m
 - `underlying_currency`: Currency of the underlying quote. Use it to interpret all monetary fields correctly.
 - `underlying_market_state`: Market session state from Yahoo Finance. Use it to judge whether prices are regular-session or extended-hours.
 - `underlying_day_change_pct`: Underlying percentage move versus previous close. Use it to add context to the option chain.
+- `historical_volatility`: Annualized realized volatility computed from the underlying's trailing 30 daily log returns. Use it to compare recent realized movement against option-implied pricing.
+- `vix_level`: Latest CBOE Volatility Index level fetched for the run. Use it as a market-wide volatility regime reference.
+- `vix_quote_time`: Timestamp of the VIX snapshot. Use it to judge whether the volatility regime reference is fresh.
 - `underlying_price_time`: Timestamp of the underlying quote snapshot. Use it to compare timing with the option quote.
 - `underlying_price_age_seconds`: Age of the underlying quote at fetch time. Use it to detect stale stock prices.
 - `is_stale_underlying_price`: Flag showing whether the underlying quote is older than the configured staleness threshold. Use it to down-rank stale rows.
@@ -188,6 +192,7 @@ Core configuration lives in `options_fetcher_app/config.py`, including:
 - minimum liquidity thresholds
 - spread threshold
 - risk-free rate used for Greeks
+- historical-volatility lookback
 - stale quote threshold
 
 ## Notes

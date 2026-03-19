@@ -13,6 +13,9 @@ COLUMN_ORDER = [
     "underlying_currency",
     "underlying_market_state",
     "underlying_day_change_pct",
+    "historical_volatility",
+    "vix_level",
+    "vix_quote_time",
     "underlying_price_time",
     "underlying_price_age_seconds",
     "is_stale_underlying_price",
@@ -87,7 +90,7 @@ COLUMN_ORDER = [
 
 def format_export_timestamps(df):
     """Format timestamps consistently so the CSV stays stable across runs."""
-    for column in ["option_quote_time", "underlying_price_time", "fetched_at"]:
+    for column in ["option_quote_time", "underlying_price_time", "vix_quote_time", "fetched_at"]:
         if column in df.columns:
             df[column] = pd.to_datetime(df[column], utc=True, errors="coerce").dt.strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
