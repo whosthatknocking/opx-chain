@@ -17,6 +17,7 @@ The output is designed to be data-focused rather than decision-focused. It does 
 - Adds underlying volatility context with `VIX` and trailing historical volatility
 - Adds expiration-level expected move estimates
 - Adds roll-yield metrics across expirations at the same strike
+- Adds return-on-margin metrics using a transparent margin proxy
 - Computes Black-Scholes `delta`, true ITM probability, `gamma`, `vega`, and `theta`
 - Exports a timestamped CSV file for each run
 
@@ -127,6 +128,9 @@ The exported CSV contains both raw option data and derived fields. Some values m
 - `premium_to_strike_bid`: Bid divided by strike. Use it for a more conservative premium yield estimate.
 - `premium_to_strike_annualized`: `premium_to_strike` annualized by time to expiration. Use it to compare contracts with different expiries.
 - `premium_per_day`: Reference premium earned per day until expiration. Use it to compare short-dated income efficiency.
+- `estimated_margin_requirement`: Reg-T style per-share margin proxy for a short option, using `premium + max(20% of spot - OTM amount, 10% floor)`. Use it as the denominator for ROM-style comparisons.
+- `return_on_margin`: `premium_reference_price / estimated_margin_requirement`. Use it to compare premium collected relative to estimated capital at risk.
+- `return_on_margin_annualized`: `return_on_margin` annualized by time to expiration. Use it to compare ROM across expirations.
 - `break_even_if_short`: Price where a short option position breaks even at expiration. Use it to evaluate downside or upside buffer.
 - `expected_move`: One-standard-deviation expected dollar move for that expiration, computed as `spot * ATM_IV * sqrt(time)`. Use it as the core expected-move estimate for the expiry.
 - `expected_move_pct`: `expected_move` as a percentage of spot. Use it to compare expected move across underlyings.

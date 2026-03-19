@@ -125,6 +125,30 @@ def add_derived_pricing_metrics(df, underlying_price):
         df["premium_reference_price"] / df["days_to_expiration"],
         np.nan,
     )
+    otm_amount = np.where(
+        df["option_type"] == "call",
+        np.maximum(df["strike"] - underlying_price, 0),
+        np.maximum(underlying_price - df["strike"], 0),
+    )
+    margin_floor = np.where(
+        df["option_type"] == "call",
+        0.10 * underlying_price,
+        0.10 * df["strike"],
+    )
+    df["estimated_margin_requirement"] = df["premium_reference_price"] + np.maximum(
+        0.20 * underlying_price - otm_amount,
+        margin_floor,
+    )
+    df["return_on_margin"] = np.where(
+        df["estimated_margin_requirement"] > 0,
+        df["premium_reference_price"] / df["estimated_margin_requirement"],
+        np.nan,
+    )
+    df["return_on_margin_annualized"] = np.where(
+        df["time_to_expiration_years"] > 0,
+        df["return_on_margin"] / df["time_to_expiration_years"],
+        np.nan,
+    )
 
     df = compute_greeks(df, underlying_price, RISK_FREE_RATE)
 
