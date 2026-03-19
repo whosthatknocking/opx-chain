@@ -1,0 +1,14 @@
+# yfinance          - Fetches real-time/delayed options chains and underlying prices from Yahoo Finance
+#                    Required: stock.options, option_chain(), Ticker.info['regularMarketPrice']
+yfinance>=0.2.40
+
+# pandas            - Handles all data as DataFrames: combining chains, filtering, renaming columns,
+#                    numeric conversion, sorting, and CSV export
+pandas>=2.0
+
+# numpy             - Used inside Black-Scholes calculations (np.log, np.sqrt, np.exp, array ops)
+numpy>=1.24
+
+# scipy             - Provides norm.cdf (cumulative distribution) and norm.pdf (density function)
+#                    → essential for delta, gamma, vega, theta calculations
+scipy>=1.10
