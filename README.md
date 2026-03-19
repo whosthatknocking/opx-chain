@@ -4,7 +4,7 @@ High-level Python project for collecting option chain data from Yahoo Finance, e
 
 ## What It Does
 
-The script fetches near-term option chains for a configured list of tickers, normalizes the raw vendor data, limits contracts to strikes within +/-30% of the latest underlying price, calculates quality and pricing metrics, computes Black-Scholes Greeks, and writes a CSV file that another tool can consume.
+The script fetches near-term option chains for a configured list of tickers, normalizes the raw vendor data, excludes contracts with a zero bid, limits contracts to strikes within +/-30% of the latest underlying price, calculates quality and pricing metrics, computes Black-Scholes Greeks, and writes a CSV file that another tool can consume.
 
 The output is designed to be data-focused rather than decision-focused. It does not decide whether to close, roll, or open positions. Instead, it produces a richer dataset that can support those decisions elsewhere.
 
@@ -12,6 +12,7 @@ The output is designed to be data-focused rather than decision-focused. It does 
 
 - Fetches call and put chains for configured tickers
 - Limits expirations to a rolling three-month window
+- Excludes contracts with a zero bid
 - Limits strikes to a +/-30% band around the latest underlying price
 - Normalizes vendor fields into a stable CSV schema
 - Adds quote quality, freshness, liquidity, and pricing metrics

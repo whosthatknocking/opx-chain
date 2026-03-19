@@ -66,6 +66,11 @@ def filter_strikes_near_spot(df, underlying_price):
     return df[df["strike"].between(min_strike, max_strike, inclusive="both")].copy()
 
 
+def filter_zero_bid_quotes(df):
+    """Exclude contracts with an explicit zero bid from the fetched dataset."""
+    return df[df["bid"] != 0].copy()
+
+
 def enrich_option_frame(df, underlying_price, expiration_date, option_type, ticker, fetched_at):
     """Normalize the vendor frame, then add derived metrics and quality flags."""
     df = normalize_vendor_option_frame(
@@ -76,6 +81,7 @@ def enrich_option_frame(df, underlying_price, expiration_date, option_type, tick
         ticker=ticker,
         fetched_at=fetched_at,
     )
+    df = filter_zero_bid_quotes(df)
     df = filter_strikes_near_spot(df, underlying_price)
     df = add_quote_quality_metrics(df, underlying_price)
     df = add_derived_pricing_metrics(df, underlying_price)
