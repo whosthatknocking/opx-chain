@@ -12,6 +12,7 @@ TRADING_DAYS_PER_YEAR = 252
 DATA_SOURCE = "yfinance"
 SCRIPT_VERSION = "2026-03-19.1"
 STALE_QUOTE_SECONDS = 15 * 60
+MAX_STRIKE_DISTANCE_PCT = 0.30
 
 today = datetime.today().date()
 year = today.year

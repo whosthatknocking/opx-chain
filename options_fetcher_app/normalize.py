@@ -1,6 +1,6 @@
 import pandas as pd
 
-from options_fetcher_app.config import DATA_SOURCE, RISK_FREE_RATE, today
+from options_fetcher_app.config import DATA_SOURCE, MAX_STRIKE_DISTANCE_PCT, RISK_FREE_RATE, today
 from options_fetcher_app.metrics import (
     add_derived_pricing_metrics,
     add_quote_quality_metrics,
@@ -56,6 +56,16 @@ def normalize_vendor_option_frame(df, underlying_price, expiration_date, option_
     return df
 
 
+def filter_strikes_near_spot(df, underlying_price):
+    """Keep only strikes within the configured percentage band around spot."""
+    if pd.isna(underlying_price) or underlying_price <= 0:
+        return df
+
+    min_strike = underlying_price * (1 - MAX_STRIKE_DISTANCE_PCT)
+    max_strike = underlying_price * (1 + MAX_STRIKE_DISTANCE_PCT)
+    return df[df["strike"].between(min_strike, max_strike, inclusive="both")].copy()
+
+
 def enrich_option_frame(df, underlying_price, expiration_date, option_type, ticker, fetched_at):
     """Normalize the vendor frame, then add derived metrics and quality flags."""
     df = normalize_vendor_option_frame(
@@ -66,6 +76,7 @@ def enrich_option_frame(df, underlying_price, expiration_date, option_type, tick
         ticker=ticker,
         fetched_at=fetched_at,
     )
+    df = filter_strikes_near_spot(df, underlying_price)
     df = add_quote_quality_metrics(df, underlying_price)
     df = add_derived_pricing_metrics(df, underlying_price)
     df = add_screening_and_freshness_flags(df, fetched_at)
