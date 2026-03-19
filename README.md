@@ -191,7 +191,7 @@ The exported CSV contains both raw option data and derived fields. Some values m
 - `data_source`: Source name for the data, currently `yfinance`. Use it for lineage and auditability.
 - `risk_free_rate_used`: Risk-free rate used in Greek calculations. Use it to reproduce the Black-Scholes outputs.
 
-Execution details that are not row-specific are written to a per-run log file in `logs/`, including:
+Execution details that are not row-specific are written to the append-only run log `logs/options_fetcher_runs.log`, including:
 
 - run start time
 - script version

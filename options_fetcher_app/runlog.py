@@ -10,9 +10,9 @@ def create_run_logger():
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
-    log_path = logs_dir / f"options_fetcher_run_{timestamp}.log"
+    log_path = logs_dir / "options_fetcher_runs.log"
 
-    logger = logging.getLogger(f"options_fetcher.run.{timestamp}")
+    logger = logging.getLogger("options_fetcher.run")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
     logger.propagate = False
@@ -23,5 +23,6 @@ def create_run_logger():
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    logger.info("run_started script_version=%s", SCRIPT_VERSION)
+    logger.info("=" * 80)
+    logger.info("run_started run_id=%s script_version=%s", timestamp, SCRIPT_VERSION)
     return logger, log_path
