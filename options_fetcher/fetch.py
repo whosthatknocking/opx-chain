@@ -145,6 +145,8 @@ def fetch_ticker_option_chain(ticker, logger=None):
             return pd.DataFrame()
 
         rows = []
+        raw_contract_count = 0
+        raw_expiration_count = 0
         for expiration_date in stock.options:
             if expiration_date > MAX_EXPIRATION:
                 continue
@@ -154,6 +156,18 @@ def fetch_ticker_option_chain(ticker, logger=None):
                 continue
 
             chain = stock.option_chain(expiration_date)
+            expiration_raw_count = len(chain.calls) + len(chain.puts)
+            raw_contract_count += expiration_raw_count
+            raw_expiration_count += 1
+            if logger:
+                logger.info(
+                    "ticker=%s expiration=%s status=raw_yfinance_rows call_rows=%s put_rows=%s total_rows=%s",
+                    ticker,
+                    expiration_date,
+                    len(chain.calls),
+                    len(chain.puts),
+                    expiration_raw_count,
+                )
             for option_type, option_frame in [("call", chain.calls), ("put", chain.puts)]:
                 normalized = enrich_option_frame(
                     df=option_frame,
@@ -167,18 +181,25 @@ def fetch_ticker_option_chain(ticker, logger=None):
 
         if not rows:
             if logger:
-                logger.warning("ticker=%s status=ok rows=0 expirations=0", ticker)
+                logger.warning(
+                    "ticker=%s status=ok rows=0 expirations=0 raw_yfinance_rows=%s raw_expirations=%s",
+                    ticker,
+                    raw_contract_count,
+                    raw_expiration_count,
+                )
             return pd.DataFrame()
 
         combined = pd.concat(rows, ignore_index=True)
         combined = add_expected_move_by_expiration(combined)
         if logger:
             logger.info(
-                "ticker=%s status=ok fetched_at=%s rows=%s expirations=%s",
+                "ticker=%s status=ok fetched_at=%s rows=%s expirations=%s raw_yfinance_rows=%s raw_expirations=%s",
                 ticker,
                 fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 len(combined),
                 combined["expiration_date"].nunique(),
+                raw_contract_count,
+                raw_expiration_count,
             )
         return combined
 
