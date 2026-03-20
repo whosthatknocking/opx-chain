@@ -17,7 +17,7 @@ The script fetches near-term option chains for a configured list of tickers, nor
 
 The output is designed to be data-focused rather than decision-focused. It does not decide whether to close, roll, or open positions. Instead, it produces a richer dataset that can support those decisions elsewhere.
 
-Warning: Yahoo Finance quote timestamps can lag, and the collected option, underlying, or VIX data may be stale. Always check the freshness fields in the CSV or browser before relying on the output for trading decisions.
+Warning: Yahoo Finance quote timestamps can lag, and the collected option, underlying, or VIX data may be stale. Sparse or empty option-chain results are especially common near the regular market open because Yahoo data is delayed and cached, option markets may not have fully formed yet, the `yfinance` API is scraping-based and can be unreliable, and immediate post-open liquidity is often thin. Always check the freshness fields in the CSV or browser before relying on the output for trading decisions.
 
 ## Quick Start
 
