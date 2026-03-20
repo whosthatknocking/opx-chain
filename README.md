@@ -5,6 +5,7 @@ Options Fetcher is a Python tool for downloading near-term option chains from Ya
 ## At a Glance
 
 - Fetches call and put chains for configured tickers
+- Routes market data through a configurable provider layer
 - Filters out zero-bid and wide-spread contracts before export
 - Limits strikes to a configurable band around spot
 - Computes Greeks, expected move, ROM-style metrics, and volatility context
@@ -73,6 +74,8 @@ python3 fetcher.py
 ```
 
 To customize the fetch universe or screening thresholds, edit `options_fetcher/config.py` before running.
+
+To switch vendors, set `DATA_PROVIDER` in `options_fetcher/config.py` to a supported provider implementation.
 
 ## CSV Browser
 
@@ -266,7 +269,7 @@ The exported CSV contains both raw option data and derived fields. Some values m
 
 ### Run Metadata Fields
 
-- `data_source`: Source name for the data, currently `yfinance`. Use it for lineage and auditability.
+- `data_source`: Source name for the active provider, currently `yfinance`. Use it for lineage and auditability.
 - `risk_free_rate_used`: Risk-free rate used in Greek calculations. Use it to reproduce the Black-Scholes outputs.
 
 Execution details that are not row-specific are written to the append-only run log `logs/options_fetcher_runs.log`, including:
@@ -321,8 +324,8 @@ Current defaults:
 - `HV_LOOKBACK_DAYS = 30`: lookback window for historical volatility.
 - `TRADING_DAYS_PER_YEAR = 252`: annualization factor for volatility.
 - `STALE_QUOTE_SECONDS = 900`: staleness threshold for option and underlying quotes.
-- `DATA_SOURCE = "yfinance"`: source label written into the CSV and viewer metadata.
-- `SCRIPT_VERSION = "2026-03-19.1"`: run-version string written to the append-only log.
+- `DATA_PROVIDER = "yfinance"`: provider implementation used by the fetch pipeline.
+- `SCRIPT_VERSION = "2026-03-20.1"`: run-version string written to the append-only log.
 - `MAX_EXPIRATION`: computed dynamically as the last calendar day of the month four months from today, so the fetch window stays on a rolling roughly four-month horizon.
 
 In practice:
@@ -333,7 +336,7 @@ In practice:
 
 ## Notes
 
-- Data is sourced from Yahoo Finance through `yfinance`.
+- Data is currently sourced from Yahoo Finance through the `yfinance` provider implementation.
 - Quote timing and completeness depend on the upstream source.
 - The exported CSV is intended to be consumed by another tool, so the script favors schema clarity and enriched raw data over trade recommendations.
 - The viewer is intended for inspection and triage, not as a live trading terminal.

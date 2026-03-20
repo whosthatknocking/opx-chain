@@ -1,115 +1,18 @@
-"""Remote fetch helpers for Yahoo Finance option and underlying data."""
+"""Fetch orchestration using the configured market-data provider."""
 
-from functools import lru_cache
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
 from options_fetcher.config import (
-    HV_LOOKBACK_DAYS,
     MAX_EXPIRATION,
     STALE_QUOTE_SECONDS,
-    TRADING_DAYS_PER_YEAR,
     today,
 )
 from options_fetcher.metrics import add_expected_move_by_expiration
 from options_fetcher.normalize import enrich_option_frame
-from options_fetcher.utils import coerce_float, normalize_timestamp
-
-
-def normalize_market_state(value):
-    """Collapse duplicated vendor market-state strings such as POSTPOST -> POST."""
-    if value is None:
-        return None
-    normalized = str(value).strip()
-    if not normalized:
-        return None
-
-    half = len(normalized) // 2
-    if len(normalized) % 2 == 0 and normalized[:half] == normalized[half:]:
-        return normalized[:half]
-    return normalized
-
-
-def compute_historical_volatility(stock):  # pylint: disable=broad-exception-caught
-    """Compute trailing annualized realized volatility from daily closes."""
-    lookback_period = f"{max(HV_LOOKBACK_DAYS * 3, 90)}d"
-    try:
-        history = stock.history(period=lookback_period, interval="1d", auto_adjust=False)
-    except Exception:  # pylint: disable=broad-exception-caught
-        return np.nan
-    if history.empty:
-        return np.nan
-
-    close_column = "Adj Close" if "Adj Close" in history.columns else "Close"
-    closes = pd.to_numeric(history[close_column], errors="coerce").dropna()
-    log_returns = np.log(closes / closes.shift(1)).dropna()
-    if len(log_returns) < HV_LOOKBACK_DAYS:
-        return np.nan
-
-    recent_returns = log_returns.tail(HV_LOOKBACK_DAYS)
-    return recent_returns.std(ddof=1) * np.sqrt(TRADING_DAYS_PER_YEAR)
-
-
-@lru_cache(maxsize=1)
-def load_vix_snapshot():
-    """Load the latest VIX snapshot once per run."""
-    try:  # pylint: disable=broad-exception-caught
-        vix = yf.Ticker("^VIX")
-        fast_info = getattr(vix, "fast_info", {}) or {}
-        info = vix.info
-    except Exception:  # pylint: disable=broad-exception-caught
-        fast_info = {}
-        info = {}
-
-    vix_level = coerce_float(
-        fast_info.get("lastPrice")
-        or info.get("regularMarketPrice")
-        or info.get("previousClose")
-    )
-    vix_quote_time = normalize_timestamp(info.get("regularMarketTime"))
-    return {
-        "vix_level": vix_level,
-        "vix_quote_time": vix_quote_time,
-    }
-
-
-def load_underlying_snapshot(stock):  # pylint: disable=broad-exception-caught
-    """Load the underlying snapshot once per ticker and reuse it for each expiration."""
-    fast_info = getattr(stock, "fast_info", {}) or {}
-    try:
-        info = stock.info
-    except Exception:  # pylint: disable=broad-exception-caught
-        info = {}
-
-    last_price = coerce_float(
-        fast_info.get("lastPrice")
-        or info.get("regularMarketPrice")
-        or info.get("previousClose")
-    )
-    previous_close = coerce_float(
-        fast_info.get("previousClose")
-        or info.get("previousClose")
-    )
-
-    if pd.notna(last_price) and pd.notna(previous_close) and previous_close > 0:
-        underlying_day_change_pct = (last_price - previous_close) / previous_close
-    else:
-        underlying_day_change_pct = np.nan
-
-    vix_snapshot = load_vix_snapshot()
-
-    return {
-        "underlying_price": last_price,
-        "underlying_price_time": normalize_timestamp(info.get("regularMarketTime")),
-        "underlying_market_state": normalize_market_state(info.get("marketState")),
-        "underlying_day_change_pct": underlying_day_change_pct,
-        "historical_volatility": compute_historical_volatility(stock),
-        "vix_level": vix_snapshot["vix_level"],
-        "vix_quote_time": vix_snapshot["vix_quote_time"],
-    }
+from options_fetcher.providers import get_data_provider
 
 
 def append_underlying_snapshot_fields(df, snapshot, fetched_at):
@@ -140,8 +43,8 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,broad-exceptio
     """Fetch and normalize all near-term option chains for one ticker."""
     try:
         fetched_at = pd.Timestamp.now(tz=timezone.utc)
-        stock = yf.Ticker(ticker)
-        snapshot = load_underlying_snapshot(stock)
+        provider = get_data_provider()
+        snapshot = provider.load_underlying_snapshot(ticker)
         underlying_price = snapshot["underlying_price"]
 
         if pd.isna(underlying_price) or underlying_price <= 0:
@@ -155,7 +58,7 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,broad-exceptio
         rows = []
         raw_contract_count = 0
         raw_expiration_count = 0
-        for expiration_date in stock.options:
+        for expiration_date in provider.list_option_expirations(ticker):
             if expiration_date > MAX_EXPIRATION:
                 continue
 
@@ -163,7 +66,7 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,broad-exceptio
             if (exp_date - today).days <= 0:
                 continue
 
-            chain = stock.option_chain(expiration_date)
+            chain = provider.load_option_chain(ticker, expiration_date)
             expiration_raw_count = len(chain.calls) + len(chain.puts)
             raw_contract_count += expiration_raw_count
             raw_expiration_count += 1
@@ -180,12 +83,16 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,broad-exceptio
                     expiration_raw_count,
                 )
             for option_type, option_frame in [("call", chain.calls), ("put", chain.puts)]:
-                normalized = enrich_option_frame(
+                vendor_normalized = provider.normalize_option_frame(
                     df=option_frame,
                     underlying_price=underlying_price,
                     expiration_date=expiration_date,
                     option_type=option_type,
                     ticker=ticker,
+                )
+                normalized = enrich_option_frame(
+                    df=vendor_normalized,
+                    underlying_price=underlying_price,
                     fetched_at=fetched_at,
                 )
                 rows.append(

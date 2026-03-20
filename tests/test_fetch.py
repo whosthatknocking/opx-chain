@@ -1,91 +1,127 @@
-"""Fetch-path tests covering raw yfinance row-count logging."""
+"""Fetch-path tests covering raw provider row-count logging."""
 
 import logging
-from types import SimpleNamespace
 
 import pandas as pd
 
 from options_fetcher import fetch
+from options_fetcher.providers.base import OptionChainFrames
 
 
-class StubStock:
-    """Minimal yfinance ticker stub for fetch-path tests."""
+def make_vendor_frame(rows):
+    """Build a provider-normalized frame that still exercises later filters."""
+    return pd.DataFrame(rows)
 
-    def __init__(self):
-        self.fast_info = {"lastPrice": 100.0, "previousClose": 99.0}
-        self.info = {"regularMarketTime": "2026-03-20T13:45:00Z", "marketState": "REGULAR"}
-        self.options = ["2026-04-17"]
 
-    def history(self, _period, _interval, _auto_adjust):
-        """Return a small close-history frame for volatility calculations."""
-        return pd.DataFrame({"Close": [100.0, 101.0, 102.0, 103.0]})
+class StubProvider:
+    """Minimal provider stub for fetch-path tests."""
 
-    def option_chain(self, _expiration_date):
-        """Return a small option chain with both kept and filtered rows."""
-        calls = pd.DataFrame(
+    name = "stub"
+
+    def load_underlying_snapshot(self, ticker):
+        """Return a small underlying snapshot."""
+        assert ticker == "TEST"
+        return {
+            "underlying_price": 100.0,
+            "underlying_price_time": pd.Timestamp("2026-03-20T13:45:00Z"),
+            "underlying_market_state": "REGULAR",
+            "underlying_day_change_pct": 0.01,
+            "historical_volatility": 0.2,
+            "vix_level": 18.5,
+            "vix_quote_time": pd.Timestamp("2026-03-20T13:45:00Z"),
+        }
+
+    def list_option_expirations(self, ticker):
+        """Return one supported expiration."""
+        assert ticker == "TEST"
+        return ["2026-04-17"]
+
+    def load_option_chain(self, ticker, expiration_date):
+        """Return a small raw call/put payload."""
+        assert ticker == "TEST"
+        assert expiration_date == "2026-04-17"
+        calls = make_vendor_frame(
             [
                 {
-                    "contractSymbol": "TESTC1",
-                    "lastTradeDate": "2026-03-20T13:40:00Z",
+                    "contract_symbol": "TESTC1",
+                    "option_quote_time": "2026-03-20T13:40:00Z",
                     "bid": 1.0,
                     "ask": 1.1,
                     "strike": 100.0,
-                    "lastPrice": 1.05,
-                    "openInterest": 10,
+                    "last_trade_price": 1.05,
+                    "open_interest": 10,
                     "volume": 5,
-                    "impliedVolatility": 0.3,
+                    "implied_volatility": 0.3,
                     "change": 0.1,
-                    "percentChange": 0.02,
-                    "inTheMoney": False,
-                    "contractSize": "REGULAR",
+                    "percent_change": 0.02,
+                    "is_in_the_money": False,
+                    "contract_size": "REGULAR",
                 },
                 {
-                    "contractSymbol": "TESTC2",
-                    "lastTradeDate": "2026-03-20T13:40:00Z",
+                    "contract_symbol": "TESTC2",
+                    "option_quote_time": "2026-03-20T13:40:00Z",
                     "bid": 0.0,
                     "ask": 0.2,
                     "strike": 140.0,
-                    "lastPrice": 0.1,
-                    "openInterest": 0,
+                    "last_trade_price": 0.1,
+                    "open_interest": 0,
                     "volume": 0,
-                    "impliedVolatility": 0.35,
+                    "implied_volatility": 0.35,
                     "change": 0.0,
-                    "percentChange": 0.0,
-                    "inTheMoney": False,
-                    "contractSize": "REGULAR",
+                    "percent_change": 0.0,
+                    "is_in_the_money": False,
+                    "contract_size": "REGULAR",
                 },
             ]
         )
-        puts = pd.DataFrame(
+        puts = make_vendor_frame(
             [
                 {
-                    "contractSymbol": "TESTP1",
-                    "lastTradeDate": "2026-03-20T13:40:00Z",
+                    "contract_symbol": "TESTP1",
+                    "option_quote_time": "2026-03-20T13:40:00Z",
                     "bid": 0.5,
                     "ask": 0.7,
                     "strike": 95.0,
-                    "lastPrice": 0.6,
-                    "openInterest": 8,
+                    "last_trade_price": 0.6,
+                    "open_interest": 8,
                     "volume": 3,
-                    "impliedVolatility": 0.28,
+                    "implied_volatility": 0.28,
                     "change": -0.05,
-                    "percentChange": -0.01,
-                    "inTheMoney": False,
-                    "contractSize": "REGULAR",
+                    "percent_change": -0.01,
+                    "is_in_the_money": False,
+                    "contract_size": "REGULAR",
                 },
             ]
         )
-        return SimpleNamespace(calls=calls, puts=puts)
+        return OptionChainFrames(calls=calls, puts=puts)
+
+    def normalize_option_frame(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        df,
+        underlying_price,
+        expiration_date,
+        option_type,
+        ticker,
+    ):
+        """Add the canonical fields a provider adapter is responsible for."""
+        frame = df.copy()
+        frame["option_type"] = option_type
+        frame["underlying_symbol"] = ticker
+        frame["expiration_date"] = expiration_date
+        frame["days_to_expiration"] = 28
+        frame["time_to_expiration_years"] = 28 / 365.0
+        frame["data_source"] = self.name
+        frame["risk_free_rate_used"] = 0.045
+        frame["underlying_price"] = underlying_price
+        frame["option_quote_time"] = pd.to_datetime(
+            frame["option_quote_time"], utc=True, errors="coerce"
+        )
+        return frame
 
 
 def test_fetch_ticker_option_chain_logs_raw_yfinance_row_counts(monkeypatch, caplog):
     """Log raw vendor counts before app-side filtering changes the row set."""
-    monkeypatch.setattr(fetch.yf, "Ticker", lambda ticker: StubStock())
-    monkeypatch.setattr(
-        fetch,
-        "load_vix_snapshot",
-        lambda: {"vix_level": 18.5, "vix_quote_time": pd.Timestamp("2026-03-20T13:45:00Z")},
-    )
+    monkeypatch.setattr(fetch, "get_data_provider", StubProvider)
 
     caplog.set_level("INFO", logger="options_fetcher.run")
     logger = logging.getLogger("options_fetcher.run")

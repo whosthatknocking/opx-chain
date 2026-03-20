@@ -3,7 +3,6 @@
 import pandas as pd
 
 from options_fetcher.config import (
-    DATA_SOURCE,
     MAX_SPREAD_PCT_OF_MID,
     MAX_STRIKE_DISTANCE_PCT,
     RISK_FREE_RATE,
@@ -16,12 +15,13 @@ from options_fetcher.metrics import (
 )
 
 
-def normalize_vendor_option_frame(
+def normalize_vendor_option_frame(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     df,
     underlying_price,
     expiration_date,
     option_type,
     ticker,
+    data_source,
 ):
     """Normalize vendor columns into a stable schema before deriving metrics."""
     df = df.copy()
@@ -47,7 +47,7 @@ def normalize_vendor_option_frame(
     df["expiration_date"] = expiration_date
     df["days_to_expiration"] = days_to_expiration
     df["time_to_expiration_years"] = time_to_expiration_years
-    df["data_source"] = DATA_SOURCE
+    df["data_source"] = data_source
     df["risk_free_rate_used"] = RISK_FREE_RATE
     df["underlying_price"] = underlying_price
 
@@ -90,22 +90,8 @@ def filter_wide_spread_quotes(df):
     return df[df["bid_ask_spread_pct_of_mid"] < MAX_SPREAD_PCT_OF_MID].copy()
 
 
-def enrich_option_frame(  # pylint: disable=too-many-arguments,too-many-positional-arguments
-    df,
-    underlying_price,
-    expiration_date,
-    option_type,
-    ticker,
-    fetched_at,
-):
-    """Normalize the vendor frame, then add derived metrics and quality flags."""
-    df = normalize_vendor_option_frame(
-        df=df,
-        underlying_price=underlying_price,
-        expiration_date=expiration_date,
-        option_type=option_type,
-        ticker=ticker,
-    )
+def enrich_option_frame(df, underlying_price, fetched_at):
+    """Add derived metrics and quality flags to an already normalized frame."""
     df = filter_zero_bid_quotes(df)
     df = filter_strikes_near_spot(df, underlying_price)
     df = add_quote_quality_metrics(df, underlying_price)
