@@ -1,13 +1,13 @@
 import pandas as pd
 
-from options_fetcher_app.config import (
+from options_fetcher.config import (
     DATA_SOURCE,
     MAX_SPREAD_PCT_OF_MID,
     MAX_STRIKE_DISTANCE_PCT,
     RISK_FREE_RATE,
     today,
 )
-from options_fetcher_app.metrics import (
+from options_fetcher.metrics import (
     add_derived_pricing_metrics,
     add_quote_quality_metrics,
     add_screening_and_freshness_flags,

@@ -1,6 +1,6 @@
 import numpy as np
 
-from options_fetcher_app.config import (
+from options_fetcher.config import (
     MAX_SPREAD_PCT_OF_MID,
     MIN_BID,
     MIN_OPEN_INTEREST,
@@ -8,7 +8,7 @@ from options_fetcher_app.config import (
     RISK_FREE_RATE,
     STALE_QUOTE_SECONDS,
 )
-from options_fetcher_app.greeks import compute_greeks
+from options_fetcher.greeks import compute_greeks
 
 
 def classify_days_to_expiration_bucket(days_to_expiration):

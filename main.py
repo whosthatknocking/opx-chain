@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from options_fetcher_app.config import MAX_EXPIRATION, TICKERS, today
-from options_fetcher_app.export import write_options_csv
-from options_fetcher_app.fetch import fetch_ticker_option_chain
-from options_fetcher_app.runlog import create_run_logger
+from options_fetcher.config import MAX_EXPIRATION, TICKERS, today
+from options_fetcher.export import write_options_csv
+from options_fetcher.fetch import fetch_ticker_option_chain
+from options_fetcher.runlog import create_run_logger
 
 
 def main():

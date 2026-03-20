@@ -25,8 +25,8 @@ Warning: Yahoo Finance quote timestamps can lag, and the collected option, under
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python3 options_fetcher.py
-python3 options_viewer.py
+python3 fetcher.py
+python3 viewer.py
 ```
 
 Then open `http://127.0.0.1:8000` in your browser.
@@ -49,7 +49,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.9+
 - Internet access for Yahoo Finance data
 
 Install dependencies from `requirements.txt`:
@@ -65,17 +65,17 @@ pip install -r requirements.txt
 Run the project from the repository root:
 
 ```bash
-python3 options_fetcher.py
+python3 fetcher.py
 ```
 
-To customize the fetch universe or screening thresholds, edit `options_fetcher_app/config.py` before running.
+To customize the fetch universe or screening thresholds, edit `options_fetcher/config.py` before running.
 
 ## CSV Browser
 
 Run the local viewer from the repository root:
 
 ```bash
-python3 options_viewer.py
+python3 viewer.py
 ```
 
 Then open `http://127.0.0.1:8000` in your browser.
@@ -231,9 +231,9 @@ Execution details that are not row-specific are written to the append-only run l
 
 ```text
 .
-├── options_fetcher.py
-├── options_viewer.py
-├── options_fetcher_app/
+├── fetcher.py
+├── viewer.py
+├── options_fetcher/
 │   ├── config.py
 │   ├── export.py
 │   ├── fetch.py
@@ -251,7 +251,7 @@ Execution details that are not row-specific are written to the append-only run l
 
 ## Configuration
 
-Core runtime configuration lives in `options_fetcher_app/config.py`. This is the main file you edit to change what gets fetched and how aggressively the dataset is filtered.
+Core runtime configuration lives in `options_fetcher/config.py`. This is the main file you edit to change what gets fetched and how aggressively the dataset is filtered.
 
 You will usually change these values first:
 

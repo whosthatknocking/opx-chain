@@ -5,16 +5,16 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from options_fetcher_app.config import (
+from options_fetcher.config import (
     HV_LOOKBACK_DAYS,
     MAX_EXPIRATION,
     STALE_QUOTE_SECONDS,
     TRADING_DAYS_PER_YEAR,
     today,
 )
-from options_fetcher_app.metrics import add_expected_move_by_expiration
-from options_fetcher_app.normalize import enrich_option_frame
-from options_fetcher_app.utils import coerce_float, normalize_timestamp
+from options_fetcher.metrics import add_expected_move_by_expiration
+from options_fetcher.normalize import enrich_option_frame
+from options_fetcher.utils import coerce_float, normalize_timestamp
 
 
 def compute_historical_volatility(stock):

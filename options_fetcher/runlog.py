@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from options_fetcher_app.config import SCRIPT_VERSION
+from options_fetcher.config import SCRIPT_VERSION
 
 
 def create_run_logger():
