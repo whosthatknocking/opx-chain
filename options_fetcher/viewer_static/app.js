@@ -46,7 +46,6 @@ const elements = {
   summaryTab: document.getElementById('summaryTab'),
   summaryContent: document.getElementById('summaryContent'),
   summaryStatus: document.getElementById('summaryStatus'),
-  summaryHighlights: document.getElementById('summaryHighlights'),
   summaryTickerGrid: document.getElementById('summaryTickerGrid'),
   tableTab: document.getElementById('tableTab'),
   readmeTab: document.getElementById('readmeTab'),
@@ -197,31 +196,6 @@ function renderOpportunityCard(title, opportunity, tone = 'default') {
   `;
 }
 
-function renderSummaryHighlights(highlights) {
-  const cards = [];
-  const profitable = highlights?.most_profitable;
-  const moderate = highlights?.moderate_risk;
-  if (profitable?.profitable_opportunity) {
-    cards.push(`
-      <article class="summary-highlight-card">
-        <span class="summary-highlight-label">Most Profitable</span>
-        <strong>${escapeHtml(profitable.ticker)}</strong>
-        <span class="summary-highlight-detail">${escapeHtml(profitable.profitable_opportunity.summary || 'No summary available.')}</span>
-      </article>
-    `);
-  }
-  if (moderate?.moderate_risk_opportunity) {
-    cards.push(`
-      <article class="summary-highlight-card">
-        <span class="summary-highlight-label">Moderate Risk</span>
-        <strong>${escapeHtml(moderate.ticker)}</strong>
-        <span class="summary-highlight-detail">${escapeHtml(moderate.moderate_risk_opportunity.summary || 'No summary available.')}</span>
-      </article>
-    `);
-  }
-  elements.summaryHighlights.innerHTML = cards.join('');
-}
-
 function renderSummaryTickerGrid(tickers) {
   elements.summaryTickerGrid.innerHTML = tickers.map((item) => `
     <article class="ticker-summary-card">
@@ -277,12 +251,10 @@ function renderSummaryTickerGrid(tickers) {
 function renderSummary(summary) {
   if (!summary) {
     elements.summaryStatus.textContent = 'No summary loaded.';
-    elements.summaryHighlights.innerHTML = '';
     elements.summaryTickerGrid.innerHTML = '';
     return;
   }
   elements.summaryStatus.textContent = `${summary.selected_file} · ${summary.tickers.length} tickers summarized`;
-  elements.summaryHighlights.innerHTML = '';
   renderSummaryTickerGrid(summary.tickers);
 }
 
@@ -791,7 +763,6 @@ async function loadData(fileName) {
     renderSummary(summaryResult.value);
   } else {
     elements.summaryStatus.textContent = `Summary unavailable: ${summaryResult.reason.message}`;
-    elements.summaryHighlights.innerHTML = '';
     elements.summaryTickerGrid.innerHTML = '';
   }
   renderTable();
@@ -816,6 +787,7 @@ function updateThemeToggleLabel(theme) {
 }
 
 function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
   document.body.dataset.theme = theme;
   localStorage.setItem('options-fetcher-theme', theme);
   updateThemeToggleLabel(theme);

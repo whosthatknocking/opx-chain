@@ -20,6 +20,12 @@
   --danger: #dc2626;
 }
 
+html {
+  min-height: 100%;
+  background: var(--bg);
+}
+
+:root[data-theme="dark"],
 body[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0a0d12;
@@ -55,6 +61,13 @@ body {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: transparent;
 }
 
 body.is-resizing {
@@ -221,6 +234,7 @@ input,
 
 .tab-panel {
   display: none;
+  background: transparent;
 }
 
 .tab-panel.active {
@@ -441,11 +455,6 @@ input,
   font-variant-numeric: tabular-nums;
 }
 
-.summary-highlights {
-  display: none;
-}
-
-.summary-highlight-label,
 .ticker-summary-kicker,
 .opportunity-label {
   color: var(--accent);
@@ -541,10 +550,6 @@ input,
   letter-spacing: 0.01em;
 }
 
-.ticker-summary-meta {
-  display: none;
-}
-
 .ticker-summary-stats,
 .opportunity-grid {
   display: grid;
@@ -620,6 +625,7 @@ input,
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  background: var(--surface-fill);
 }
 
 .table-status {
@@ -646,6 +652,7 @@ input,
   min-height: 0;
   max-height: none;
   padding: 6px 8px 8px;
+  background: transparent;
 }
 
 table {
@@ -859,8 +866,18 @@ body.is-resizing .column-resizer::after {
 
 .readme-card {
   padding: 10px;
+  background: var(--surface-fill);
   max-height: none;
   overflow: auto;
+}
+
+body[data-theme="dark"] .readme-card {
+  background: var(--surface-fill) !important;
+}
+
+body[data-theme="dark"] #readmeTab,
+body[data-theme="dark"] #readmeContent {
+  background-color: transparent;
 }
 
 .readme-card h1,
