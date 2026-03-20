@@ -5,7 +5,6 @@ import os
 import re
 import time
 from datetime import datetime
-from functools import lru_cache
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -138,12 +137,10 @@ def resolve_csv_path(csv_name: str | None = None) -> Path:
     raise FileNotFoundError(f"CSV file not found: {csv_name}")
 
 
-@lru_cache(maxsize=1)
 def load_readme_text() -> str:
     return README_PATH.read_text(encoding="utf-8")
 
 
-@lru_cache(maxsize=1)
 def load_field_reference_markdown() -> str:
     """Return only the README section that documents exported CSV fields."""
     markdown = load_readme_text()
@@ -161,7 +158,6 @@ def load_field_reference_markdown() -> str:
     return remaining[:end_index].strip()
 
 
-@lru_cache(maxsize=1)
 def extract_field_descriptions() -> dict[str, str]:
     descriptions: dict[str, str] = {}
     pattern = re.compile(r"^- `([^`]+)`: (.+)$")

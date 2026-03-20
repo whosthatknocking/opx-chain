@@ -149,17 +149,17 @@ function formatSignedPercent(value) {
 
 function getFieldDescription(label) {
   const summaryDescriptions = {
-    'File Age': 'How long ago the selected CSV file was written.',
-    'Option Quotes': 'Age of option quotes in the file, shown as median and max quote_age_seconds.',
-    Underlying: 'Age of the underlying price snapshots in the file, shown as median and max underlying_price_age_seconds.',
-    Rows: 'Number of option records currently visible after active filters are applied.',
+    'File Age': 'How long ago the selected CSV file was written. Lower is fresher.',
+    'Option Quotes': 'Age of option quotes in the file, shown as median and max quote_age_seconds. Lower is better.',
+    Underlying: 'Age of the underlying price snapshots in the file, shown as median and max underlying_price_age_seconds. Lower is better.',
+    Rows: 'Number of option records currently visible after active filters are applied. More rows mean broader coverage, not necessarily better candidates.',
     'Latest Status': 'Compact status derived from the latest underlying day move and the relationship between implied volatility and historical volatility.',
-    'IV / HV': 'Ratio of implied volatility to historical volatility. Values above 1 mean options are priced richer than recent realized volatility.',
-    'Best ROM': 'Highest return_on_margin_annualized among candidate contracts for this ticker.',
-    'Moderate ROM': 'return_on_margin_annualized for the selected moderate-risk candidate for this ticker.',
+    'IV / HV': 'Ratio of implied volatility to historical volatility. Above 1 usually means options are priced richer than recent realized movement.',
+    'Best ROM': 'Highest return_on_margin_annualized among candidate contracts for this ticker. Higher can be attractive, but extreme values usually mean more risk.',
+    'Moderate ROM': 'return_on_margin_annualized for the selected moderate-risk candidate for this ticker. A middle-ground value is often more realistic than the top outlier.',
     'Calls / Puts': 'Count of call and put option rows available for this underlying symbol.',
-    'Most Profitable': 'Heuristic pick for the highest annualized return on margin among candidate contracts.',
-    'Moderate Risk': 'Heuristic pick balancing return on margin with lower ITM probability, wider distance from spot, and tighter spread.',
+    'Most Profitable': 'Heuristic pick for the highest annualized return on margin among candidate contracts. Highest return is not always the safest setup.',
+    'Moderate Risk': 'Heuristic pick balancing return on margin with lower ITM probability, wider distance from spot, and tighter spread. Usually safer than the top-return candidate.',
   };
   const columnDescription = getColumnDefinition(label)?.description;
   return columnDescription || summaryDescriptions[label] || '';
@@ -596,8 +596,7 @@ function openRowModal(row) {
 
     const label = document.createElement('div');
     label.className = 'row-detail-label';
-    label.textContent = column.name;
-    label.title = column.description;
+    label.innerHTML = renderFieldLabel(column.name);
 
     const value = document.createElement('div');
     value.className = 'row-detail-value';
@@ -605,7 +604,7 @@ function openRowModal(row) {
 
     const description = document.createElement('div');
     description.className = 'row-detail-description';
-    description.textContent = column.description;
+    description.textContent = getFieldDescription(column.name);
 
     item.appendChild(label);
     item.appendChild(value);
@@ -616,6 +615,9 @@ function openRowModal(row) {
   elements.rowModal.classList.add('open');
   elements.rowModal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('modal-open');
+  requestAnimationFrame(() => {
+    syncRowDetailCardHeights();
+  });
 }
 
 function closeRowModal() {
@@ -623,6 +625,23 @@ function closeRowModal() {
   elements.rowModal.classList.remove('open');
   elements.rowModal.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('modal-open');
+}
+
+function syncRowDetailCardHeights() {
+  const items = [...elements.rowDetailGrid.querySelectorAll('.row-detail-item')];
+  if (items.length === 0) return;
+
+  items.forEach((item) => {
+    item.style.height = '';
+    item.style.minHeight = '';
+  });
+
+  const tallest = items.reduce((maxHeight, item) => Math.max(maxHeight, item.scrollHeight), 0);
+  const targetHeight = Math.max(112, tallest);
+  items.forEach((item) => {
+    item.style.height = `${targetHeight}px`;
+    item.style.minHeight = `${targetHeight}px`;
+  });
 }
 
 function escapeHtml(text) {
@@ -871,6 +890,11 @@ async function initialize() {
   elements.rowModal.addEventListener('click', (event) => {
     if (event.target.dataset.closeModal === 'true') {
       closeRowModal();
+    }
+  });
+  window.addEventListener('resize', () => {
+    if (state.selectedRow) {
+      syncRowDetailCardHeights();
     }
   });
   document.addEventListener('keydown', (event) => {
