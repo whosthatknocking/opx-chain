@@ -19,6 +19,7 @@ from pandas.api.types import is_bool_dtype, is_numeric_dtype
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC_ROOT = Path(__file__).resolve().parent / "viewer_static"
 README_PATH = REPO_ROOT / "README.md"
+OUTPUTS_DIR = REPO_ROOT / "outputs"
 CSV_PATTERN = "options_engine_output_*.csv"
 HIDDEN_COLUMNS = {
     "currency",
@@ -119,18 +120,18 @@ class SummaryPayload(TypedDict):
 
 
 def discover_csv_files() -> list[Path]:
-    return sorted(REPO_ROOT.glob(CSV_PATTERN), key=lambda path: path.stat().st_mtime, reverse=True)
+    return sorted(OUTPUTS_DIR.glob(CSV_PATTERN), key=lambda path: path.stat().st_mtime, reverse=True)
 
 
 def resolve_csv_path(csv_name: str | None = None) -> Path:
     files = discover_csv_files()
     if not files:
-        raise FileNotFoundError("No CSV files were found in the project root.")
+        raise FileNotFoundError("No CSV files were found in the outputs directory.")
 
     if not csv_name:
         return files[0]
 
-    candidate = REPO_ROOT / csv_name
+    candidate = OUTPUTS_DIR / csv_name
     if candidate.exists() and candidate.is_file() and candidate.name.startswith("options_engine_output_"):
         return candidate
 

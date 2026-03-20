@@ -1,9 +1,12 @@
 from datetime import datetime
+from pathlib import Path
 
 from options_fetcher.config import MAX_EXPIRATION, TICKERS, today
 from options_fetcher.export import write_options_csv
 from options_fetcher.fetch import fetch_ticker_option_chain
 from options_fetcher.runlog import create_run_logger
+
+OUTPUTS_DIR = Path("outputs")
 
 
 def main():
@@ -26,7 +29,7 @@ def main():
         raise SystemExit(0)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = f"options_engine_output_{timestamp}.csv"
+    output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
     write_options_csv(ticker_frames, output_path=output_path)
     logger.info("run_finished output_path=%s ticker_frames=%s", output_path, len(ticker_frames))
     print(f"\nSaved: {output_path}")

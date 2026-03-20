@@ -91,10 +91,10 @@ The viewer includes:
 
 ## Output
 
-Each run writes a CSV file in the project root using a timestamped filename:
+Each run writes a CSV file to the `outputs/` directory using a timestamped filename:
 
 ```text
-options_engine_output_YYYYMMDD_HHMMSS.csv
+outputs/options_engine_output_YYYYMMDD_HHMMSS.csv
 ```
 
 Operational details that are not row-specific are written to:

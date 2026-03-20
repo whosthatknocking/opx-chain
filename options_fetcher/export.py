@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 
 
@@ -127,6 +129,8 @@ def reorder_export_columns(df):
 
 def write_options_csv(ticker_frames, output_path):
     """Combine fetched frames, format the schema, and write the final CSV."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     df = pd.concat(ticker_frames, ignore_index=True)
     df = drop_unwanted_columns(df)
     df = format_export_timestamps(df)
