@@ -1,4 +1,4 @@
-import math
+"""Normalization filter tests for zero bids, strike bands, and spread limits."""
 
 import pandas as pd
 
@@ -10,6 +10,7 @@ from options_fetcher.normalize import (
 
 
 def test_filter_zero_bid_quotes_excludes_only_explicit_zero_bid_rows():
+    """Rows with NaN bids should remain while explicit zero bids are removed."""
     frame = pd.DataFrame(
         [
             {"contract_symbol": "ZERO", "bid": 0.0},
@@ -24,6 +25,7 @@ def test_filter_zero_bid_quotes_excludes_only_explicit_zero_bid_rows():
 
 
 def test_filter_strikes_near_spot_keeps_only_rows_within_configured_band():
+    """Only strikes inside the configured percentage band should survive."""
     frame = pd.DataFrame(
         [
             {"strike": 69.9},
@@ -40,6 +42,7 @@ def test_filter_strikes_near_spot_keeps_only_rows_within_configured_band():
 
 
 def test_filter_wide_spread_quotes_respects_strict_less_than_cutoff():
+    """The configured spread cutoff should be strict rather than inclusive."""
     frame = pd.DataFrame(
         [
             {"contract_symbol": "TIGHT", "bid_ask_spread_pct_of_mid": 0.10},

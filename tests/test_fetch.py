@@ -1,3 +1,5 @@
+"""Fetch-path tests covering raw yfinance row-count logging."""
+
 import logging
 from types import SimpleNamespace
 
@@ -7,15 +9,19 @@ from options_fetcher import fetch
 
 
 class StubStock:
+    """Minimal yfinance ticker stub for fetch-path tests."""
+
     def __init__(self):
         self.fast_info = {"lastPrice": 100.0, "previousClose": 99.0}
         self.info = {"regularMarketTime": "2026-03-20T13:45:00Z", "marketState": "REGULAR"}
         self.options = ["2026-04-17"]
 
-    def history(self, period, interval, auto_adjust):
+    def history(self, _period, _interval, _auto_adjust):
+        """Return a small close-history frame for volatility calculations."""
         return pd.DataFrame({"Close": [100.0, 101.0, 102.0, 103.0]})
 
-    def option_chain(self, expiration_date):
+    def option_chain(self, _expiration_date):
+        """Return a small option chain with both kept and filtered rows."""
         calls = pd.DataFrame(
             [
                 {
@@ -73,6 +79,7 @@ class StubStock:
 
 
 def test_fetch_ticker_option_chain_logs_raw_yfinance_row_counts(monkeypatch, caplog):
+    """Log raw vendor counts before app-side filtering changes the row set."""
     monkeypatch.setattr(fetch.yf, "Ticker", lambda ticker: StubStock())
     monkeypatch.setattr(
         fetch,

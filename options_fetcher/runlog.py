@@ -1,3 +1,5 @@
+"""Run-log configuration for fetcher execution and vendor error capture."""
+
 import logging
 import time
 from datetime import datetime, timezone
@@ -16,6 +18,7 @@ def configure_yfinance_logger(file_handler):
 
 
 def create_run_logger():
+    """Create the append-only run logger and return it with its file path."""
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)

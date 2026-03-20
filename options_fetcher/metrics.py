@@ -1,3 +1,5 @@
+"""Derived pricing, screening, and freshness metrics for option rows."""
+
 import numpy as np
 
 from options_fetcher.config import (
@@ -12,6 +14,7 @@ from options_fetcher.greeks import compute_greeks
 
 
 def classify_days_to_expiration_bucket(days_to_expiration):
+    """Bucket expirations into coarse week ranges for quick filtering."""
     if days_to_expiration <= 10:
         return "Week_1"
     if days_to_expiration <= 18:
@@ -22,6 +25,7 @@ def classify_days_to_expiration_bucket(days_to_expiration):
 
 
 def add_quote_quality_metrics(df, underlying_price):
+    """Add quote validation and basic liquidity quality fields."""
     df["has_valid_underlying"] = underlying_price > 0
     df["has_valid_strike"] = df["strike"] > 0
     df["bid_le_ask"] = df["bid"] <= df["ask"]
@@ -66,6 +70,7 @@ def add_quote_quality_metrics(df, underlying_price):
 
 
 def add_derived_pricing_metrics(df, underlying_price):
+    """Add premium, moneyness, break-even, and Black-Scholes-derived fields."""
     df["strike_minus_spot"] = df["strike"] - underlying_price
     df["strike_vs_spot_pct"] = np.where(
         underlying_price > 0,
@@ -94,7 +99,9 @@ def add_derived_pricing_metrics(df, underlying_price):
     )
     df["has_negative_extrinsic_mid"] = df["extrinsic_value_mid"] < 0
 
-    df["premium_reference_price"] = df["mark_price_mid"].fillna(df["bid"]).fillna(df["last_trade_price"])
+    df["premium_reference_price"] = (
+        df["mark_price_mid"].fillna(df["bid"]).fillna(df["last_trade_price"])
+    )
     df["premium_reference_method"] = np.select(
         [
             df["mark_price_mid"].notna(),
@@ -172,6 +179,7 @@ def add_derived_pricing_metrics(df, underlying_price):
 
 
 def add_screening_and_freshness_flags(df, fetched_at):
+    """Mark stale quotes and tradability flags used by the viewer and screens."""
     df["quote_age_seconds"] = (fetched_at - df["option_quote_time"]).dt.total_seconds()
     df["is_stale_quote"] = np.where(
         df["quote_age_seconds"].notna(),
@@ -196,7 +204,7 @@ def add_screening_and_freshness_flags(df, fetched_at):
         + df["has_valid_iv"].astype(int)
         + df["has_valid_greeks"].astype(int)
         + (~df["has_crossed_or_locked_market"]).astype(int)
-        + (df["is_stale_quote"] == False).fillna(False).astype(int)
+        + df["is_stale_quote"].fillna(False).eq(False).astype(int)
     )
 
     return df
@@ -227,9 +235,8 @@ def add_expected_move_by_expiration(df):
 
     keys = ["underlying_symbol", "expiration_date"]
     atm_candidates = df.loc[valid].copy()
-    atm_candidates["min_strike_distance_pct"] = atm_candidates.groupby(keys)["strike_distance_pct"].transform(
-        "min"
-    )
+    grouped_distance = atm_candidates.groupby(keys)["strike_distance_pct"]
+    atm_candidates["min_strike_distance_pct"] = grouped_distance.transform("min")
     atm_candidates = atm_candidates[
         np.isclose(
             atm_candidates["strike_distance_pct"],
@@ -275,15 +282,21 @@ def add_expected_move_by_expiration(df):
         how="left",
         suffixes=("", "_computed"),
     ).assign(
-        expected_move=lambda frame: frame["expected_move_computed"].combine_first(frame["expected_move"]),
+        expected_move=lambda frame: frame["expected_move_computed"].combine_first(
+            frame["expected_move"]
+        ),
         expected_move_pct=lambda frame: frame["expected_move_pct_computed"].combine_first(
             frame["expected_move_pct"]
         ),
-        expected_move_lower_bound=lambda frame: frame["expected_move_lower_bound_computed"].combine_first(
-            frame["expected_move_lower_bound"]
+        expected_move_lower_bound=lambda frame: (
+            frame["expected_move_lower_bound_computed"].combine_first(
+                frame["expected_move_lower_bound"]
+            )
         ),
-        expected_move_upper_bound=lambda frame: frame["expected_move_upper_bound_computed"].combine_first(
-            frame["expected_move_upper_bound"]
+        expected_move_upper_bound=lambda frame: (
+            frame["expected_move_upper_bound_computed"].combine_first(
+                frame["expected_move_upper_bound"]
+            )
         ),
     ).drop(
         columns=[
@@ -301,9 +314,10 @@ def add_roll_yield_metrics(df):
     group_keys = ["underlying_symbol", "option_type", "strike"]
     ordered = df.sort_values(group_keys + ["days_to_expiration", "expiration_date"]).copy()
 
-    ordered["roll_from_expiration_date"] = ordered.groupby(group_keys)["expiration_date"].shift(1)
-    ordered["roll_from_days_to_expiration"] = ordered.groupby(group_keys)["days_to_expiration"].shift(1)
-    ordered["roll_from_premium_reference_price"] = ordered.groupby(group_keys)["premium_reference_price"].shift(1)
+    grouped = ordered.groupby(group_keys)
+    ordered["roll_from_expiration_date"] = grouped["expiration_date"].shift(1)
+    ordered["roll_from_days_to_expiration"] = grouped["days_to_expiration"].shift(1)
+    ordered["roll_from_premium_reference_price"] = grouped["premium_reference_price"].shift(1)
     ordered["roll_days_added"] = (
         ordered["days_to_expiration"] - ordered["roll_from_days_to_expiration"]
     )

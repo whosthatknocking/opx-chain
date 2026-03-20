@@ -64,12 +64,6 @@ python3 -m playwright install
 
 `playwright` is optional for the fetch/export pipeline itself, but required if you want automated browser screenshots or browser-driven UI checks.
 
-Run the basic test suite with:
-
-```bash
-pytest
-```
-
 ## How To Run
 
 Run the project from the repository root:
@@ -122,6 +116,20 @@ python3 scripts/capture_viewer_screenshot.py --theme light
 python3 scripts/capture_viewer_screenshot.py --output docs/images/viewer-custom.png
 ```
 
+## Verification
+
+Run the basic test suite with:
+
+```bash
+pytest
+```
+
+Run the linter with:
+
+```bash
+pylint $(git ls-files '*.py')
+```
+
 ## Output
 
 Each run writes a CSV file to the `outputs/` directory using a timestamped filename:
@@ -135,6 +143,15 @@ Operational details that are not row-specific are written to:
 ```text
 logs/options_fetcher_runs.log
 ```
+
+The run log also records:
+
+- per-expiration raw row counts returned by `yfinance` before app-side filtering
+- per-ticker raw contract totals and kept-row totals
+- yfinance-originated error messages routed into the same log file
+- final CSV row count and file size after export
+
+These log entries are useful when a run returns fewer rows than expected, especially near the regular market open when Yahoo data may still be delayed, cached, thinly traded, or incomplete.
 
 ## CSV Field Reference
 

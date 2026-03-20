@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"""Capture a documentation screenshot of the local CSV viewer."""
+
 from __future__ import annotations
 
 import argparse
@@ -18,6 +20,7 @@ DEFAULT_OUTPUT = REPO_ROOT / "docs" / "images" / "viewer-option-chain.png"
 
 
 def wait_for_server(url: str, timeout_seconds: float = 15.0) -> None:
+    """Poll the local viewer until it responds or the timeout expires."""
     deadline = time.time() + timeout_seconds
     last_error: Exception | None = None
     while time.time() < deadline:
@@ -25,19 +28,21 @@ def wait_for_server(url: str, timeout_seconds: float = 15.0) -> None:
             with urlopen(url, timeout=1.5) as response:
                 if 200 <= response.status < 500:
                     return
-        except Exception as exc:  # pragma: no cover - best effort polling
+        except Exception as exc:  # pylint: disable=broad-exception-caught  # pragma: no cover
             last_error = exc
             time.sleep(0.25)
     raise RuntimeError(f"Viewer did not become ready at {url}: {last_error}")
 
 
 def pick_free_port() -> int:
+    """Pick an ephemeral localhost port for a temporary viewer process."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
 
 
 def capture_screenshot(url: str, output_path: Path, theme: str) -> None:
+    """Open the viewer in Playwright and save a full-page screenshot."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
@@ -58,7 +63,10 @@ def capture_screenshot(url: str, output_path: Path, theme: str) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Capture a screenshot of the local Options Fetcher viewer.")
+    """Parse screenshot script CLI arguments."""
+    parser = argparse.ArgumentParser(
+        description="Capture a screenshot of the local Options Fetcher viewer."
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -81,6 +89,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Launch the local viewer, capture a screenshot, and shut it down."""
     args = parse_args()
     port = args.port or pick_free_port()
     url = f"http://127.0.0.1:{port}"
@@ -90,25 +99,24 @@ def main() -> int:
     env["OPTIONS_FETCHER_VIEWER_PORT"] = str(port)
     env["OPTIONS_FETCHER_VIEWER_QUIET"] = "1"
 
-    process = subprocess.Popen(
+    with subprocess.Popen(
         [sys.executable, "viewer.py"],
         cwd=str(REPO_ROOT),
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-    )
-
-    try:
-        wait_for_server(url)
-        capture_screenshot(url, args.output, args.theme)
-        print(f"Saved screenshot: {args.output}")
-        return 0
-    finally:
-        process.terminate()
+    ) as process:
         try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
+            wait_for_server(url)
+            capture_screenshot(url, args.output, args.theme)
+            print(f"Saved screenshot: {args.output}")
+            return 0
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
 
 
 if __name__ == "__main__":

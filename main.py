@@ -1,3 +1,5 @@
+"""CLI entrypoint for fetching option chains and writing the export CSV."""
+
 from datetime import datetime
 from pathlib import Path
 
@@ -10,6 +12,7 @@ OUTPUTS_DIR = Path("outputs")
 
 
 def format_file_size(byte_count):
+    """Format byte counts into a small human-readable string."""
     if byte_count < 1024:
         return f"{byte_count} B"
     if byte_count < 1024 * 1024:
@@ -18,6 +21,7 @@ def format_file_size(byte_count):
 
 
 def main():
+    """Fetch configured tickers and write the consolidated CSV output."""
     logger, log_path = create_run_logger()
     print(f"Today: {today}")
     print(f"Max expiration: {MAX_EXPIRATION}")

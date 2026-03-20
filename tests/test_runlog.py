@@ -1,9 +1,12 @@
+"""Run-log tests covering shared logging between the app and yfinance."""
+
 import logging
 
 from options_fetcher.runlog import create_run_logger
 
 
 def test_create_run_logger_routes_yfinance_errors_to_run_log(tmp_path, monkeypatch):
+    """yfinance errors should be written into the shared run log file."""
     monkeypatch.chdir(tmp_path)
 
     logger, log_path = create_run_logger()

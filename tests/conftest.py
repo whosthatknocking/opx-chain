@@ -1,3 +1,5 @@
+"""Pytest configuration ensuring the repository root is importable."""
+
 from pathlib import Path
 import sys
 

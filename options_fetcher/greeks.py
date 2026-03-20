@@ -1,8 +1,14 @@
+"""Black-Scholes greek and ITM-probability calculations for option rows."""
+
 import numpy as np
 from scipy.stats import norm
 
 
-def compute_greeks(df, underlying_price, risk_free_rate):
+def compute_greeks(  # pylint: disable=too-many-locals
+    df,
+    underlying_price,
+    risk_free_rate,
+):
     """Compute Black-Scholes Greeks and ITM probabilities for valid rows."""
     strike = df["strike"].to_numpy(dtype=float)
     time_to_expiration = df["time_to_expiration_years"].to_numpy(dtype=float)
@@ -37,7 +43,10 @@ def compute_greeks(df, underlying_price, risk_free_rate):
     probability_itm[valid_puts] = norm.cdf(-d2[valid_puts])
 
     gamma = np.full(len(df), np.nan)
-    gamma[valid] = pdf_d1[valid] / (underlying_price * sigma[valid] * np.sqrt(time_to_expiration[valid]))
+    gamma[valid] = (
+        pdf_d1[valid]
+        / (underlying_price * sigma[valid] * np.sqrt(time_to_expiration[valid]))
+    )
 
     vega = np.full(len(df), np.nan)
     vega[valid] = underlying_price * pdf_d1[valid] * np.sqrt(time_to_expiration[valid]) / 100

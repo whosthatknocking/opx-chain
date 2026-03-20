@@ -1,3 +1,5 @@
+"""Unit tests for Black-Scholes greeks and expected-move calculations."""
+
 import math
 
 import pandas as pd
@@ -7,6 +9,7 @@ from options_fetcher.metrics import add_expected_move_by_expiration
 
 
 def test_compute_greeks_probability_itm_complements_for_matching_call_put():
+    """Call and put ITM probabilities should complement each other at one strike."""
     frame = pd.DataFrame(
         [
             {
@@ -35,6 +38,7 @@ def test_compute_greeks_probability_itm_complements_for_matching_call_put():
 
 
 def test_add_expected_move_by_expiration_uses_nearest_to_money_iv():
+    """Expected move should use the average IV of the nearest-to-money contracts."""
     frame = pd.DataFrame(
         [
             {
@@ -70,7 +74,24 @@ def test_add_expected_move_by_expiration_uses_nearest_to_money_iv():
     expected_move = 100.0 * expected_iv * math.sqrt(0.25)
 
     assert result["expected_move"].notna().all()
-    assert math.isclose(result.loc[0, "expected_move"], expected_move, rel_tol=0, abs_tol=1e-9)
-    assert math.isclose(result.loc[0, "expected_move_pct"], expected_move / 100.0, rel_tol=0, abs_tol=1e-9)
-    assert math.isclose(result.loc[0, "expected_move_lower_bound"], 100.0 - expected_move, rel_tol=0, abs_tol=1e-9)
-    assert math.isclose(result.loc[0, "expected_move_upper_bound"], 100.0 + expected_move, rel_tol=0, abs_tol=1e-9)
+    assert math.isclose(
+        result.loc[0, "expected_move"], expected_move, rel_tol=0, abs_tol=1e-9
+    )
+    assert math.isclose(
+        result.loc[0, "expected_move_pct"],
+        expected_move / 100.0,
+        rel_tol=0,
+        abs_tol=1e-9,
+    )
+    assert math.isclose(
+        result.loc[0, "expected_move_lower_bound"],
+        100.0 - expected_move,
+        rel_tol=0,
+        abs_tol=1e-9,
+    )
+    assert math.isclose(
+        result.loc[0, "expected_move_upper_bound"],
+        100.0 + expected_move,
+        rel_tol=0,
+        abs_tol=1e-9,
+    )

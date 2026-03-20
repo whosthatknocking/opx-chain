@@ -1,3 +1,5 @@
+"""Small scalar conversion helpers shared across fetch and normalization code."""
+
 import pandas as pd
 import numpy as np
 

@@ -1,3 +1,5 @@
+"""Compatibility entrypoint for running the fetcher from the repo root."""
+
 from main import main
 
 

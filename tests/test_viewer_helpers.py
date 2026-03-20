@@ -1,3 +1,5 @@
+"""Viewer helper tests for field descriptions, cards, and freshness metadata."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -6,6 +8,7 @@ from options_fetcher import viewer
 
 
 def test_extract_field_descriptions_reads_current_readme_entries():
+    """README-backed field descriptions should stay discoverable for the viewer."""
     descriptions = viewer.extract_field_descriptions()
 
     assert "underlying_symbol" in descriptions
@@ -13,6 +16,7 @@ def test_extract_field_descriptions_reads_current_readme_entries():
 
 
 def test_build_dataset_cards_only_promotes_dataset_wide_constant_values():
+    """Only dataset-wide constant values should be promoted into header cards."""
     frame = pd.DataFrame(
         [
             {
@@ -43,6 +47,7 @@ def test_build_dataset_cards_only_promotes_dataset_wide_constant_values():
 
 
 def test_build_column_definitions_marks_numeric_but_not_boolean_columns():
+    """Boolean columns should not be classified as numeric in the viewer schema."""
     frame = pd.DataFrame(
         {
             "strike": [100.0, 105.0],
@@ -60,6 +65,7 @@ def test_build_column_definitions_marks_numeric_but_not_boolean_columns():
 
 
 def test_build_freshness_summary_reports_file_and_quote_ages(tmp_path: Path):
+    """Freshness summary should report both file age and quote age statistics."""
     csv_path = tmp_path / "sample.csv"
     csv_path.write_text("placeholder", encoding="utf-8")
     frame = pd.DataFrame(

@@ -1,3 +1,5 @@
+"""Runtime configuration for the options fetch pipeline."""
+
 from datetime import datetime
 from calendar import monthrange
 

@@ -1,3 +1,5 @@
+"""Remote fetch helpers for Yahoo Finance option and underlying data."""
+
 from functools import lru_cache
 from datetime import datetime, timezone
 
@@ -31,12 +33,12 @@ def normalize_market_state(value):
     return normalized
 
 
-def compute_historical_volatility(stock):
+def compute_historical_volatility(stock):  # pylint: disable=broad-exception-caught
     """Compute trailing annualized realized volatility from daily closes."""
     lookback_period = f"{max(HV_LOOKBACK_DAYS * 3, 90)}d"
     try:
         history = stock.history(period=lookback_period, interval="1d", auto_adjust=False)
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         return np.nan
     if history.empty:
         return np.nan
@@ -54,11 +56,11 @@ def compute_historical_volatility(stock):
 @lru_cache(maxsize=1)
 def load_vix_snapshot():
     """Load the latest VIX snapshot once per run."""
-    try:
+    try:  # pylint: disable=broad-exception-caught
         vix = yf.Ticker("^VIX")
         fast_info = getattr(vix, "fast_info", {}) or {}
         info = vix.info
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         fast_info = {}
         info = {}
 
@@ -74,12 +76,12 @@ def load_vix_snapshot():
     }
 
 
-def load_underlying_snapshot(stock):
+def load_underlying_snapshot(stock):  # pylint: disable=broad-exception-caught
     """Load the underlying snapshot once per ticker and reuse it for each expiration."""
     fast_info = getattr(stock, "fast_info", {}) or {}
     try:
         info = stock.info
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         info = {}
 
     last_price = coerce_float(
@@ -131,7 +133,10 @@ def append_underlying_snapshot_fields(df, snapshot, fetched_at):
     return df
 
 
-def fetch_ticker_option_chain(ticker, logger=None):
+def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,broad-exception-caught
+    ticker,
+    logger=None,
+):
     """Fetch and normalize all near-term option chains for one ticker."""
     try:
         fetched_at = pd.Timestamp.now(tz=timezone.utc)
@@ -141,7 +146,10 @@ def fetch_ticker_option_chain(ticker, logger=None):
 
         if pd.isna(underlying_price) or underlying_price <= 0:
             if logger:
-                logger.warning("ticker=%s status=skipped reason=invalid_underlying_price", ticker)
+                logger.warning(
+                    "ticker=%s status=skipped reason=invalid_underlying_price",
+                    ticker,
+                )
             return pd.DataFrame()
 
         rows = []
@@ -161,7 +169,10 @@ def fetch_ticker_option_chain(ticker, logger=None):
             raw_expiration_count += 1
             if logger:
                 logger.info(
-                    "ticker=%s expiration=%s status=raw_yfinance_rows call_rows=%s put_rows=%s total_rows=%s",
+                    (
+                        "ticker=%s expiration=%s status=raw_yfinance_rows "
+                        "call_rows=%s put_rows=%s total_rows=%s"
+                    ),
                     ticker,
                     expiration_date,
                     len(chain.calls),
@@ -177,12 +188,17 @@ def fetch_ticker_option_chain(ticker, logger=None):
                     ticker=ticker,
                     fetched_at=fetched_at,
                 )
-                rows.append(append_underlying_snapshot_fields(normalized, snapshot, fetched_at))
+                rows.append(
+                    append_underlying_snapshot_fields(normalized, snapshot, fetched_at)
+                )
 
         if not rows:
             if logger:
                 logger.warning(
-                    "ticker=%s status=ok rows=0 expirations=0 raw_yfinance_rows=%s raw_expirations=%s",
+                    (
+                        "ticker=%s status=ok rows=0 expirations=0 "
+                        "raw_yfinance_rows=%s raw_expirations=%s"
+                    ),
                     ticker,
                     raw_contract_count,
                     raw_expiration_count,
@@ -193,7 +209,10 @@ def fetch_ticker_option_chain(ticker, logger=None):
         combined = add_expected_move_by_expiration(combined)
         if logger:
             logger.info(
-                "ticker=%s status=ok fetched_at=%s rows=%s expirations=%s raw_yfinance_rows=%s raw_expirations=%s",
+                (
+                    "ticker=%s status=ok fetched_at=%s rows=%s expirations=%s "
+                    "raw_yfinance_rows=%s raw_expirations=%s"
+                ),
                 ticker,
                 fetched_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 len(combined),

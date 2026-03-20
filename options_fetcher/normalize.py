@@ -1,3 +1,5 @@
+"""Normalization and early filtering for raw vendor option-chain rows."""
+
 import pandas as pd
 
 from options_fetcher.config import (
@@ -14,7 +16,13 @@ from options_fetcher.metrics import (
 )
 
 
-def normalize_vendor_option_frame(df, underlying_price, expiration_date, option_type, ticker, fetched_at):
+def normalize_vendor_option_frame(
+    df,
+    underlying_price,
+    expiration_date,
+    option_type,
+    ticker,
+):
     """Normalize vendor columns into a stable schema before deriving metrics."""
     df = df.copy()
     df = df.rename(
@@ -82,7 +90,14 @@ def filter_wide_spread_quotes(df):
     return df[df["bid_ask_spread_pct_of_mid"] < MAX_SPREAD_PCT_OF_MID].copy()
 
 
-def enrich_option_frame(df, underlying_price, expiration_date, option_type, ticker, fetched_at):
+def enrich_option_frame(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    df,
+    underlying_price,
+    expiration_date,
+    option_type,
+    ticker,
+    fetched_at,
+):
     """Normalize the vendor frame, then add derived metrics and quality flags."""
     df = normalize_vendor_option_frame(
         df=df,
@@ -90,7 +105,6 @@ def enrich_option_frame(df, underlying_price, expiration_date, option_type, tick
         expiration_date=expiration_date,
         option_type=option_type,
         ticker=ticker,
-        fetched_at=fetched_at,
     )
     df = filter_zero_bid_quotes(df)
     df = filter_strikes_near_spot(df, underlying_price)

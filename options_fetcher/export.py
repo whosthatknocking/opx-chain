@@ -1,3 +1,5 @@
+"""CSV export helpers for the normalized options dataset."""
+
 from pathlib import Path
 
 import pandas as pd
@@ -90,6 +92,19 @@ COLUMN_ORDER = [
     "data_source",
     "risk_free_rate_used",
 ]
+UNWANTED_EXPORT_COLUMNS = {
+    "currency",
+    "underlying_currency",
+    "roll_from_expiration_date",
+    "roll_days_added",
+    "roll_from_premium_reference_price",
+    "roll_net_credit",
+    "roll_yield",
+    "fetch_status",
+    "fetch_error",
+    "script_version",
+    "fetched_at",
+}
 
 
 def format_export_timestamps(df):
@@ -103,20 +118,8 @@ def format_export_timestamps(df):
 
 
 def drop_unwanted_columns(df):
-    unwanted = {
-        "currency",
-        "underlying_currency",
-        "roll_from_expiration_date",
-        "roll_days_added",
-        "roll_from_premium_reference_price",
-        "roll_net_credit",
-        "roll_yield",
-        "fetch_status",
-        "fetch_error",
-        "script_version",
-        "fetched_at",
-    }
-    existing = [column for column in df.columns if column in unwanted]
+    """Remove transient runtime columns that should not be persisted to CSV."""
+    existing = [column for column in df.columns if column in UNWANTED_EXPORT_COLUMNS]
     return df.drop(columns=existing) if existing else df
 
 
