@@ -16,7 +16,7 @@ MAX_STRIKE_DISTANCE_PCT = 0.30
 
 today = datetime.today().date()
 year = today.year
-month = today.month + 3
+month = today.month + 4
 if month > 12:
     month -= 12
     year += 1

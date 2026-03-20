@@ -35,7 +35,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 ## Features
 
 - Fetches call and put chains for configured tickers
-- Limits expirations to a rolling three-month window
+- Limits expirations to a rolling four-month window
 - Excludes contracts with a zero bid
 - Excludes contracts with `bid_ask_spread_pct_of_mid >= 0.25`
 - Limits strikes to a +/-30% band around the latest underlying price
@@ -306,7 +306,7 @@ Current defaults:
 - `STALE_QUOTE_SECONDS = 900`: staleness threshold for option and underlying quotes.
 - `DATA_SOURCE = "yfinance"`: source label written into the CSV and viewer metadata.
 - `SCRIPT_VERSION = "2026-03-19.1"`: run-version string written to the append-only log.
-- `MAX_EXPIRATION`: computed dynamically as the last calendar day of the month three months from today, so the fetch window stays on a rolling roughly three-month horizon.
+- `MAX_EXPIRATION`: computed dynamically as the last calendar day of the month four months from today, so the fetch window stays on a rolling roughly four-month horizon.
 
 In practice:
 
