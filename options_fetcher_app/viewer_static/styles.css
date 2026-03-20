@@ -14,6 +14,8 @@
   --row-hover: rgba(15, 118, 110, 0.06);
   --bg-orb-a: rgba(15, 118, 110, 0.04);
   --bg-orb-b: rgba(2, 132, 199, 0.03);
+  --surface-fill: linear-gradient(180deg, var(--panel-strong), var(--panel) 22%), var(--panel);
+  --surface-fill-soft: linear-gradient(180deg, var(--panel-strong), var(--panel) 28%), var(--panel);
 }
 
 body[data-theme="dark"] {
@@ -76,7 +78,7 @@ body.modal-open {
 .readme-card,
 .toolbar,
 .tabs {
-  background: var(--panel);
+  background: var(--surface-fill-soft);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
 }
@@ -252,9 +254,7 @@ input,
   padding: 7px 9px;
   border: 1px solid var(--line);
   border-radius: 3px;
-  background:
-    linear-gradient(180deg, var(--panel-strong), var(--panel) 24%),
-    var(--panel);
+  background: var(--surface-fill);
 }
 
 .freshness-label {
@@ -268,7 +268,7 @@ input,
 .field-label-tooltip {
   display: inline-block;
   color: var(--accent);
-  border-bottom: 1px dotted rgba(15, 118, 110, 0.45);
+  border-bottom: 1px dotted color-mix(in srgb, currentColor 45%, transparent);
 }
 
 .freshness-card strong {
@@ -285,12 +285,6 @@ input,
   font-variant-numeric: tabular-nums;
 }
 
-.summary-stat-card {
-  background:
-    linear-gradient(180deg, var(--panel-strong), var(--panel) 24%),
-    var(--panel);
-}
-
 .filter-popover {
   position: absolute;
   display: none;
@@ -298,7 +292,7 @@ input,
   max-height: 360px;
   z-index: 40;
   border: 1px solid var(--line);
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
   border-radius: 6px;
   padding: 8px;
@@ -327,7 +321,7 @@ input,
 
 .filter-clear-button {
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: var(--surface-fill-soft);
   color: var(--muted);
   border-radius: 4px;
   min-height: 24px;
@@ -431,7 +425,7 @@ input,
 
 .summary-status,
 .ticker-summary-card {
-  background: var(--panel);
+  background: var(--surface-fill);
   border: 1px solid var(--line);
   border-radius: 4px;
 }
@@ -441,9 +435,6 @@ input,
   color: var(--muted);
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
-  background:
-    linear-gradient(90deg, var(--accent-soft), transparent 24%),
-    var(--panel);
 }
 
 .summary-highlights {
@@ -486,9 +477,6 @@ input,
   flex-direction: column;
   gap: 8px;
   padding: 10px;
-  background:
-    linear-gradient(180deg, var(--panel-strong), var(--panel) 22%),
-    var(--panel);
 }
 
 .ticker-summary-header {
@@ -522,10 +510,11 @@ input,
 }
 
 .ticker-summary-spot span {
-  color: var(--muted);
+  color: var(--accent);
   font-size: 0.62rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  font-weight: 700;
 }
 
 .ticker-summary-spot strong {
@@ -566,7 +555,7 @@ input,
 .opportunity-card {
   border: 1px solid var(--line);
   border-radius: 3px;
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
 }
 
 .ticker-summary-stat {
@@ -577,10 +566,11 @@ input,
 }
 
 .ticker-summary-stat span {
-  color: var(--muted);
+  color: var(--accent);
   font-size: 0.58rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+  font-weight: 700;
 }
 
 .ticker-summary-stat strong {
@@ -606,12 +596,10 @@ input,
 
 .opportunity-card-profit {
   border-color: rgba(15, 118, 110, 0.24);
-  background: linear-gradient(180deg, rgba(15, 118, 110, 0.06), transparent 38%), var(--panel-strong);
 }
 
 .opportunity-card-moderate {
   border-color: rgba(2, 132, 199, 0.24);
-  background: linear-gradient(180deg, rgba(2, 132, 199, 0.06), transparent 38%), var(--panel-strong);
 }
 
 .positive {
@@ -681,7 +669,7 @@ th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
   box-shadow: inset 0 -1px 0 var(--line);
   padding-top: 0;
   padding-bottom: 0;
@@ -724,7 +712,7 @@ th button:hover,
   min-width: 20px;
   height: 20px;
   border: 1px solid var(--line);
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
   color: var(--muted);
   border-radius: 2px;
   padding: 0;
@@ -835,7 +823,7 @@ body.is-resizing .column-resizer::after {
   min-height: 30px;
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
   color: var(--text);
   padding: 0 9px;
   font: inherit;
@@ -867,9 +855,6 @@ body.is-resizing .column-resizer::after {
 
 .readme-card {
   padding: 10px;
-  background:
-    linear-gradient(180deg, var(--panel-strong), var(--panel) 18%),
-    var(--panel);
   max-height: none;
   overflow: auto;
 }
@@ -939,9 +924,7 @@ body.is-resizing .column-resizer::after {
   flex-direction: column;
   border-radius: 4px;
   border: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, var(--panel-strong), var(--panel) 18%),
-    var(--panel);
+  background: var(--surface-fill);
   box-shadow: var(--shadow);
 }
 
@@ -974,7 +957,7 @@ body.is-resizing .column-resizer::after {
   min-height: 30px;
   border: 1px solid var(--line);
   border-radius: 4px;
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
   color: var(--text);
   padding: 0 9px;
   font: inherit;
@@ -1000,7 +983,7 @@ body.is-resizing .column-resizer::after {
 .row-detail-item {
   border: 1px solid var(--line);
   border-radius: 3px;
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
   padding: 8px 9px;
   min-height: 90px;
 }
