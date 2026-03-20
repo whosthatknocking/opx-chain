@@ -251,16 +251,35 @@ Execution details that are not row-specific are written to the append-only run l
 
 ## Configuration
 
-Core configuration lives in `options_fetcher_app/config.py`, including:
+Core runtime configuration lives in `options_fetcher_app/config.py`. This is the main file you edit to change what gets fetched and how aggressively the dataset is filtered.
 
-- ticker list
-- minimum liquidity thresholds
-- spread threshold
-- strike-distance filter
-- risk-free rate used for Greeks
-- historical-volatility lookback
-- stale quote threshold
-- output horizon for expirations
+You will usually change these values first:
+
+- `TICKERS`: list of underlying symbols to fetch.
+- `MAX_STRIKE_DISTANCE_PCT`: keeps only strikes within a percentage band around the latest underlying price. `0.30` means +/-30%.
+- `MAX_SPREAD_PCT_OF_MID`: excludes contracts whose bid/ask spread is too wide relative to midpoint.
+- `MIN_BID`: excludes contracts with very small bid values, in addition to the hard zero-bid filter.
+- `MIN_OPEN_INTEREST`: minimum open interest used by the screening metrics.
+- `MIN_VOLUME`: minimum daily option volume used by the screening metrics.
+
+These values control calculations and freshness logic:
+
+- `RISK_FREE_RATE`: risk-free rate used in Black-Scholes Greek calculations.
+- `HV_LOOKBACK_DAYS`: number of daily returns used for historical volatility.
+- `TRADING_DAYS_PER_YEAR`: annualization factor for volatility calculations.
+- `STALE_QUOTE_SECONDS`: threshold used to flag stale option and underlying quotes.
+
+These values define metadata or fetch scope:
+
+- `DATA_SOURCE`: source label written into the CSV. Currently `yfinance`.
+- `SCRIPT_VERSION`: version string written to the run log for traceability.
+- `MAX_EXPIRATION`: last expiration date included in the fetch window. It is derived automatically from the current date and currently targets a rolling three-month horizon.
+
+In practice:
+
+- Change `TICKERS` when you want a different watchlist.
+- Tighten or loosen `MAX_STRIKE_DISTANCE_PCT`, `MAX_SPREAD_PCT_OF_MID`, `MIN_BID`, `MIN_OPEN_INTEREST`, and `MIN_VOLUME` when you want a narrower or broader tradability filter.
+- Change `RISK_FREE_RATE` or `HV_LOOKBACK_DAYS` only if you want different modeling assumptions.
 
 ## Notes
 
