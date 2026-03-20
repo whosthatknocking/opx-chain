@@ -1,6 +1,15 @@
 # Options Fetcher
 
-High-level Python project for collecting option chain data from Yahoo Finance, enriching it with derived metrics, and exporting the result to a timestamped CSV for downstream tools.
+Options Fetcher is a Python tool for downloading near-term option chains from Yahoo Finance, enriching them with pricing and screening metrics, and exporting the result to a timestamped CSV. It also includes a local browser UI for inspecting the generated dataset in a sortable table.
+
+## At a Glance
+
+- Fetches call and put chains for configured tickers
+- Filters out zero-bid and wide-spread contracts before export
+- Limits strikes to a configurable band around spot
+- Computes Greeks, expected move, ROM-style metrics, and volatility context
+- Writes a timestamped CSV plus an append-only run log
+- Includes a local browser for exploring the output interactively
 
 ## What It Does
 
@@ -9,6 +18,18 @@ The script fetches near-term option chains for a configured list of tickers, nor
 The output is designed to be data-focused rather than decision-focused. It does not decide whether to close, roll, or open positions. Instead, it produces a richer dataset that can support those decisions elsewhere.
 
 Warning: Yahoo Finance quote timestamps can lag, and the collected option, underlying, or VIX data may be stale. Always check the freshness fields in the CSV or browser before relying on the output for trading decisions.
+
+## Quick Start
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 options_fetcher.py
+python3 options_viewer.py
+```
+
+Then open `http://127.0.0.1:8000` in your browser.
 
 ## Features
 
@@ -47,6 +68,8 @@ Run the project from the repository root:
 python3 options_fetcher.py
 ```
 
+To customize the fetch universe or screening thresholds, edit `options_fetcher_app/config.py` before running.
+
 ## CSV Browser
 
 Run the local viewer from the repository root:
@@ -62,8 +85,9 @@ The viewer includes:
 - a sortable table for the exported CSV
 - hover descriptions on column headers pulled from this README
 - a file selector for available CSV exports
-- a `README` tab that shows the project documentation
+- a `README` tab that shows the CSV field documentation
 - a dark/light mode toggle
+- header filters, including numeric min/max filtering for numeric columns
 
 ## Output
 
@@ -71,6 +95,12 @@ Each run writes a CSV file in the project root using a timestamped filename:
 
 ```text
 options_engine_output_YYYYMMDD_HHMMSS.csv
+```
+
+Operational details that are not row-specific are written to:
+
+```text
+logs/options_fetcher_runs.log
 ```
 
 ## CSV Field Reference
@@ -201,8 +231,8 @@ Execution details that are not row-specific are written to the append-only run l
 
 ```text
 .
-├── main.py
 ├── options_fetcher.py
+├── options_viewer.py
 ├── options_fetcher_app/
 │   ├── config.py
 │   ├── export.py
@@ -210,7 +240,12 @@ Execution details that are not row-specific are written to the append-only run l
 │   ├── greeks.py
 │   ├── metrics.py
 │   ├── normalize.py
+│   ├── runlog.py
+│   ├── viewer.py
+│   ├── viewer_static/
 │   └── utils.py
+├── main.py
+├── logs/
 └── requirements.txt
 ```
 
@@ -221,12 +256,15 @@ Core configuration lives in `options_fetcher_app/config.py`, including:
 - ticker list
 - minimum liquidity thresholds
 - spread threshold
+- strike-distance filter
 - risk-free rate used for Greeks
 - historical-volatility lookback
 - stale quote threshold
+- output horizon for expirations
 
 ## Notes
 
 - Data is sourced from Yahoo Finance through `yfinance`.
 - Quote timing and completeness depend on the upstream source.
 - The exported CSV is intended to be consumed by another tool, so the script favors schema clarity and enriched raw data over trade recommendations.
+- The viewer is intended for inspection and triage, not as a live trading terminal.
