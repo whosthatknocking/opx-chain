@@ -16,6 +16,8 @@
   --bg-orb-b: rgba(2, 132, 199, 0.03);
   --surface-fill: linear-gradient(180deg, var(--panel-strong), var(--panel) 22%), var(--panel);
   --surface-fill-soft: linear-gradient(180deg, var(--panel-strong), var(--panel) 28%), var(--panel);
+  --tooltip-underline: rgba(15, 118, 110, 0.45);
+  --danger: #dc2626;
 }
 
 body[data-theme="dark"] {
@@ -34,6 +36,8 @@ body[data-theme="dark"] {
   --row-hover: rgba(61, 214, 160, 0.08);
   --bg-orb-a: rgba(61, 214, 160, 0.03);
   --bg-orb-b: rgba(59, 130, 246, 0.03);
+  --tooltip-underline: rgba(61, 214, 160, 0.5);
+  --danger: #f87171;
 }
 
 * {
@@ -268,7 +272,7 @@ input,
 .field-label-tooltip {
   display: inline-block;
   color: var(--accent);
-  border-bottom: 1px dotted color-mix(in srgb, currentColor 45%, transparent);
+  border-bottom: 1px dotted var(--tooltip-underline);
 }
 
 .freshness-card strong {
@@ -530,7 +534,7 @@ input,
   padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--panel-strong);
+  background: var(--surface-fill-soft);
   color: var(--muted);
   font-size: 0.64rem;
   font-weight: 600;
@@ -607,7 +611,7 @@ input,
 }
 
 .negative {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .table-card {
