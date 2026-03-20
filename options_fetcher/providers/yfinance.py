@@ -127,7 +127,7 @@ class YFinanceProvider(DataProvider):
         chain = stock.option_chain(expiration_date)
         return OptionChainFrames(calls=chain.calls, puts=chain.puts)
 
-    def normalize_option_frame(
+    def normalize_option_frame(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         df: pd.DataFrame,
         underlying_price: float,

@@ -43,6 +43,8 @@ class DataProvider(ABC):
         """Load the raw option chain for one ticker and expiration."""
 
     @abstractmethod
+    # The provider contract needs these canonical normalization inputs.
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     def normalize_option_frame(
         self,
         df: pd.DataFrame,
