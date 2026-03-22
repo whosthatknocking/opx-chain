@@ -71,6 +71,8 @@ python3 viewer.py
 
 Then open `http://127.0.0.1:8000` in your browser.
 
+![Options Fetcher viewer](docs/images/viewer-option-chain.png)
+
 The viewer includes:
 
 - a sortable table for the exported CSV
@@ -81,27 +83,6 @@ The viewer includes:
 - a dark/light mode toggle
 - header filters, including numeric min/max filtering for numeric columns
 - dataset-level header cards for shared run metrics such as VIX and premium reference method
-
-## Screenshots
-
-To generate a documentation screenshot of the local viewer:
-
-```bash
-python3 scripts/capture_viewer_screenshot.py
-```
-
-By default this saves a dark-mode full-page screenshot to:
-
-```text
-docs/images/viewer-option-chain.png
-```
-
-Optional flags:
-
-```bash
-python3 scripts/capture_viewer_screenshot.py --theme light
-python3 scripts/capture_viewer_screenshot.py --output docs/images/viewer-custom.png
-```
 
 ## Output
 
@@ -321,6 +302,27 @@ python3 -m playwright install
 ```
 
 `playwright` is optional for the fetch/export pipeline itself, but required if you want automated browser screenshots or browser-driven UI checks.
+
+## Documentation Assets
+
+Regenerate the viewer screenshot used in this README with:
+
+```bash
+python3 scripts/capture_viewer_screenshot.py
+```
+
+By default this saves a dark-mode full-page screenshot to:
+
+```text
+docs/images/viewer-option-chain.png
+```
+
+Optional flags:
+
+```bash
+python3 scripts/capture_viewer_screenshot.py --theme light
+python3 scripts/capture_viewer_screenshot.py --output docs/images/viewer-custom.png
+```
 
 ## Verification
 
