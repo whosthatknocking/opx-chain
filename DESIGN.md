@@ -1,67 +1,98 @@
-# Design System Specification: The Architectural Ledger (Equity Ledger)
+# Design Specification: Options Chain Viewer
 
-## 1. Overview & Creative North Star
-**Creative North Star: The Architectural Ledger**
-In high-stakes financial reporting, trust is built through precision, clarity, and structural integrity. This design system, "The Architectural Ledger," treats data as a physical building block—heavy, stable, and perfectly aligned. It avoids "tech-startup" whimsy in favor of institutional-grade authority.
+## 1. Overview
+The viewer uses an institutional, ledger-inspired visual system optimized for dense financial data. The goal is clarity, structural hierarchy, and fast scanning, without decorative marketing copy or non-functional chrome.
 
 ## 2. Visual Principles
-*   **Precision over Decoration:** Every line and margin serves a functional purpose. 
-*   **Data Density:** Information is presented clearly but compactly to allow for deep analysis without scrolling fatigue.
-*   **Structural Contrast:** Uses clear borders and subtle tonal shifts to define hierarchy rather than heavy shadows or gradients.
-*   **The "Paper to Pixel" Bridge:** Typography and layout are inspired by high-end financial broadsheets and technical ledgers.
+* **Precision over Decoration:** Borders, spacing, and typography define hierarchy.
+* **Data Density:** The dataset table remains the primary surface and should stay compact enough for active analysis.
+* **Structural Contrast:** Sections are separated with 1px borders and subtle surface shifts instead of shadows.
+* **Functional UI Copy:** Titles, tabs, and controls should describe what the user can do, not provide branding slogans.
 
 ## 3. Visual Language
 
 ### A. Color Palette
-The system supports two primary modes, maintaining a core brand identity of **Deep Slate (#0F172A)** and **Emerald Accents**.
+The viewer supports two modes with the same core identity: slate surfaces, high-contrast text, emerald positive states, blue neutral states, and red negative states.
 
-#### Light Mode (Standard)
-*   **Surface Primary:** #FFFFFF (Pure White)
-*   **Surface Secondary:** #F8FAFC (Slate 50) - Used for sidebars and background grounding.
-*   **Text Primary:** #0F172A (Slate 900) - For headers and critical data.
-*   **Text Secondary:** #475569 (Slate 600) - For supporting labels and metadata.
-*   **Borders:** #E2E8F0 (Slate 200) - Fine 1px lines for structural definition.
+#### Light Mode
+* **Surface Primary:** `#FFFFFF`
+* **Surface Secondary / Page Ground:** `#F8FAFC`
+* **Text Primary:** `#0F172A`
+* **Text Secondary:** `#475569`
+* **Borders:** `#E2E8F0`
 
-#### Dark Mode (Obsidian)
-*   **Surface Primary:** #0F172A (Deep Slate)
-*   **Surface Secondary:** #1E293B (Slate 800) - For cards and sectioning.
-*   **Text Primary:** #F1F5F9 (Slate 100)
-*   **Text Secondary:** #94A3B8 (Slate 400)
-*   **Borders:** #334155 (Slate 700)
+#### Dark Mode
+* **Surface Primary:** `#1E293B`
+* **Surface Secondary / Page Ground:** `#0F172A`
+* **Text Primary:** `#F1F5F9`
+* **Text Secondary:** `#94A3B8`
+* **Borders:** `#334155`
 
-#### Functional Colors (Shared)
-*   **Positive (Success):** #10B981 (Emerald 500) - Used for gains and "Bullish" signals.
-*   **Negative (Error):** #EF4444 (Red 500) - Used for losses and "Volatility" warnings.
-*   **Neutral (Information):** #3B82F6 (Blue 500) - Used for primary CTAs and active states.
+#### Functional Colors
+* **Positive:** `#10B981`
+* **Negative:** `#EF4444`
+* **Neutral / Active:** `#3B82F6`
 
 ### B. Typography
-*   **Primary Font:** **Manrope**
-    *   **Scale:**
-        *   *Display:* 32px / Bold (Total Equity)
-        *   *Header 1:* 20px / Bold (Section Titles)
-        *   *Body Large:* 16px / SemiBold (Table Data)
-        *   *Body Small:* 12px / Medium (Labels/Captions)
-*   **Spacing & Line Height:** Tight line-heights (1.2 - 1.4) to maintain data density.
+* **Primary Font:** **Manrope**
+* **Section Titles:** bold, compact, high-contrast
+* **Table Headers:** uppercase with tight tracking
+* **Supporting Labels:** small, muted, uppercase when used as metadata
 
 ### C. Shape & Form
-*   **Roundness:** **4px (Small)**. Just enough to feel modern, but sharp enough to feel professional.
-*   **Shadows:** Minimal to none. Elevation is communicated through border depth and color value shifts.
+* **Corner Radius:** `4px`
+* **Shadows:** none or effectively none
+* **Borders:** always preferred over elevation for separation
 
-## 4. Key Components
+## 4. Layout
 
-### A. The Data Ledger (Table)
-*   **Header:** Sticky with #F8FAFC background. 12px uppercase labels with 0.05em tracking.
-*   **Rows:** 48px height. Subtle hover state (#F1F5F9). 
-*   **Visual Indicators:** Small pill-style tags for Risk Scores (High/Low/Medium).
+### A. Header
+The viewer uses a single functional header instead of a persistent sidebar.
 
-### B. The Navigation Rail
-*   **Width:** 256px (Standard)
-*   **Hierarchy:** Clear separation between primary nav (Portfolio, Ledger) and utility nav (Support, Logout).
+Header contents:
+* Viewer title: `Options Chain Viewer`
+* Primary tabs: `Dataset`, `Overview`, `Reference`
+* Dataset selector: current CSV file chooser
+* Theme toggle: `Light` / `Dark`
 
-### C. Insight Cards
-*   Flat design with 1px border. 
-*   Includes a "Title + Subtext" header for context before presenting raw numbers.
+### B. Main Surfaces
+* **Dataset tab:** toolbar, freshness cards, dataset cards, options table, pagination
+* **Overview tab:** ticker summary cards and opportunity cards
+* **Reference tab:** rendered documentation/readme content
 
-## 5. Implementation Notes
-*   **Responsive Strategy:** Desktop-first. Sidebars collapse to icons on smaller viewports.
-*   **Accessibility:** Ensure all data text maintains a contrast ratio of at least 4.5:1 against its background.
+### C. Responsive Behavior
+* Desktop-first layout
+* Header controls wrap into stacked rows on smaller viewports
+* No collapsed icon-only sidebar behavior remains in scope
+
+## 5. Key Components
+
+### A. Dataset Table
+* Sticky header
+* Uppercase column labels with strong tracking
+* Approximate 48px row height
+* Subtle hover state
+* Pill-style indicators for qualitative risk/status values when applicable
+
+### B. Cards
+* Flat 1px bordered surfaces
+* Used for freshness summaries, dataset metadata, ticker summaries, opportunities, and row details
+* Metrics should remain easy to compare at a glance
+
+### C. Controls
+* Tabs, selectors, filter controls, modal actions, and pager buttons use the same 4px radius and border-led styling
+* Theme toggle label must remain concise: `Light` / `Dark`
+
+## 6. Naming Conventions
+Use the current functional UI labels:
+* Title: `Options Chain Viewer`
+* Tab 1: `Dataset`
+* Tab 2: `Overview`
+* Tab 3: `Reference`
+
+Avoid reintroducing older names such as `Ledger`, `Portfolio`, or `Equity Ledger` unless the UI changes again.
+
+## 7. Implementation Notes
+* Maintain contrast of at least 4.5:1 for readable data text.
+* Preserve dark/light mode switching in the header.
+* Keep visual updates aligned with the existing viewer behavior rather than introducing extra presentation-only content.

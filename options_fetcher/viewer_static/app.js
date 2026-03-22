@@ -66,6 +66,40 @@ function formatCell(value) {
   return String(value);
 }
 
+function getLedgerPillTone(columnName, formattedValue) {
+  const normalizedColumn = String(columnName || '').toLowerCase();
+  const normalizedValue = String(formattedValue || '').trim().toLowerCase();
+
+  if (!normalizedValue || normalizedValue === '—') return null;
+  if (!/(risk|status|signal|sentiment|bias|state)/.test(normalizedColumn)) return null;
+
+  if (['high', 'volatile', 'warning', 'bearish', 'downtrend'].includes(normalizedValue)) {
+    return 'negative';
+  }
+  if (['medium', 'moderate', 'watch'].includes(normalizedValue)) {
+    return 'neutral';
+  }
+  if (['low', 'bullish', 'positive', 'stable', 'open', 'regular'].includes(normalizedValue)) {
+    return 'positive';
+  }
+  return 'neutral';
+}
+
+function appendCellValue(container, columnName, value) {
+  const formattedValue = formatCell(value);
+  const pillTone = getLedgerPillTone(columnName, formattedValue);
+
+  if (pillTone) {
+    const pill = document.createElement('span');
+    pill.className = `ledger-pill ledger-pill-${pillTone}`;
+    pill.textContent = formattedValue;
+    container.appendChild(pill);
+    return;
+  }
+
+  container.textContent = formattedValue;
+}
+
 function compareValues(left, right) {
   const leftNumber = Number(left);
   const rightNumber = Number(right);
@@ -556,7 +590,7 @@ function renderTable() {
     });
     state.columns.forEach((column) => {
       const td = document.createElement('td');
-      td.textContent = formatCell(row[column.name]);
+      appendCellValue(td, column.name, row[column.name]);
       tr.appendChild(td);
     });
     elements.tableBody.appendChild(tr);

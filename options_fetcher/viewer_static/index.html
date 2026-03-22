@@ -3,80 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Browser</title>
-  <link rel="stylesheet" href="/styles.css?v=20260319f">
+  <title>Options Fetcher Ledger</title>
+  <link rel="stylesheet" href="/styles.css?v=20260321a">
 </head>
 <body>
   <div class="page-shell">
-    <header class="hero">
-      <div class="hero-title">
-        <p class="eyebrow">Options Fetcher</p>
-        <h1>Browser</h1>
-      </div>
-      <div class="hero-actions">
-        <nav class="tabs" aria-label="Primary">
-          <button class="tab-button active" type="button" data-tab="table">Option Chain</button>
-          <button class="tab-button" type="button" data-tab="summary">Summary</button>
-          <button class="tab-button" type="button" data-tab="readme">Readme</button>
-        </nav>
-        <label class="select-wrap header-select-wrap">
-          <span>CSV File</span>
-          <select id="fileSelect" aria-label="CSV File"></select>
-        </label>
-        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark and light mode">Dark</button>
-      </div>
-    </header>
-
-    <main>
-      <section id="tableTab" class="tab-panel active">
-        <div class="toolbar">
-          <div class="toolbar-stats">
-            <div class="stat-card freshness-card summary-stat-card">
-              <span class="stat-label freshness-label field-label-tooltip" title="Number of option records currently visible after active filters are applied.">Rows</span>
-              <strong id="rowCount">0</strong>
-            </div>
-            <div id="freshnessSummary" class="freshness-summary" aria-label="Data freshness"></div>
-            <div id="datasetCards" class="freshness-summary" aria-label="Dataset-level metrics"></div>
-          </div>
-          <label class="select-wrap compact-wrap">
-            <span>Rows Per Page</span>
-            <select id="pageSizeSelect">
-              <option value="50">50</option>
-              <option value="100" selected>100</option>
-              <option value="250">250</option>
-              <option value="500">500</option>
-              <option value="all">All</option>
-            </select>
+    <div class="workspace-shell">
+      <header class="workspace-header">
+        <div class="workspace-title">
+          <p class="eyebrow">Options Fetcher</p>
+          <h1>Options Chain Viewer</h1>
+        </div>
+        <div class="workspace-controls">
+          <nav class="tabs rail-tabs" aria-label="Primary">
+            <button class="tab-button active" type="button" data-tab="table">
+              <span class="tab-title">Dataset</span>
+            </button>
+            <button class="tab-button" type="button" data-tab="summary">
+              <span class="tab-title">Overview</span>
+            </button>
+            <button class="tab-button" type="button" data-tab="readme">
+              <span class="tab-title">Reference</span>
+            </button>
+          </nav>
+          <label class="select-wrap header-select-wrap">
+            <span>CSV File</span>
+            <select id="fileSelect" aria-label="CSV File"></select>
           </label>
+          <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark and light mode">Dark Mode</button>
         </div>
+      </header>
 
-        <div class="table-card">
-          <div id="tableStatus" class="table-status">Loading data…</div>
-          <div class="table-scroll">
-            <table id="dataTable">
-              <thead></thead>
-              <tbody></tbody>
-            </table>
+      <main class="workspace-main">
+        <section id="tableTab" class="tab-panel active">
+          <div class="toolbar">
+            <div class="toolbar-stats">
+              <div class="stat-card freshness-card summary-stat-card">
+                <span class="stat-label freshness-label field-label-tooltip" title="Number of option records currently visible after active filters are applied.">Rows</span>
+                <strong id="rowCount">0</strong>
+              </div>
+              <div id="freshnessSummary" class="freshness-summary" aria-label="Data freshness"></div>
+              <div id="datasetCards" class="freshness-summary" aria-label="Dataset-level metrics"></div>
+            </div>
+            <label class="select-wrap compact-wrap">
+              <span>Rows Per Page</span>
+              <select id="pageSizeSelect">
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="250">250</option>
+                <option value="500">500</option>
+                <option value="all">All</option>
+              </select>
+            </label>
           </div>
-          <div class="pagination-bar">
-            <button id="prevPageButton" class="pager-button" type="button">Previous</button>
-            <span id="pageInfo" class="page-info">Page 1 of 1</span>
-            <button id="nextPageButton" class="pager-button" type="button">Next</button>
+
+          <div class="table-card">
+            <div id="tableStatus" class="table-status">Loading data...</div>
+            <div class="table-scroll">
+              <table id="dataTable">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="pagination-bar">
+              <button id="prevPageButton" class="pager-button" type="button">Previous</button>
+              <span id="pageInfo" class="page-info">Page 1 of 1</span>
+              <button id="nextPageButton" class="pager-button" type="button">Next</button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="summaryTab" class="tab-panel">
-        <div id="summaryContent" class="summary-shell">
-          <div id="summaryStatus" class="summary-status">Loading summary…</div>
-          <div id="summaryTickerGrid" class="summary-ticker-grid"></div>
-        </div>
-      </section>
+        <section id="summaryTab" class="tab-panel">
+          <div id="summaryContent" class="summary-shell">
+            <div id="summaryStatus" class="summary-status">Loading summary...</div>
+            <div id="summaryTickerGrid" class="summary-ticker-grid"></div>
+          </div>
+        </section>
 
-      <section id="readmeTab" class="tab-panel">
-        <article id="readmeContent" class="readme-card"></article>
-      </section>
-    </main>
+        <section id="readmeTab" class="tab-panel">
+          <article id="readmeContent" class="readme-card"></article>
+        </section>
+      </main>
+    </div>
   </div>
 
   <div id="rowModal" class="row-modal" aria-hidden="true">
@@ -116,6 +124,6 @@
     <div id="filterOptionList" class="filter-option-list"></div>
   </div>
 
-  <script src="/app.js?v=20260319f"></script>
+  <script src="/app.js?v=20260321a"></script>
 </body>
 </html>
