@@ -20,7 +20,7 @@ def test_load_runtime_config_uses_defaults_when_file_is_absent(tmp_path: Path):
     assert config.massive_snapshot_page_limit == 250
     assert config.massive_request_interval_seconds == 12.0
     assert config.debug_dump_provider_payload is False
-    assert config.debug_dump_dir == Path("logs/provider_debug")
+    assert config.debug_dump_dir == Path("debug")
     assert config.enable_post_download_filters is True
     assert config.max_expiration_weeks == 26
     assert config.max_expiration is not None
@@ -179,7 +179,7 @@ debug_dump_dir = 42
         encoding="utf-8",
     )
     config = load_runtime_config(bad_debug_dir)
-    assert config.debug_dump_dir == Path("logs/provider_debug")
+    assert config.debug_dump_dir == Path("debug")
     assert any("debug_dump_dir" in warning for warning in config.config_warnings)
 
 

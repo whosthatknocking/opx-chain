@@ -101,7 +101,7 @@ trading_days_per_year = 252
 stale_quote_seconds = 900
 enable_post_download_filters = true
 debug_dump_provider_payload = false
-debug_dump_dir = "logs/provider_debug"
+debug_dump_dir = "debug"
 max_expiration_weeks = 26
 
 [providers.massive]
@@ -124,7 +124,7 @@ Current defaults:
 - `STALE_QUOTE_SECONDS = 900`: staleness threshold for option and underlying quotes.
 - `ENABLE_POST_DOWNLOAD_FILTERS = true`: applies the zero-bid, strike-band, and wide-spread row filters after download. Set it to `false` when you want the raw downloaded rows to remain in the exported dataset while still computing metrics and quality flags.
 - `DEBUG_DUMP_PROVIDER_PAYLOAD = false`: when `true`, dump raw provider payloads to JSON before normalization so missing fields can be inspected directly.
-- `DEBUG_DUMP_DIR = "logs/provider_debug"`: directory used for raw provider payload dumps. Dump filenames are prefixed with the provider name.
+- `DEBUG_DUMP_DIR = "debug"`: directory used for raw provider payload dumps. Dump filenames are prefixed with the provider name.
 - `MAX_EXPIRATION_WEEKS = 26`: caps expirations to roughly the next six months by default. Set it to any positive week count you want, or `0` to disable the expiration cap entirely.
 - `data_provider = "yfinance"`: provider implementation used by the fetch pipeline.
 - `providers.massive.snapshot_page_limit = 250`: per-request Massive snapshot page size used for the option-chain endpoint. Values above `250` are clamped because the Massive snapshot endpoint rejects larger limits.

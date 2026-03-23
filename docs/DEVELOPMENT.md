@@ -29,6 +29,7 @@ This guide is for people changing the codebase, adding providers, or working on 
 │   └── utils.py
 ├── main.py
 ├── logs/
+├── debug/
 ├── outputs/
 └── requirements.txt
 ```
