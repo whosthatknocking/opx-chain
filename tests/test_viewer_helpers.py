@@ -7,8 +7,8 @@ import pandas as pd
 from opx import viewer
 
 
-def test_extract_field_descriptions_reads_current_readme_entries():
-    """README-backed field descriptions should stay discoverable for the viewer."""
+def test_extract_field_descriptions_reads_current_user_guide_entries():
+    """User-guide field descriptions should stay discoverable for the viewer."""
     descriptions = viewer.extract_field_descriptions()
 
     assert "underlying_symbol" in descriptions

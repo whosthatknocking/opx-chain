@@ -821,8 +821,8 @@ async function loadData(fileName) {
   renderTable();
 }
 
-async function loadReadme() {
-  const payload = await fetchJson('/api/readme');
+async function loadReference() {
+  const payload = await fetchJson('/api/reference');
   elements.readmeContent.innerHTML = renderMarkdown(payload.markdown);
 }
 
@@ -853,7 +853,7 @@ function initializeTheme() {
 
 async function initialize() {
   initializeTheme();
-  await Promise.all([loadFiles(), loadReadme()]);
+  await Promise.all([loadFiles(), loadReference()]);
   if (state.files.length > 0) {
     await loadData(state.files[0].name);
   } else {

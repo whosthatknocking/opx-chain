@@ -20,7 +20,8 @@ from opx.export import UNWANTED_EXPORT_COLUMNS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC_ROOT = Path(__file__).resolve().parent / "viewer_static"
-README_PATH = REPO_ROOT / "README.md"
+USER_GUIDE_PATH = REPO_ROOT / "docs" / "USER_GUIDE.md"
+FIELD_REFERENCE_PATH = REPO_ROOT / "docs" / "FIELD_REFERENCE.md"
 OUTPUTS_DIR = REPO_ROOT / "outputs"
 CSV_PATTERN = "options_engine_output_*.csv"
 HIDDEN_COLUMNS = {
@@ -32,7 +33,7 @@ DATASET_CARD_COLUMNS = (
     "risk_free_rate_used",
     "data_source",
 )
-README_MISSING_DESCRIPTION = "No README description available for this field."
+REFERENCE_MISSING_DESCRIPTION = "No reference description available for this field."
 
 
 class FreshnessSummary(TypedDict):
@@ -153,33 +154,21 @@ def resolve_csv_path(csv_name: str | None = None) -> Path:
     raise FileNotFoundError(f"CSV file not found: {csv_name}")
 
 
-def load_readme_text() -> str:
-    """Load the repository README for field descriptions and docs tabs."""
-    return README_PATH.read_text(encoding="utf-8")
+def load_user_guide_text() -> str:
+    """Load the user guide for field descriptions and the reference tab."""
+    return USER_GUIDE_PATH.read_text(encoding="utf-8")
 
 
 def load_field_reference_markdown() -> str:
-    """Return only the README section that documents exported CSV fields."""
-    markdown = load_readme_text()
-    start_marker = "## CSV Field Reference"
-    start_index = markdown.find(start_marker)
-    if start_index == -1:
-        return markdown
-
-    remaining = markdown[start_index:]
-    next_section_match = re.search(r"^## ", remaining[len(start_marker):], flags=re.MULTILINE)
-    if not next_section_match:
-        return remaining.strip()
-
-    end_index = len(start_marker) + next_section_match.start()
-    return remaining[:end_index].strip()
+    """Load the dedicated field-reference document used by the viewer."""
+    return FIELD_REFERENCE_PATH.read_text(encoding="utf-8")
 
 
 def extract_field_descriptions() -> dict[str, str]:
-    """Parse README bullet entries into per-field viewer descriptions."""
+    """Parse user-guide bullet entries into per-field viewer descriptions."""
     descriptions: dict[str, str] = {}
     pattern = re.compile(r"^- `([^`]+)`: (.+)$")
-    for line in load_readme_text().splitlines():
+    for line in load_field_reference_markdown().splitlines():
         match = pattern.match(line.strip())
         if match:
             descriptions[match.group(1)] = match.group(2)
@@ -263,7 +252,7 @@ def build_dataset_cards(frame: pd.DataFrame, descriptions: dict[str, str]) -> li
             {
                 "name": column,
                 "value": value,
-                "description": descriptions.get(column, README_MISSING_DESCRIPTION),
+                "description": descriptions.get(column, REFERENCE_MISSING_DESCRIPTION),
             }
         )
     return cards
@@ -528,7 +517,7 @@ def build_column_definitions(
     return [
         {
             "name": column,
-            "description": descriptions.get(column, README_MISSING_DESCRIPTION),
+            "description": descriptions.get(column, REFERENCE_MISSING_DESCRIPTION),
             "is_numeric": bool(
                 is_numeric_dtype(frame[column]) and not is_bool_dtype(frame[column])
             ),
@@ -610,7 +599,7 @@ class ViewerRequestHandler(SimpleHTTPRequestHandler):
             csv_name = query.get("file", [None])[0]
             self._respond_payload(load_csv_payload, csv_name)
             return
-        if parsed.path == "/api/readme":
+        if parsed.path in {"/api/readme", "/api/reference"}:
             self.respond_json({"markdown": load_field_reference_markdown()})
             return
         if parsed.path == "/api/summary":
