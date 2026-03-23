@@ -1,12 +1,11 @@
 """Entry-point tests for the console output emitted by the main fetch run."""
 
-from datetime import date
 from pathlib import Path
 
 import pandas as pd
 
+from conftest import make_runtime_config
 import main
-from opx.config import RuntimeConfig
 
 
 class StubLogger:
@@ -27,23 +26,7 @@ def test_main_prints_rows_written_after_saved(monkeypatch, capsys, tmp_path: Pat
     monkeypatch.setattr(
         main,
         "get_runtime_config",
-        lambda: RuntimeConfig(
-            tickers=("AAA", "BBB"),
-            min_bid=0.5,
-            min_open_interest=100,
-            min_volume=10,
-            max_spread_pct_of_mid=0.25,
-            risk_free_rate=0.045,
-            hv_lookback_days=30,
-            trading_days_per_year=252,
-            data_provider="yfinance",
-            stale_quote_seconds=900,
-            max_strike_distance_pct=0.30,
-            max_expiration="2026-06-30",
-            today=date(2026, 3, 20),
-            massive_api_key=None,
-            config_path=Path("/tmp/opx.toml"),
-        ),
+        lambda: make_runtime_config(tickers=("AAA", "BBB")),
     )
     monkeypatch.setattr(
         main,

@@ -5,8 +5,13 @@ from __future__ import annotations
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import lru_cache
 from pathlib import Path
-import tomllib
+
+try:
+    import tomllib
+except ImportError:  # pragma: no cover
+    import tomli as tomllib
 
 SUPPORTED_PROVIDERS = frozenset({"yfinance", "massive"})
 SCRIPT_VERSION = "2026-03-23.2"
@@ -18,6 +23,7 @@ class ConfigError(ValueError):
 
 
 @dataclass(frozen=True)
+# pylint: disable=too-many-instance-attributes
 class RuntimeConfig:
     """Resolved runtime settings used by the application."""
 
@@ -223,21 +229,15 @@ def validate_runtime_config(config: RuntimeConfig) -> None:
         )
 
 
-_RUNTIME_CONFIG: RuntimeConfig | None = None
-
-
+@lru_cache(maxsize=1)
 def get_runtime_config() -> RuntimeConfig:
     """Return the cached runtime config for the current process."""
-    global _RUNTIME_CONFIG
-    if _RUNTIME_CONFIG is None:
-        _RUNTIME_CONFIG = load_runtime_config()
-    return _RUNTIME_CONFIG
+    return load_runtime_config()
 
 
 def reset_runtime_config() -> None:
     """Clear the cached runtime config, primarily for tests."""
-    global _RUNTIME_CONFIG
-    _RUNTIME_CONFIG = None
+    get_runtime_config.cache_clear()
 
 
 def get_provider_credentials(provider_name: str) -> dict[str, str]:

@@ -29,7 +29,7 @@ class MassiveProvider(DataProvider):
         expiration_date,
         option_type,
         ticker,
-    ):
+    ):  # pylint: disable=too-many-arguments,too-many-positional-arguments
         raise NotImplementedError("Provider 'massive' is not implemented yet.")
 
 

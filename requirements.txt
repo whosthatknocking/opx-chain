@@ -19,3 +19,6 @@ playwright>=1.53
 
 # pytest            - Fast unit tests for metrics, filters, and viewer payload helpers
 pytest>=8.0
+
+# tomli             - Backfill for tomllib when CI or local environments use Python < 3.11
+tomli>=2.0; python_version < "3.11"

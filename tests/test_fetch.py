@@ -1,12 +1,11 @@
 """Fetch-path tests covering raw provider row-count logging."""
 
 import logging
-from pathlib import Path
 
 import pandas as pd
 
+from conftest import make_runtime_config
 from opx import fetch
-from opx.config import RuntimeConfig
 from opx.providers.base import OptionChainFrames
 
 
@@ -127,23 +126,7 @@ def test_fetch_ticker_option_chain_logs_raw_provider_row_counts(monkeypatch, cap
     monkeypatch.setattr(
         fetch,
         "get_runtime_config",
-        lambda: RuntimeConfig(
-            tickers=("TEST",),
-            min_bid=0.5,
-            min_open_interest=100,
-            min_volume=10,
-            max_spread_pct_of_mid=0.25,
-            risk_free_rate=0.045,
-            hv_lookback_days=30,
-            trading_days_per_year=252,
-            data_provider="yfinance",
-            stale_quote_seconds=900,
-            max_strike_distance_pct=0.30,
-            max_expiration="2026-06-30",
-            today=pd.Timestamp("2026-03-20").date(),
-            massive_api_key=None,
-            config_path=Path("/tmp/opx.toml"),
-        ),
+        lambda: make_runtime_config(today=pd.Timestamp("2026-03-20").date()),
     )
 
     caplog.set_level("INFO", logger="opx.run")

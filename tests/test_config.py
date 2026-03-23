@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from opx.config import ConfigError, load_runtime_config
+from opx.config import ConfigError, load_runtime_config, reset_runtime_config
 from opx.providers import MassiveProvider, YFinanceProvider, get_data_provider
 
 
@@ -70,7 +70,6 @@ def test_get_data_provider_returns_provider_from_runtime_config(monkeypatch, tmp
         encoding="utf-8",
     )
     monkeypatch.setattr("opx.config.DEFAULT_CONFIG_PATH", massive_config)
-    from opx.config import reset_runtime_config
 
     reset_runtime_config()
     assert isinstance(get_data_provider(), MassiveProvider)
