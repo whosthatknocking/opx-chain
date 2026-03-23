@@ -158,11 +158,14 @@ def test_fetch_ticker_option_chain_logs_raw_provider_row_counts(monkeypatch, cap
 def test_fetch_ticker_option_chain_prints_stage_counts(monkeypatch, capsys):
     """Console output should show per-stage fetch counts for each ticker."""
     monkeypatch.setattr(fetch, "get_data_provider", StubProvider)
-    monkeypatch.setattr(
-        fetch,
-        "get_runtime_config",
-        lambda: make_runtime_config(today=pd.Timestamp("2026-03-20").date()),
-    )
+
+    def config_factory():
+        """Return the standard filtered runtime config for fetch-stage diagnostics."""
+        return make_runtime_config(today=pd.Timestamp("2026-03-20").date())
+
+    monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx.metrics, "get_runtime_config", config_factory)
 
     result = fetch.fetch_ticker_option_chain("TEST")
 

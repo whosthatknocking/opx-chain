@@ -308,6 +308,7 @@ hv_lookback_days = 30
 trading_days_per_year = 252
 stale_quote_seconds = 900
 enable_post_download_filters = true
+max_expiration_weeks = 26
 
 [providers.massive]
 api_key = "replace-me"
@@ -328,17 +329,18 @@ Current defaults:
 - `TRADING_DAYS_PER_YEAR = 252`: annualization factor for volatility.
 - `STALE_QUOTE_SECONDS = 900`: staleness threshold for option and underlying quotes.
 - `ENABLE_POST_DOWNLOAD_FILTERS = true`: applies the zero-bid, strike-band, and wide-spread row filters after download. Set it to `false` when you want the raw downloaded rows to remain in the exported dataset while still computing metrics and quality flags.
+- `MAX_EXPIRATION_WEEKS = 26`: caps expirations to roughly the next six months by default. Set it to any positive week count you want, or `0` to disable the expiration cap entirely.
 - `data_provider = "yfinance"`: provider implementation used by the fetch pipeline.
 - `providers.massive.snapshot_page_limit = 250`: per-request Massive snapshot page size used for the option-chain endpoint. Values above `250` are clamped because the Massive snapshot endpoint rejects larger limits.
 - `providers.massive.request_interval_seconds = 12.0`: minimum delay between Massive HTTP requests. This default is conservative for delayed-plan usage.
 - `SCRIPT_VERSION = "2026-03-23.2"`: run-version string written to the append-only log.
-- `MAX_EXPIRATION`: computed dynamically as the last calendar day of the month four months from today, so the fetch window stays on a rolling roughly four-month horizon.
 
 In practice:
 
 - Change `tickers` when you want a different watchlist.
 - Tighten or loosen the threshold values when you want a narrower or broader tradability filter.
 - Set `enable_post_download_filters = false` when you want to keep rows that would normally be removed by the shared post-download filters.
+- Change `max_expiration_weeks` when you want a shorter or longer expiration window, or set it to `0` to disable the max-expiration cutoff.
 - Change the rate, lookback, trading-day, or staleness settings only if you want different modeling or freshness assumptions.
 - Switch `data_provider` when you want to use a different market-data implementation.
 - Add `[providers.massive].api_key` only when you select `massive`.

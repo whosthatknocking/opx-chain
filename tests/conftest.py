@@ -28,6 +28,7 @@ def make_runtime_config(**overrides):
         "stale_quote_seconds": 900,
         "enable_post_download_filters": True,
         "max_strike_distance_pct": 0.30,
+        "max_expiration_weeks": 14,
         "max_expiration": "2026-06-30",
         "today": date(2026, 3, 20),
         "massive_api_key": None,

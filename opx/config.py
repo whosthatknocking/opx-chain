@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from calendar import monthrange
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -28,6 +27,7 @@ DEFAULT_TRADING_DAYS_PER_YEAR = 252
 DEFAULT_STALE_QUOTE_SECONDS = 15 * 60
 DEFAULT_ENABLE_POST_DOWNLOAD_FILTERS = True
 DEFAULT_MAX_STRIKE_DISTANCE_PCT = 0.30
+DEFAULT_MAX_EXPIRATION_WEEKS = 26
 MAX_MASSIVE_SNAPSHOT_PAGE_LIMIT = 250
 DEFAULT_MASSIVE_SNAPSHOT_PAGE_LIMIT = MAX_MASSIVE_SNAPSHOT_PAGE_LIMIT
 DEFAULT_MASSIVE_REQUEST_INTERVAL_SECONDS = 12.0
@@ -54,7 +54,8 @@ class RuntimeConfig:
     stale_quote_seconds: int
     enable_post_download_filters: bool
     max_strike_distance_pct: float
-    max_expiration: str
+    max_expiration_weeks: int
+    max_expiration: str | None
     today: date
     massive_api_key: str | None
     massive_snapshot_page_limit: int
@@ -63,14 +64,8 @@ class RuntimeConfig:
     config_warnings: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _default_max_expiration(today):
-    year = today.year
-    month = today.month + 4
-    if month > 12:
-        month -= 12
-        year += 1
-    _, last_day = monthrange(year, month)
-    return f"{year}-{month:02d}-{last_day:02d}"
+def _default_max_expiration(today, weeks):
+    return (today + timedelta(weeks=weeks)).isoformat()
 
 
 def _coerce_list(value, *, field_name):
@@ -297,13 +292,15 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:
             coercer=_coerce_float,
             warnings=warnings,
         ),
-        max_expiration=_resolve_config_value(
-            settings.get("max_expiration"),
-            field_name="settings.max_expiration",
-            default=_default_max_expiration(today),
-            coercer=_coerce_str,
+        max_expiration_weeks=_resolve_config_value(
+            settings.get("max_expiration_weeks"),
+            field_name="settings.max_expiration_weeks",
+            default=DEFAULT_MAX_EXPIRATION_WEEKS,
+            coercer=_coerce_int,
             warnings=warnings,
+            validator=lambda value: value >= 0,
         ),
+        max_expiration=None,
         today=today,
         massive_api_key=massive_api_key,
         massive_snapshot_page_limit=_clamp_massive_snapshot_page_limit(_resolve_config_value(
@@ -323,6 +320,15 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:
         ),
         config_path=resolved_path,
         config_warnings=tuple(warnings),
+    )
+    object.__setattr__(
+        config,
+        "max_expiration",
+        (
+            None
+            if config.max_expiration_weeks == 0
+            else _default_max_expiration(today, config.max_expiration_weeks)
+        ),
     )
     return config
 
@@ -387,7 +393,8 @@ def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
         f"Applied trading_days_per_year: {config.trading_days_per_year}",
         f"Applied stale_quote_seconds: {config.stale_quote_seconds}",
         f"Applied enable_post_download_filters: {config.enable_post_download_filters}",
-        f"Applied max_expiration: {config.max_expiration}",
+        f"Applied max_expiration_weeks: {config.max_expiration_weeks}",
+        f"Applied max_expiration: {config.max_expiration or 'disabled'}",
         f"Applied providers.massive.api_key: {masked_massive_key}",
         f"Applied providers.massive.snapshot_page_limit: {config.massive_snapshot_page_limit}",
         (

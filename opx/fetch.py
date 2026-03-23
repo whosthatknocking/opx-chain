@@ -81,7 +81,7 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
         skipped_for_max_expiration = 0
         skipped_for_past_expiration = 0
         for expiration_date in available_expirations:
-            if expiration_date > config.max_expiration:
+            if config.max_expiration is not None and expiration_date > config.max_expiration:
                 skipped_for_max_expiration += 1
                 continue
 
