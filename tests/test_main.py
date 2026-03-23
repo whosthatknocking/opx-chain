@@ -172,3 +172,32 @@ def test_main_removes_lock_file_after_success(monkeypatch, tmp_path: Path):
 
     assert main.main() == 0
     assert not (tmp_path / "fetcher.lock").exists()
+
+
+def test_main_handles_ctrl_c_gracefully(monkeypatch, capsys, tmp_path: Path):
+    """Keyboard interrupts should return 130 and still remove the lock file."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        main,
+        "get_runtime_config",
+        lambda: make_runtime_config(tickers=("AAA",)),
+    )
+    monkeypatch.setattr(
+        main,
+        "create_run_logger",
+        lambda: (StubLogger(), Path("logs/run.log")),
+    )
+
+    def interrupting_fetch(_ticker, logger=None):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(main, "fetch_ticker_option_chain", interrupting_fetch)
+
+    exit_code = main.main()
+
+    stdout = capsys.readouterr().out
+    assert exit_code == 130
+    assert "Interrupted." in stdout
+    assert not (tmp_path / "fetcher.lock").exists()

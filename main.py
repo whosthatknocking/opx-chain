@@ -55,6 +55,7 @@ def main():
         print(f"Another fetcher run is already active: {FETCHER_LOCK_PATH}")
         return 1
 
+    logger = None
     try:
         config = get_runtime_config()
         logger, log_path = create_run_logger()
@@ -107,6 +108,11 @@ def main():
         print(f"\nSaved: {output_path}")
         print(f"Rows written: {row_count} | File size: {format_file_size(file_size_bytes)}")
         return 0
+    except KeyboardInterrupt:
+        print("\nInterrupted.")
+        if logger:
+            logger.warning("run_finished interrupted=true")
+        return 130
     finally:
         release_fetcher_lock(lock_handle)
 
