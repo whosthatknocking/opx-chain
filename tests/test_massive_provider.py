@@ -203,7 +203,8 @@ def test_massive_provider_builds_snapshot_and_option_chain(monkeypatch):
     assert bool(chain.calls.iloc[0]["is_in_the_money"]) is True
     assert bool(chain.puts.iloc[0]["is_in_the_money"]) is False
     assert chain.calls.iloc[0]["delta"] == 0.42
-    assert chain.puts.iloc[0]["contract_symbol"] == "O:TSLA260417P00095000"
+    assert chain.puts.iloc[0]["contract_symbol"] == "TSLA260417P00095000"
+    assert chain.puts.iloc[0]["contract_symbol"].startswith(chain.puts.iloc[0]["underlying_symbol"])
 
 
 def test_massive_provider_parses_official_client_model_objects(monkeypatch):
@@ -228,7 +229,8 @@ def test_massive_provider_parses_official_client_model_objects(monkeypatch):
     assert snapshot["underlying_price"] == 102.5
     assert str(snapshot["underlying_price_time"]) == "2024-03-20 13:39:59+00:00"
     assert normalized.iloc[0]["underlying_symbol"] == "TSLA"
-    assert normalized.iloc[0]["contract_symbol"] == "O:TSLA260417C00100000"
+    assert normalized.iloc[0]["contract_symbol"] == "TSLA260417C00100000"
+    assert normalized.iloc[0]["contract_symbol"].startswith(normalized.iloc[0]["underlying_symbol"])
     assert bool(normalized.iloc[0]["is_in_the_money"]) is True
     assert chain.calls.iloc[0]["bid"] == 1.2
     assert chain.calls.iloc[0]["ask"] == 1.4
@@ -277,8 +279,8 @@ def test_massive_provider_logs_each_http_call_status(capsys):
     stdout = capsys.readouterr().out
     assert response.status == 200
     assert (
-        "massive api: GET https://api.example.test/v3/snapshot/options/TSLA "
-        "status=200 results_count=2 has_next_page=true"
+        "massive api: snapshot_chain status=200 page=1 results_count=2 "
+        "results_total=2 has_next_page=true"
         in stdout
     )
 

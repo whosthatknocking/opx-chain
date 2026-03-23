@@ -67,6 +67,16 @@ def _normalize_contract_type(value: Any) -> str | None:
     return None
 
 
+def _normalize_contract_symbol(value: Any) -> str | None:
+    """Normalize Massive option symbols into the canonical contract identifier."""
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if normalized.startswith("O:"):
+        return normalized[2:]
+    return normalized or None
+
+
 def _compute_is_in_the_money(result: Any, option_type: str | None) -> bool | None:
     """Infer in-the-money state from the snapshot underlying price and strike."""
     if option_type is None:
@@ -94,6 +104,8 @@ class MassiveProvider(DataProvider):
 
     def __init__(self) -> None:
         self._last_request_started_at: float | None = None
+        self._api_page_count = 0
+        self._api_result_count = 0
 
     @property
     def external_logger_names(self) -> tuple[str, ...]:
@@ -144,7 +156,7 @@ class MassiveProvider(DataProvider):
             try:
                 response = wrapped_request(method, url, *args, **kwargs)
             except Exception as exc:  # pylint: disable=broad-exception-caught
-                print(f"massive api: {method} {url} error={exc}")
+                print(f"massive api: snapshot_chain error={exc}")
                 raise
             payload_bits = []
             response_data = getattr(response, "data", None)
@@ -156,11 +168,18 @@ class MassiveProvider(DataProvider):
                 if isinstance(decoded, dict):
                     results = decoded.get("results")
                     if isinstance(results, list):
-                        payload_bits.append(f"results_count={len(results)}")
+                        page_result_count = len(results)
+                        self._api_page_count += 1
+                        self._api_result_count += page_result_count
+                        payload_bits.append(f"page={self._api_page_count}")
+                        payload_bits.append(f"results_count={page_result_count}")
+                        payload_bits.append(f"results_total={self._api_result_count}")
                     if "next_url" in decoded:
                         payload_bits.append("has_next_page=true")
+                    else:
+                        payload_bits.append("has_next_page=false")
             suffix = "" if not payload_bits else " " + " ".join(payload_bits)
-            print(f"massive api: {method} {url} status={response.status}{suffix}")
+            print(f"massive api: snapshot_chain status={response.status}{suffix}")
             return response
 
         return logged_request
@@ -168,6 +187,8 @@ class MassiveProvider(DataProvider):
     def _fetch_snapshot_results(self, ticker: str) -> tuple[Any, ...]:
         """Load the per-ticker snapshot chain via the single Massive collection call."""
         last_error: Exception | None = None
+        self._api_page_count = 0
+        self._api_result_count = 0
 
         for attempt in range(MAX_RETRIES + 1):
             try:
@@ -273,9 +294,11 @@ class MassiveProvider(DataProvider):
             if option_type is None:
                 continue
             row = {
-                "contract_symbol": _coalesce(
-                    _get_field(result, "details", "ticker"),
-                    _get_field(result, "ticker"),
+                "contract_symbol": _normalize_contract_symbol(
+                    _coalesce(
+                        _get_field(result, "details", "ticker"),
+                        _get_field(result, "ticker"),
+                    )
                 ),
                 "underlying_symbol": _coalesce(
                     _get_field(result, "underlying_asset", "ticker"),
