@@ -236,6 +236,53 @@ def test_massive_provider_parses_official_client_model_objects(monkeypatch):
     assert chain.calls.iloc[0]["open_interest"] == 450
 
 
+def test_massive_provider_underlying_price_falls_back_to_value(monkeypatch):
+    """Underlying price should fall back to `underlying_asset.value` when needed."""
+    payload = list(make_snapshot_model_results())
+    payload[0].underlying_asset.price = None
+    payload[0].underlying_asset.value = 101.25
+    payload[1].underlying_asset.price = None
+    payload[1].underlying_asset.value = 101.25
+    monkeypatch.setattr(
+        MassiveProvider,
+        "_snapshot_results",
+        lambda self, ticker: tuple(payload),
+    )
+    provider = MassiveProvider()
+
+    snapshot = provider.load_underlying_snapshot("TSLA")
+
+    assert snapshot["underlying_price"] == 101.25
+
+
+def test_massive_provider_logs_each_http_call_status(capsys):
+    """Wrapped Massive HTTP calls should print status and response row counts."""
+    provider = MassiveProvider()
+
+    class Response:  # pylint: disable=too-few-public-methods
+        """Minimal HTTP response stub."""
+
+        status = 200
+        data = (
+            b'{"results":[{"ticker":"a"},{"ticker":"b"}],'
+            b'"next_url":"https://api.example.test/next"}'
+        )
+
+    wrapped = provider._wrap_logged_request(  # pylint: disable=protected-access
+        lambda method, url, *args, **kwargs: Response()
+    )
+
+    response = wrapped("GET", "https://api.example.test/v3/snapshot/options/TSLA")
+
+    stdout = capsys.readouterr().out
+    assert response.status == 200
+    assert (
+        "massive api: GET https://api.example.test/v3/snapshot/options/TSLA "
+        "status=200 results_count=2 has_next_page=true"
+        in stdout
+    )
+
+
 def test_massive_provider_client_sets_app_user_agent(monkeypatch):
     """Massive requests should advertise the app name and version in User-Agent."""
     monkeypatch.setattr(

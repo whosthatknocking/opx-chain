@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import json
 import time
 from typing import Any
 
@@ -109,6 +110,7 @@ class MassiveProvider(DataProvider):
         client = RESTClient(api_key=self._api_key(), retries=MAX_RETRIES, pagination=True)
         client.headers["User-Agent"] = CALLER_USER_AGENT
         client.client.headers["User-Agent"] = CALLER_USER_AGENT
+        client.client.request = self._wrap_logged_request(client.client.request)
         client._get = self._wrap_rate_limited_get(client._get)  # pylint: disable=protected-access
         return client
 
@@ -134,6 +136,34 @@ class MassiveProvider(DataProvider):
             return wrapped_get(*args, **kwargs)
 
         return rate_limited_get
+
+    def _wrap_logged_request(self, wrapped_request):
+        """Print Massive API call status and payload counts for each HTTP request."""
+
+        def logged_request(method, url, *args, **kwargs):
+            try:
+                response = wrapped_request(method, url, *args, **kwargs)
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                print(f"massive api: {method} {url} error={exc}")
+                raise
+            payload_bits = []
+            response_data = getattr(response, "data", None)
+            if response_data:
+                try:
+                    decoded = json.loads(response_data.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+                    decoded = None
+                if isinstance(decoded, dict):
+                    results = decoded.get("results")
+                    if isinstance(results, list):
+                        payload_bits.append(f"results_count={len(results)}")
+                    if "next_url" in decoded:
+                        payload_bits.append("has_next_page=true")
+            suffix = "" if not payload_bits else " " + " ".join(payload_bits)
+            print(f"massive api: {method} {url} status={response.status}{suffix}")
+            return response
+
+        return logged_request
 
     def _fetch_snapshot_results(self, ticker: str) -> tuple[Any, ...]:
         """Load the per-ticker snapshot chain via the single Massive collection call."""
