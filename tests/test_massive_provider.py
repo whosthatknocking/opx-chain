@@ -38,6 +38,7 @@ def make_snapshot_results():
                 "change_percent": 0.02,
                 "volume": 120,
                 "close": 1.25,
+                "previous_close": 100.0,
             },
             "greeks": {
                 "delta": 0.42,
@@ -51,7 +52,6 @@ def make_snapshot_results():
                 "ticker": "TSLA",
                 "price": 102.5,
                 "last_updated": "2026-03-20T13:39:59Z",
-                "change_percent": 0.015,
             },
         },
         {
@@ -76,6 +76,7 @@ def make_snapshot_results():
                 "change_percent": -0.01,
                 "volume": 75,
                 "close": 0.92,
+                "previous_close": 100.0,
             },
             "greeks": {
                 "delta": -0.28,
@@ -89,7 +90,6 @@ def make_snapshot_results():
                 "ticker": "TSLA",
                 "price": 102.5,
                 "last_updated": "2026-03-20T13:39:59Z",
-                "change_percent": 0.015,
             },
         },
     )
@@ -194,7 +194,7 @@ def test_massive_provider_builds_snapshot_and_option_chain(monkeypatch):
     chain = provider.load_option_chain("TSLA", "2026-04-17")
 
     assert snapshot["underlying_price"] == 102.5
-    assert snapshot["underlying_day_change_pct"] == 0.015
+    assert snapshot["underlying_day_change_pct"] == 0.025
     assert str(snapshot["underlying_price_time"]) == "2026-03-20 13:39:59+00:00"
     assert expirations == ["2026-04-17"]
     assert len(chain.calls) == 1
@@ -234,6 +234,8 @@ def test_massive_provider_parses_official_client_model_objects(monkeypatch):
     assert bool(normalized.iloc[0]["is_in_the_money"]) is True
     assert chain.calls.iloc[0]["bid"] == 1.2
     assert chain.calls.iloc[0]["ask"] == 1.4
+    assert chain.calls.iloc[0]["implied_volatility"] == 0.31
+    assert normalized.iloc[0]["implied_volatility"] == 0.31
     assert str(normalized.iloc[0]["option_quote_time"]) == "2024-03-20 13:40:00+00:00"
     assert chain.calls.iloc[0]["open_interest"] == 450
 
@@ -255,6 +257,23 @@ def test_massive_provider_underlying_price_falls_back_to_value(monkeypatch):
     snapshot = provider.load_underlying_snapshot("TSLA")
 
     assert snapshot["underlying_price"] == 101.25
+
+
+def test_massive_provider_does_not_use_option_day_change_as_underlying_day_change(monkeypatch):
+    """Option day-change fields should not be reused as underlying day-change values."""
+    payload = list(make_snapshot_model_results())
+    payload[0].day.previous_close = None
+    payload[0].day.change_percent = 0.27
+    monkeypatch.setattr(
+        MassiveProvider,
+        "_snapshot_results",
+        lambda self, ticker: tuple(payload),
+    )
+    provider = MassiveProvider()
+
+    snapshot = provider.load_underlying_snapshot("TSLA")
+
+    assert pd.isna(snapshot["underlying_day_change_pct"])
 
 
 def test_massive_provider_logs_each_http_call_status(capsys):

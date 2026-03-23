@@ -223,7 +223,6 @@ class MassiveProvider(DataProvider):
             return {
                 "underlying_price": np.nan,
                 "underlying_price_time": pd.NaT,
-                "underlying_market_state": None,
                 "underlying_day_change_pct": np.nan,
                 "historical_volatility": np.nan,
             }
@@ -248,16 +247,10 @@ class MassiveProvider(DataProvider):
         if pd.notna(underlying_price) and pd.notna(previous_close) and previous_close > 0:
             underlying_day_change_pct = (underlying_price - previous_close) / previous_close
         else:
-            underlying_day_change_pct = coerce_float(
-                _coalesce(
-                    _get_field(first, "underlying_asset", "change_percent"),
-                    _get_field(first, "day", "change_percent"),
-                )
-            )
+            underlying_day_change_pct = np.nan
         return {
             "underlying_price": underlying_price,
             "underlying_price_time": underlying_price_time,
-            "underlying_market_state": None,
             "underlying_day_change_pct": underlying_day_change_pct,
             "historical_volatility": np.nan,
         }
@@ -317,7 +310,7 @@ class MassiveProvider(DataProvider):
                 ),
                 "volume": _get_field(result, "day", "volume"),
                 "open_interest": _get_field(result, "open_interest"),
-                "implied_volatility": _get_field(result, "implied_volatility"),
+                "implied_volatility": coerce_float(_get_field(result, "implied_volatility")),
                 "change": _get_field(result, "day", "change"),
                 "percent_change": _get_field(result, "day", "change_percent"),
                 "is_in_the_money": _compute_is_in_the_money(result, option_type),
