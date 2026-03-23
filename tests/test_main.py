@@ -23,6 +23,8 @@ class StubLogger:
 def test_main_prints_rows_written_after_saved(monkeypatch, capsys, tmp_path: Path):
     """Show the saved path first, then row count and file size details."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
     monkeypatch.setattr(
         main,
         "get_runtime_config",
@@ -75,6 +77,8 @@ def test_main_prints_config_fallbacks(monkeypatch, capsys, tmp_path: Path):
         ),
     )
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
     monkeypatch.setattr(main, "get_runtime_config", lambda: config)
     monkeypatch.setattr(
         main,
@@ -98,6 +102,8 @@ def test_main_prints_config_fallbacks(monkeypatch, capsys, tmp_path: Path):
 def test_main_returns_failure_when_no_data_is_fetched(monkeypatch, tmp_path: Path):
     """An empty run should return a non-zero exit status."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
     monkeypatch.setattr(
         main,
         "get_runtime_config",
@@ -115,3 +121,22 @@ def test_main_returns_failure_when_no_data_is_fetched(monkeypatch, tmp_path: Pat
     )
 
     assert main.main() == 1
+
+
+def test_main_returns_failure_when_fetcher_lock_is_held(monkeypatch, capsys, tmp_path: Path):
+    """A second fetcher run should fail fast while the lock is held."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
+
+    held_lock = main.acquire_fetcher_lock()
+    assert held_lock is not None
+
+    try:
+        exit_code = main.main()
+    finally:
+        held_lock.close()
+
+    stdout = capsys.readouterr().out
+    assert exit_code == 1
+    assert "Another fetcher run is already active:" in stdout
