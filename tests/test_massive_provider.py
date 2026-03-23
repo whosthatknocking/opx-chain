@@ -382,8 +382,8 @@ def test_massive_provider_retries_rate_limits(monkeypatch):
     assert sleeps == [1.0, 2.0]
 
 
-def test_massive_provider_can_dump_raw_snapshot_payload(monkeypatch, tmp_path: Path, capsys):
-    """Shared provider debug mode should dump the raw Massive payload to JSON."""
+def test_massive_provider_can_dump_each_http_response_page(monkeypatch, tmp_path: Path, capsys):
+    """Shared provider debug mode should dump one Massive JSON file per HTTP response page."""
     provider = MassiveProvider()
     monkeypatch.setattr(
         "opx.providers.base.get_runtime_config",
@@ -395,25 +395,31 @@ def test_massive_provider_can_dump_raw_snapshot_payload(monkeypatch, tmp_path: P
         ),
     )
 
-    provider.debug_dump_payload(
-        "TSLA",
-        "snapshot_chain",
-        {
-            "results_count": 2,
-            "results": make_snapshot_model_results(),
-        },
-    )
+    class Response:  # pylint: disable=too-few-public-methods
+        """Minimal HTTP response stub."""
 
-    dumped_files = list(tmp_path.glob("massive_TSLA_snapshot_chain_*.json"))
+        status = 200
+        data = (
+            b'{"results":[{"ticker":"a"},{"ticker":"b"}],'
+            b'"next_url":"https://api.example.test/next"}'
+        )
+
+    provider._active_debug_ticker = "TSLA"  # pylint: disable=protected-access
+    wrapped = provider._wrap_logged_request(  # pylint: disable=protected-access
+        lambda method, url, *args, **kwargs: Response()
+    )
+    wrapped("GET", "https://api.example.test/v3/snapshot/options/TSLA")
+
+    dumped_files = list(tmp_path.glob("massive_TSLA_snapshot_chain_page_001_*.json"))
     assert len(dumped_files) == 1
     payload = json.loads(dumped_files[0].read_text(encoding="utf-8"))
     assert payload["ticker"] == "TSLA"
     assert payload["provider"] == "massive"
-    assert payload["label"] == "snapshot_chain"
-    assert payload["payload"]["results_count"] == 2
-    assert payload["payload"]["results"][0]["last_quote"]["bid"] == 1.2
-    assert payload["payload"]["results"][0]["underlying_asset"]["ticker"] == "TSLA"
-    assert "massive debug: dumped snapshot_chain payload to" in capsys.readouterr().out
+    assert payload["label"] == "snapshot_chain_page_001"
+    assert payload["payload"]["page"] == 1
+    assert payload["payload"]["status"] == 200
+    assert payload["payload"]["decoded_response"]["results"][0]["ticker"] == "a"
+    assert "massive debug: dumped snapshot_chain_page_001 payload to" in capsys.readouterr().out
 
 
 def test_massive_provider_spaces_underlying_http_requests(monkeypatch):

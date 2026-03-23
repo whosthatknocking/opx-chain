@@ -19,7 +19,7 @@ The output is designed to be data-focused rather than decision-focused. It does 
 
 Warning: Yahoo Finance quote timestamps can lag, and the collected option or underlying data may be stale. Sparse or empty option-chain results are especially common near the regular market open because Yahoo data is delayed and cached, option markets may not have fully formed yet, the `yfinance` API is scraping-based and can be unreliable, and immediate post-open liquidity is often thin. Always check the freshness fields in the CSV or browser before relying on the output for trading decisions.
 
-Warning: Massive options support for this project requires a Massive account with an options plan that exposes both the option snapshot data and a usable underlying price for the fetch path. `Options Basic` does not expose the required access, and while `Options Starter` is the entry point for delayed options data, this app's underlying-price-dependent calculations and strike filtering may be incomplete unless you have `Options Developer` or higher. Confirm your plan includes the underlying-price coverage you expect before treating the output as current market data.
+Warning: Massive options support for this project requires a Massive account with an options plan that exposes the option snapshot data, a usable underlying price, and quote access when you expect `bid` and `ask` to be populated. `Options Basic` does not expose the required access, `Options Starter` is the entry point for delayed options data, and lower tiers may still leave this app with trades but no quote fields. In practice, `bid` and `ask` access may require Massive's highest-cost quote-enabled options plan. Confirm your plan includes the quote and underlying-price coverage you expect before treating the output as current market data.
 
 ## Quick Start
 
@@ -354,7 +354,7 @@ Startup output:
 - Secret values are redacted in that output. For example, the Massive API key is shown as `set` or `not set`, never in plaintext.
 - When a config value is invalid and a code default is used instead, the fetcher prints a `Config fallbacks:` block so the override is visible.
 - During each ticker fetch, the fetcher prints provider progress, expiration counts, raw provider row counts, normalized-versus-kept row counts, and final kept rows so empty runs can be traced to a specific stage.
-- When `debug_dump_provider_payload = true`, the fetcher also writes raw provider payload JSON files under `debug_dump_dir`, using filenames such as `massive_TSLA_snapshot_chain_...json` or `yfinance_TSLA_option_chain_2026-04-17_...json`.
+- When `debug_dump_provider_payload = true`, the fetcher also writes raw provider payload JSON files under `debug_dump_dir`. Massive dumps are written per API response page with filenames such as `massive_TSLA_snapshot_chain_page_001_...json`, while yfinance dumps use labels such as `yfinance_TSLA_option_chain_2026-04-17_...json`.
 - `python fetcher.py` exits with status `0` after a successful CSV write and `1` when the run finishes with `No data fetched.`
 
 ## Development Setup

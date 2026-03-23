@@ -105,6 +105,8 @@ class MassiveProvider(DataProvider):
         self._last_request_started_at: float | None = None
         self._api_page_count = 0
         self._api_result_count = 0
+        self._debug_call_sequence = 0
+        self._active_debug_ticker: str | None = None
 
     @property
     def external_logger_names(self) -> tuple[str, ...]:
@@ -158,6 +160,7 @@ class MassiveProvider(DataProvider):
                 print(f"massive api: snapshot_chain error={exc}")
                 raise
             payload_bits = []
+            decoded = None
             response_data = getattr(response, "data", None)
             if response_data:
                 try:
@@ -177,6 +180,20 @@ class MassiveProvider(DataProvider):
                         payload_bits.append("has_next_page=true")
                     else:
                         payload_bits.append("has_next_page=false")
+            self._debug_call_sequence += 1
+            if self._active_debug_ticker:
+                self.debug_dump_payload(
+                    self._active_debug_ticker,
+                    f"snapshot_chain_page_{self._debug_call_sequence:03d}",
+                    {
+                        "method": method,
+                        "status": getattr(response, "status", None),
+                        "url": url,
+                        "page": self._debug_call_sequence,
+                        "results_total_so_far": self._api_result_count,
+                        "decoded_response": decoded,
+                    },
+                )
             suffix = "" if not payload_bits else " " + " ".join(payload_bits)
             print(f"massive api: snapshot_chain status={response.status}{suffix}")
             return response
@@ -188,36 +205,34 @@ class MassiveProvider(DataProvider):
         last_error: Exception | None = None
         self._api_page_count = 0
         self._api_result_count = 0
+        self._debug_call_sequence = 0
+        self._active_debug_ticker = ticker.upper()
 
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                results = self._client().list_snapshot_options_chain(
-                    ticker.upper(),
-                    params={"limit": self._snapshot_page_limit()},
-                )
-                resolved_results = tuple(results)
-                self.debug_dump_payload(
-                    ticker,
-                    "snapshot_chain",
-                    {
-                        "results_count": len(resolved_results),
-                        "results": resolved_results,
-                    },
-                )
-                return resolved_results
-            except Exception as exc:  # pylint: disable=broad-exception-caught
-                last_error = exc
-                message = str(exc).lower()
-                if "401" in message or "403" in message or "auth" in message:
-                    raise ProviderAuthenticationError(
-                        "Massive authentication failed. Check [providers.massive] api_key "
-                        "in ~/.config/opx/config.toml."
-                    ) from exc
-                if attempt == MAX_RETRIES:
-                    raise
-                time.sleep(BACKOFF_SECONDS * (2 ** attempt))
+        try:
+            for attempt in range(MAX_RETRIES + 1):
+                try:
+                    results = self._client().list_snapshot_options_chain(
+                        ticker.upper(),
+                        params={"limit": self._snapshot_page_limit()},
+                    )
+                    return tuple(results)
+                except Exception as exc:  # pylint: disable=broad-exception-caught
+                    last_error = exc
+                    message = str(exc).lower()
+                    if "401" in message or "403" in message or "auth" in message:
+                        raise ProviderAuthenticationError(
+                            "Massive authentication failed. Check [providers.massive] api_key "
+                            "in ~/.config/opx/config.toml."
+                        ) from exc
+                    if attempt == MAX_RETRIES:
+                        raise
+                    time.sleep(BACKOFF_SECONDS * (2 ** attempt))
 
-        raise RuntimeError("Massive snapshot request failed without a response.") from last_error
+            raise RuntimeError(
+                "Massive snapshot request failed without a response."
+            ) from last_error
+        finally:
+            self._active_debug_ticker = None
 
     @lru_cache(maxsize=32)
     def _snapshot_results(self, ticker: str) -> tuple[Any, ...]:
