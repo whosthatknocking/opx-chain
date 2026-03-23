@@ -9,7 +9,7 @@ from pathlib import Path
 import tomllib
 
 SUPPORTED_PROVIDERS = frozenset({"yfinance", "massive"})
-SCRIPT_VERSION = "2026-03-23.1"
+SCRIPT_VERSION = "2026-03-23.2"
 DEFAULT_CONFIG_PATH = Path("~/.config/opx/config.toml").expanduser()
 
 

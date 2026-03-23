@@ -95,9 +95,9 @@ def main() -> int:
     url = f"http://127.0.0.1:{port}"
 
     env = os.environ.copy()
-    env["OPTIONS_FETCHER_VIEWER_HOST"] = "127.0.0.1"
-    env["OPTIONS_FETCHER_VIEWER_PORT"] = str(port)
-    env["OPTIONS_FETCHER_VIEWER_QUIET"] = "1"
+    env["OPX_VIEWER_HOST"] = "127.0.0.1"
+    env["OPX_VIEWER_PORT"] = str(port)
+    env["OPX_VIEWER_QUIET"] = "1"
 
     with subprocess.Popen(
         [sys.executable, "viewer.py"],

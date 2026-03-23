@@ -4,7 +4,7 @@
 
 Extend the project from a Yahoo-only fetcher into a provider-driven options data pipeline that can run against exactly one market-data provider at a time.
 
-Rename the project and repository from `options_fetcher` to `opx` so it is easier to find and type in terminal workflows.
+Use the project and repository name `opx` so it is easier to find and type in terminal workflows.
 
 Initial supported providers:
 
@@ -66,7 +66,7 @@ The runtime model is one provider per run, chosen explicitly.
 
 ### 5.1 Project and Repository Rename
 
-The project and repository should be renamed from `options_fetcher` to `opx`.
+The project and repository name is `opx`.
 
 Intent:
 
@@ -396,7 +396,7 @@ Requirements:
 
 Add a new provider module:
 
-- `options_fetcher/providers/massive.py`
+- `opx/providers/massive.py`
 
 Responsibilities:
 
@@ -427,7 +427,7 @@ Rename-related implementation work should be scoped explicitly.
 
 Expected changes:
 
-- rename the package/module path from `options_fetcher` to `opx`
+- use the package/module path `opx`
 - update imports and entrypoints that depend on the package name
 - update documentation examples to use the new name where applicable
 - keep `viewer.py` unchanged
@@ -500,6 +500,29 @@ Prefer fixture-driven tests with provider stubs for shared fetch behavior.
 
 This is the required first step and must be completed before implementing the new provider.
 
+Status: Implemented on 2026-03-23.
+
+Implemented changes:
+
+- project and runtime naming were updated to `opx` where applicable
+- the Python package/module path was renamed to `opx`
+- `viewer.py` remained unchanged as the entrypoint
+- `~/.config/opx/config.toml` was introduced as the user config contract
+- provider selection and user-tunable runtime settings were moved into the config loader model
+- `yfinance` is the default provider when config is absent or incomplete
+- config loading and validation were added
+- provider credential access was isolated behind the config layer
+
+Implemented exit criteria:
+
+- the project consistently uses `opx` naming where applicable
+- package imports work under the new name
+- `viewer.py` still works without being renamed
+- the application can run from the new config source
+- provider selection is read from config
+- Massive credentials are read from config when needed
+- no environment-variable override path is required
+
 Goals:
 
 - rename the project and repository references to `opx`
@@ -523,6 +546,18 @@ Exit criteria:
 
 ### Milestone 2: Provider Contract Cleanup
 
+Status: Partially implemented.
+
+Implemented changes:
+
+- provider selection now uses a central factory/registry structure
+- shared fetch logging was generalized from `raw_yfinance_rows` to `raw_provider_rows`
+
+Still pending:
+
+- full enforcement of schema-preservation rules in implementation and tests
+- complete provider-neutral documentation around provider-supplied versus derived fields
+
 Goals:
 
 - generalize provider registry/factory behavior
@@ -537,6 +572,12 @@ Exit criteria:
 - the system is ready for a second provider without further config redesign
 
 ### Milestone 3: Massive Provider Implementation
+
+Status: Not implemented.
+
+Implemented prerequisite:
+
+- Massive can be selected in config and validated for missing credentials, but runtime execution remains unimplemented
 
 Goals:
 
@@ -554,6 +595,20 @@ Exit criteria:
 
 ### Milestone 4: Documentation and Viewer Clarity
 
+Status: Partially implemented.
+
+Implemented changes:
+
+- README now documents `~/.config/opx/config.toml`
+- README now documents that `massive` uses an API key in config
+
+Still pending:
+
+- provider onboarding documentation
+- provider coverage matrix
+- provider-aware field reference updates
+- viewer metadata surfacing for active provider beyond existing dataset cards
+
 Goals:
 
 - add provider setup and onboarding docs
@@ -569,6 +624,18 @@ Exit criteria:
 - viewer reference content matches the written documentation
 
 ### Milestone 5: Validation
+
+Status: Partially implemented.
+
+Implemented changes:
+
+- automated tests were added for config loading, provider selection, unsupported provider handling, and Massive-key validation
+- package rename behavior and the unchanged `viewer.py` entrypoint are covered by the updated test suite
+
+Still pending:
+
+- validation of a working Massive fetch path
+- broader provider-behavior coverage once the Massive implementation exists
 
 Goals:
 
@@ -608,7 +675,7 @@ These should be resolved before or during implementation:
 - Which Massive endpoints will be used for underlying snapshots, option contracts, and quotes?
 - Does Massive provide all timestamps needed for current freshness metrics?
 - Do we want provider-specific rate-limit backoff in phase 1, or can failures remain simple and explicit?
-- Do we need a temporary compatibility layer after renaming `options_fetcher` to `opx`, or can the rename be done in one pass?
+- No temporary compatibility layer is needed; the rename should remain a one-pass change.
 
 ## 17. Recommended Implementation Direction
 
@@ -617,7 +684,7 @@ Build this as a strict provider-contract cleanup, not as a large redesign.
 Recommended sequence:
 
 1. Introduce `~/.config/opx/config.toml` and move user-local runtime settings there.
-2. Rename project/package references from `options_fetcher` to `opx` while keeping `viewer.py` unchanged.
+2. Keep project/package references on `opx` while keeping `viewer.py` unchanged.
 3. Generalize provider registry and logging names.
 4. Implement `massive` provider behind the existing interface.
 5. Update onboarding docs and viewer reference text to reflect provider-aware field coverage.

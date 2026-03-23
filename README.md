@@ -300,7 +300,7 @@ Current defaults:
 - `TRADING_DAYS_PER_YEAR = 252`: annualization factor for volatility.
 - `STALE_QUOTE_SECONDS = 900`: staleness threshold for option and underlying quotes.
 - `data_provider = "yfinance"`: provider implementation used by the fetch pipeline.
-- `SCRIPT_VERSION = "2026-03-23.1"`: run-version string written to the append-only log.
+- `SCRIPT_VERSION = "2026-03-23.2"`: run-version string written to the append-only log.
 - `MAX_EXPIRATION`: computed dynamically as the last calendar day of the month four months from today, so the fetch window stays on a rolling roughly four-month horizon.
 
 In practice:
