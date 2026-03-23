@@ -25,6 +25,20 @@ Naming constraint:
 
 This spec defines the target behavior, implementation boundaries, and documentation requirements.
 
+### 1.1 Progress Tracking
+
+Use the following labels when updating this spec during implementation:
+
+- `Status: Not started` means no meaningful implementation work has landed
+- `Status: In progress` means some implementation work has landed, but exit criteria are not yet met
+- `Status: Verified complete` means the milestone goals and exit criteria were checked against the current repository state
+
+When a milestone is not `Not started`, include:
+
+- `Completed work:` for work that has clearly landed
+- `Remaining work:` for gaps still required to finish the milestone
+- `Verification notes:` for short statements describing how completion was checked when the milestone is marked `Verified complete`
+
 ## 2. Problem Statement
 
 The current codebase already has a provider abstraction, but the product behavior is still effectively Yahoo-centric:
@@ -262,6 +276,13 @@ Initial required capabilities:
 - load option chain for a ticker and expiration
 - normalize Massive response fields into canonical columns
 
+Initial endpoint direction:
+
+- the implementation should support the Massive snapshot endpoint `/v3/snapshot/options/{underlyingAsset}`
+- this endpoint may be used to source option-chain snapshot data, quotes, and related contract-level fields for a single underlying
+- if additional Massive endpoints are needed for expirations or underlying details, they should complement this snapshot endpoint rather than replace it without a documented reason
+- Massive provides the key timestamps needed to compute and assess current freshness metrics for options chain data, especially for real-time or near-real-time plans
+
 Massive-specific field policy:
 
 - if Massive provides canonical fields directly, use those values directly
@@ -403,6 +424,7 @@ Responsibilities:
 - API client calls
 - response parsing
 - pagination handling if required by the API
+- provider rate-limit handling with exponential backoff and 3 retries
 - mapping external field names into canonical columns
 - provider-specific timestamp normalization
 - provider-specific market-state normalization if available
@@ -431,10 +453,7 @@ Expected changes:
 - update imports and entrypoints that depend on the package name
 - update documentation examples to use the new name where applicable
 - keep `viewer.py` unchanged
-
-Open implementation question:
-
-- whether a short compatibility layer is needed during transition for imports or CLI usage
+- do not add a temporary compatibility layer for the old package name
 
 ## 12. User Experience Requirements
 
@@ -500,9 +519,9 @@ Prefer fixture-driven tests with provider stubs for shared fetch behavior.
 
 This is the required first step and must be completed before implementing the new provider.
 
-Status: Implemented on 2026-03-23.
+Status: Verified complete on 2026-03-23.
 
-Implemented changes:
+Completed work:
 
 - project and runtime naming were updated to `opx` where applicable
 - the Python package/module path was renamed to `opx`
@@ -513,15 +532,13 @@ Implemented changes:
 - config loading and validation were added
 - provider credential access was isolated behind the config layer
 
-Implemented exit criteria:
+Verification notes:
 
-- the project consistently uses `opx` naming where applicable
-- package imports work under the new name
-- `viewer.py` still works without being renamed
-- the application can run from the new config source
-- provider selection is read from config
-- Massive credentials are read from config when needed
-- no environment-variable override path is required
+- verified that the runtime loads config from `~/.config/opx/config.toml` with in-repo defaults when absent
+- verified that package imports resolve under `opx` and that no `options_fetcher` compatibility layer remains
+- verified that `viewer.py` remains unchanged as the top-level entrypoint
+- verified that provider selection and Massive credential validation are driven by the config loader
+- verified that no environment-variable override path is part of the config model
 
 Goals:
 
@@ -546,14 +563,14 @@ Exit criteria:
 
 ### Milestone 2: Provider Contract Cleanup
 
-Status: Partially implemented.
+Status: In progress.
 
-Implemented changes:
+Completed work:
 
 - provider selection now uses a central factory/registry structure
 - shared fetch logging was generalized from `raw_yfinance_rows` to `raw_provider_rows`
 
-Still pending:
+Remaining work:
 
 - full enforcement of schema-preservation rules in implementation and tests
 - complete provider-neutral documentation around provider-supplied versus derived fields
@@ -575,9 +592,17 @@ Exit criteria:
 
 Status: Not implemented.
 
-Implemented prerequisite:
+Completed work:
 
 - Massive can be selected in config and validated for missing credentials, but runtime execution remains unimplemented
+
+Remaining work:
+
+- add the real `massive` provider module
+- implement expiration, snapshot, and option-chain retrieval
+- normalize Massive payloads into the canonical schema
+- support provider-native analytics where semantics match
+- make the provider runnable end-to-end
 
 Goals:
 
@@ -595,14 +620,14 @@ Exit criteria:
 
 ### Milestone 4: Documentation and Viewer Clarity
 
-Status: Partially implemented.
+Status: In progress.
 
-Implemented changes:
+Completed work:
 
 - README now documents `~/.config/opx/config.toml`
 - README now documents that `massive` uses an API key in config
 
-Still pending:
+Remaining work:
 
 - provider onboarding documentation
 - provider coverage matrix
@@ -625,14 +650,14 @@ Exit criteria:
 
 ### Milestone 5: Validation
 
-Status: Partially implemented.
+Status: In progress.
 
-Implemented changes:
+Completed work:
 
 - automated tests were added for config loading, provider selection, unsupported provider handling, and Massive-key validation
 - package rename behavior and the unchanged `viewer.py` entrypoint are covered by the updated test suite
 
-Still pending:
+Remaining work:
 
 - validation of a working Massive fetch path
 - broader provider-behavior coverage once the Massive implementation exists
@@ -668,16 +693,7 @@ The project is complete when:
 13. The project and repository naming are updated to `opx` where applicable.
 14. `viewer.py` remains unchanged.
 
-## 16. Open Questions
-
-These should be resolved before or during implementation:
-
-- Which Massive endpoints will be used for underlying snapshots, option contracts, and quotes?
-- Does Massive provide all timestamps needed for current freshness metrics?
-- Do we want provider-specific rate-limit backoff in phase 1, or can failures remain simple and explicit?
-- No temporary compatibility layer is needed; the rename should remain a one-pass change.
-
-## 17. Recommended Implementation Direction
+## 16. Recommended Implementation Direction
 
 Build this as a strict provider-contract cleanup, not as a large redesign.
 
