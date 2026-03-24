@@ -949,7 +949,7 @@ async function initialize() {
   if (state.files.length > 0) {
     await loadData(state.files[0].name);
   } else {
-    elements.tableStatus.textContent = 'No CSV files found in the outputs directory.';
+    elements.tableStatus.textContent = 'No CSV files found in the output directory.';
   }
 
   elements.fileSelect.addEventListener('change', async (event) => {

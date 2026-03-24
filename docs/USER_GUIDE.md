@@ -59,13 +59,13 @@ The viewer includes:
 
 ## Output
 
-Each run writes a CSV file to the `outputs/` directory using a timestamped filename:
+Each run writes a CSV file to the `output/` directory using a timestamped filename:
 
 ```text
-outputs/options_engine_output_YYYYMMDD_HHMMSS.csv
+output/options_engine_output_YYYYMMDD_HHMMSS.csv
 ```
 
-`outputs/` is the standard export directory used by both the fetcher and the viewer.
+`output/` is the standard export directory used by both the fetcher and the viewer.
 
 Operational details that are not row-specific are written to:
 

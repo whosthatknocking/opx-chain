@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 STATIC_ROOT = Path(__file__).resolve().parent / "viewer_static"
 USER_GUIDE_PATH = REPO_ROOT / "docs" / "USER_GUIDE.md"
 FIELD_REFERENCE_PATH = REPO_ROOT / "docs" / "FIELD_REFERENCE.md"
-OUTPUTS_DIR = REPO_ROOT / "outputs"
+OUTPUTS_DIR = REPO_ROOT / "output"
 CSV_PATTERN = "options_engine_output_*.csv"
 HIDDEN_COLUMNS = {
     "roll_from_days_to_expiration",
@@ -145,7 +145,7 @@ def resolve_csv_path(csv_name: str | None = None) -> Path:
     """Resolve the requested CSV filename or fall back to the newest export."""
     files = discover_csv_files()
     if not files:
-        raise FileNotFoundError("No CSV files were found in the outputs directory.")
+        raise FileNotFoundError("No CSV files were found in the output directory.")
 
     if not csv_name:
         return files[0]

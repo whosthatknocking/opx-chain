@@ -12,7 +12,7 @@ from opx.fetch import fetch_ticker_option_chain
 from opx.runlog import create_run_logger
 from opx.validate import emit_validation_report, validate_export_frame
 
-OUTPUTS_DIR = Path("outputs")
+OUTPUTS_DIR = Path("output")
 LOCKS_DIR = Path("logs")
 FETCHER_LOCK_PATH = LOCKS_DIR / "fetcher.lock"
 

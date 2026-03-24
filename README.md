@@ -28,7 +28,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 Generated files are standardized under:
 
-- `outputs/` for exported CSV snapshots
+- `output/` for exported CSV snapshots
 - `logs/` for run logs
 - `debug/` for optional raw provider payload dumps
 

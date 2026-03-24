@@ -33,7 +33,7 @@ This guide is for people changing the codebase, adding providers, or working on 
 ├── main.py
 ├── logs/
 ├── debug/
-├── outputs/
+├── output/
 └── requirements.txt
 ```
 
