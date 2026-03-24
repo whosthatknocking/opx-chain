@@ -73,11 +73,17 @@ class FakeMarketDataClient:  # pylint: disable=too-few-public-methods,too-many-i
 
     def _make_request(self, _method, url, *_args, **_kwargs):
         if "options/chain/" in url:
+            expiration_values = []
+            for value in self._chain_result.expiration:
+                if hasattr(value, "timestamp"):
+                    expiration_values.append(int(value.timestamp()))
+                else:
+                    expiration_values.append(value)
             payload = {
                 "s": "ok",
                 "optionSymbol": self._chain_result.optionSymbol,
                 "underlying": self._chain_result.underlying,
-                "expiration": [int(value.timestamp()) for value in self._chain_result.expiration],
+                "expiration": expiration_values,
                 "side": self._chain_result.side,
                 "strike": self._chain_result.strike,
                 "updated": [int(value.timestamp()) for value in self._chain_result.updated],
@@ -135,8 +141,8 @@ def test_marketdata_provider_builds_snapshot_and_option_chain(monkeypatch):
 
     assert snapshot["underlying_price"] == 102.5
     assert pd.isna(snapshot["underlying_day_change_pct"])
-    assert str(snapshot["underlying_price_time"]) == "2024-03-20 13:40:00+00:00"
-    assert expirations == [expirations[0]]
+    assert str(snapshot["underlying_price_time"]) == "2024-03-20 13:40:10+00:00"
+    assert expirations == ["2026-04-17"]
     assert len(chain.calls) == 1
     assert len(chain.puts) == 1
     assert chain.calls.iloc[0]["underlying"] == "TSLA"
@@ -149,6 +155,18 @@ def test_marketdata_provider_builds_snapshot_and_option_chain(monkeypatch):
     assert normalized.iloc[0]["implied_volatility"] == 0.31
     assert normalized.iloc[0]["data_source"] == "marketdata"
     assert fake_client(provider).last_chain_kwargs["mode"] is None  # pylint: disable=no-member
+
+
+def test_marketdata_provider_normalizes_string_expiration_values(monkeypatch):
+    """String-form expiration values should still normalize into canonical dates."""
+    patch_marketdata_client(monkeypatch)
+    provider = MarketDataProvider()
+    client = fake_client(provider)
+    client._chain_result.expiration = ["2026-04-17", "2026-04-17"]  # pylint: disable=protected-access,no-member
+
+    expirations = provider.list_option_expirations("TSLA")
+
+    assert expirations == ["2026-04-17"]
 
 
 def test_marketdata_provider_client_sets_app_user_agent(monkeypatch):

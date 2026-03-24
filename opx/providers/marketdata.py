@@ -60,6 +60,17 @@ def _count_payload_rows(payload: Any) -> int:
     return 0
 
 
+def _normalize_marketdata_expiration_series(series: pd.Series) -> pd.Series:
+    """Normalize Market Data expiration values into YYYY-MM-DD strings."""
+    if pd.api.types.is_datetime64_any_dtype(series):
+        timestamps = pd.to_datetime(series, utc=True, errors="coerce")
+    elif pd.api.types.is_numeric_dtype(series):
+        timestamps = pd.to_datetime(series, unit="s", utc=True, errors="coerce")
+    else:
+        timestamps = pd.to_datetime(series, utc=True, errors="coerce")
+    return timestamps.dt.strftime("%Y-%m-%d")
+
+
 class MarketDataProvider(DataProvider):
     """Market-data provider backed by the official Market Data Python SDK."""
 
@@ -233,8 +244,9 @@ class MarketDataProvider(DataProvider):
                 return pd.DataFrame()
             frame = pd.DataFrame(payload)
             if "expiration" in frame.columns:
-                expiration_series = pd.to_datetime(frame["expiration"], errors="coerce")
-                frame["expiration_date"] = expiration_series.dt.strftime("%Y-%m-%d")
+                frame["expiration_date"] = _normalize_marketdata_expiration_series(
+                    frame["expiration"]
+                )
             return frame
         finally:
             self._active_debug_ticker = None
@@ -248,8 +260,8 @@ class MarketDataProvider(DataProvider):
             else np.nan
         )
         option_quote_time = normalize_timestamp(
-            chain_frame["updated"].dropna().iloc[0]
-            if "updated" in chain_frame.columns and not chain_frame.empty
+            chain_frame["updated"].dropna().max()
+            if "updated" in chain_frame.columns and not chain_frame["updated"].dropna().empty
             else None
         )
 
