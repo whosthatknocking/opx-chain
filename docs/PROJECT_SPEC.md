@@ -85,7 +85,8 @@ The config loader is responsible for:
 
 - provider selection
 - ticker selection
-- thresholds and model settings
+- filter thresholds and enable/disable behavior
+- analytics, freshness, and expiration-window settings
 - option-score weight tuning
 - validation enable/disable behavior
 - Massive credentials
@@ -97,6 +98,12 @@ Defaults:
 
 - if the config file is missing, the app uses built-in defaults
 - the default provider is `yfinance`
+- shared filter config uses `settings.filters_*` keys
+- current built-in filter defaults include:
+  - `filters_max_spread_pct_of_mid = 0.20`
+  - `filters_max_strike_distance_pct = 0.30`
+  - `filters_enable = true`
+- current built-in freshness default is `stale_quote_seconds = 21600`
 - malformed or unsupported config values fall back to code defaults
 - startup output prints the resolved config values actually applied
 - secrets are redacted in startup output
@@ -232,6 +239,7 @@ Requirements:
 - unexpected provider-specific scratch fields are dropped from export
 - provider-specific branches should not create different CSV shapes
 - shared derived fields such as `quote_quality_score` and `option_score` must be computed consistently across providers
+- viewer-facing summaries should consume the same exported derived fields rather than separate provider-specific ranking logic
 
 Canonical field sources may be:
 
@@ -259,7 +267,7 @@ Current behavior includes:
 - Massive per-page API status and cumulative result counts
 - Market Data per-request API status and result counts
 - final row count and output-path reporting
-- viewer summary highlights that can use shared derived scores from the export
+- viewer summary highlights that use shared derived scores from the export
 
 ### 6.3 Shared Scoring
 
@@ -273,6 +281,7 @@ Requirements:
 - score weights are configurable through runtime config so tuning does not require code changes
 - the configured weights must remain non-negative and sum to a positive total; otherwise defaults are used
 - score output is visible both in the exported CSV and in the local viewer
+- current viewer summary heuristics may use `option_score` alongside return-on-margin and quote-quality fields when selecting highlight candidates
 
 ### 6.3 Exit Status
 
