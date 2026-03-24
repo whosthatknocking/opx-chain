@@ -191,6 +191,34 @@ def test_add_derived_pricing_metrics_uses_expected_fill_rule_by_spread_threshold
     assert result.loc[1, "premium_per_day"] == pytest.approx(0.11)
 
 
+def test_add_derived_pricing_metrics_falls_back_for_call_capital_required(monkeypatch):
+    """Call capital should fall back from last trade to expected fill when needed."""
+    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    frame = pd.DataFrame(
+        [
+            {
+                "option_type": "call",
+                "bid": 1.00,
+                "ask": 1.40,
+                "last_trade_price": float("nan"),
+                "implied_volatility": 0.30,
+                "strike": 100.0,
+                "volume": 20,
+                "open_interest": 100,
+                "days_to_expiration": 10,
+                "time_to_expiration_years": 10 / 365.0,
+            }
+        ]
+    )
+
+    quoted = add_quote_quality_metrics(frame.copy(), underlying_price=100.0)
+    result = add_derived_pricing_metrics(quoted, underlying_price=100.0)
+
+    assert result.loc[0, "expected_fill_price"] == pytest.approx(1.10)
+    assert result.loc[0, "capital_required"] == pytest.approx(110.0)
+    assert pd.notna(result.loc[0, "theta_efficiency"])
+
+
 def test_add_screening_and_freshness_flags_uses_prompt_spread_and_dte_tiers(monkeypatch):
     """Spread and DTE scores should follow the prompt's execution scoring tiers."""
     monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)

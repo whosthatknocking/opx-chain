@@ -338,9 +338,14 @@ def add_derived_pricing_metrics(df, underlying_price):
         np.nan,
     )
     df["theta_dollars_per_day"] = np.abs(df["theta"]) * 100
+    call_capital_price = (
+        df["last_trade_price"]
+        .combine_first(df["expected_fill_price"])
+        .combine_first(df["mark_price_mid"])
+    )
     df["capital_required"] = np.where(
         df["option_type"] == "call",
-        df["last_trade_price"] * 100,
+        call_capital_price * 100,
         df["strike"] * 100,
     )
     df["theta_efficiency"] = np.where(
