@@ -1,733 +1,368 @@
-# Project Specification: Multi-Provider Options Fetcher
+# Overall Project Specification: opx
 
-## 1. Goal
+## 1. Overview
 
-Extend the project from a Yahoo-only fetcher into a provider-driven options data pipeline that can run against exactly one market-data provider at a time.
+`opx` is a single-provider options data fetcher and local viewer.
 
-Use the project and repository name `opx` so it is easier to find and type in terminal workflows.
+The project downloads option-chain data for configured tickers, normalizes that data into a stable canonical CSV schema, computes shared analytics, writes timestamped exports, and serves a local browser UI for inspection.
 
-Initial supported providers:
+Current supported providers:
 
 - `yfinance`
-- `massive` (Polygon / Massive API)
+- `massive` (`Massive / Polygon.io`)
 
-The system must make it obvious:
+Core product rules:
 
-- which provider produced a dataset
-- which fields are fully populated by that provider
-- which fields are unavailable, approximated, or intentionally left blank
-- which credentials are required to run that provider
-- when a user needs to complete provider onboarding before the provider can be used
+- exactly one provider is active for a run
+- output files must not mix providers
+- the canonical CSV schema is the main product contract
+- provider-specific data should map into existing canonical fields where semantics match
+- `viewer.py` remains unchanged as the top-level entrypoint name
 
-Naming constraint:
+## 2. Current Product Scope
 
-- `viewer.py` remains unchanged
+The project currently supports:
 
-This spec defines the target behavior, implementation boundaries, and documentation requirements.
+- config-driven provider selection
+- config-driven runtime thresholds and fetch behavior
+- provider-backed fetches through `yfinance` or `massive`
+- canonical CSV export with shared derived metrics
+- provider-aware field reference documentation
+- a local viewer for exported CSV files
+- provider debug payload dumps for raw-response inspection
 
-### 1.1 Progress Tracking
+The project does not currently aim to:
 
-Use the following labels when updating this spec during implementation:
+- merge rows from multiple providers in one run
+- auto-fallback between providers during a fetch
+- expose provider-specific scratch fields in the CSV by default
+- act as a live trading terminal
+- implement a secret-management system beyond local user config
 
-- `Status: Not started` means no meaningful implementation work has landed
-- `Status: In progress` means some implementation work has landed, but exit criteria are not yet met
-- `Status: Verified complete` means the milestone goals and exit criteria were checked against the current repository state
+## 3. Naming and Packaging
 
-When a milestone is not `Not started`, include:
+The project name, repository name, and package path are `opx`.
 
-- `Completed work:` for work that has clearly landed
-- `Remaining work:` for gaps still required to finish the milestone
-- `Verification notes:` for short statements describing how completion was checked when the milestone is marked `Verified complete`
+Implemented naming rules:
 
-## 2. Problem Statement
+- the Python package path is `opx`
+- documentation and user-facing commands use `opx`
+- `viewer.py` remains the unchanged entrypoint name
+- no temporary compatibility layer for the old package name remains in the repo
 
-The current codebase already has a provider abstraction, but the product behavior is still effectively Yahoo-centric:
+## 4. Runtime Model
 
-- provider selection is hard-coded in config
-- logging language assumes `yfinance`
-- documentation describes a Yahoo-only data model
-- there is no dedicated user config file pattern
-- there is no provider coverage matrix describing data availability differences
-- the project and repo naming remain longer than desired for terminal-oriented use
+### 4.1 Single Active Provider
 
-Adding Massive without tightening those contracts would create ambiguity in the exported data and in the user experience.
+At runtime there is exactly one active provider.
 
-## 3. Product Outcome
-
-After this work, a user should be able to:
-
-1. Choose a single active provider for a run.
-2. Store provider credentials outside tracked source files in a user config file.
-3. Run the fetcher with either `yfinance` or `massive`.
-4. See in the output and docs which provider generated the data.
-5. Understand which fields are vendor-native, derived, unavailable, or lower-confidence for the selected provider.
-6. Use the shorter project and repository name `opx` for day-to-day terminal work.
-
-## 4. Non-Goals
-
-This project does not aim to:
-
-- merge data from multiple providers in one run
-- reconcile rows across providers
-- auto-fallback from one provider to another during a run
-- build a secret vault or cloud secret manager
-- normalize every possible field across all future vendors in this phase
-- rename `viewer.py`
-
-The runtime model is one provider per run, chosen explicitly.
-
-## 5. Naming and Packaging
-
-### 5.1 Project and Repository Rename
-
-The project and repository name is `opx`.
-
-Intent:
-
-- shorten terminal commands
-- make the project easier to locate in shell history, tab completion, and local workflows
-- keep the public working name concise
-
-This rename applies to:
-
-- repository naming
-- package/module naming where appropriate
-- documentation references
-- user-facing setup and command examples
-
-Constraint:
-
-- `viewer.py` remains unchanged
-
-### 5.2 Rename Safety
-
-The rename should be handled conservatively.
-
-Rules:
-
-- preserve behavior while shortening names
-- update internal references only where needed to support the new name
-- avoid unnecessary command churn for the viewer entrypoint
-- document any compatibility implications if import paths or commands change
-
-## 6. Provider Model
-
-### 6.1 Single Active Provider
-
-At runtime there must be exactly one active provider.
-
-Allowed values:
+Allowed provider keys:
 
 - `yfinance`
 - `massive`
 
 Behavior:
 
-- all fetch operations for a run use the active provider only
-- no mixed-provider rows are allowed in one output file
-- the run log records the active provider once at startup
-- the CSV includes row-level `data_source`
-- the dataset metadata shown in the viewer includes the active provider
-- the default provider is `yfinance` so a new user can run the project with minimal setup
+- all fetches for a run use the configured provider only
+- all exported rows carry `data_source`
+- viewer dataset metadata surfaces the provider when the dataset is single-provider
+- shared logs use provider-neutral wording such as `raw_provider_rows`
 
-### 6.2 Provider Naming
+### 4.2 Config Source
 
-Use the internal provider key:
-
-- `massive`
-
-Documentation should clarify the branding:
-
-- `Massive (Polygon.io / Polygon rebrand)`
-
-This avoids confusion between product naming and implementation naming.
-
-## 7. Configuration and Secrets
-
-### 7.1 User Config File
-
-Runtime configuration should be stored in a user config file:
+The single source of truth for runtime settings is:
 
 - `~/.config/opx/config.toml`
 
-This file becomes the single source of truth for provider selection and user-local settings.
+The config loader is responsible for:
 
-It should contain both non-secret settings and provider credentials.
-
-Relevant settings to move into this file include:
-
-- tickers
-- spread thresholds
-- staleness thresholds
-- expiration window
-- active provider name
-- other user-tunable runtime settings currently held in code constants
-
-The active provider is selected in this config file, not via environment variables.
+- provider selection
+- ticker selection
+- thresholds and model settings
+- Massive credentials
+- debug-dump settings
+- Massive request pacing and page-size settings
 
 Defaults:
 
-- if the config file is absent or incomplete, defaults should favor `yfinance`
-- if individual config values are missing, malformed, or out of range, the loader should apply code defaults for those fields rather than aborting the run
-- startup output should show the resolved config values actually applied, with secrets redacted and fallback-to-default notices when relevant
-- startup output should also show fetch progress at the ticker and expiration level, including raw provider rows, rows kept after shared filtering, and final kept rows per ticker
-- `yfinance` remains the default provider because it requires the least effort to get started
+- if the config file is missing, the app uses built-in defaults
+- the default provider is `yfinance`
+- malformed or unsupported config values fall back to code defaults
+- startup output prints the resolved config values actually applied
+- secrets are redacted in startup output
+- config fallback warnings are printed when defaults are applied
 
-There is no need for environment-variable overrides in this phase.
+### 4.3 Secrets
 
-### 7.2 Credentials in Config File
+Provider credentials are local-only configuration.
 
-Provider credentials must be stored in the user config file, not in tracked project files.
+Current credential model:
 
-Target file:
-
-- user-local config: `~/.config/opx/config.toml`
-
-Requirements:
-
-- credentials are never stored in repository source files
-- credentials are never committed to git
-- credentials are never copied into README examples as real values
-- missing credentials produce a clear error only when the selected provider requires them
-
-Initial secret keys:
-
-- `[providers.massive] api_key = "..."`
-
-`yfinance` should not require secrets.
-
-### 7.3 Credential Handling Rules
-
-- never hard-code API keys in source
-- never store credentials in tracked repo files
-- never print full secrets in logs or exceptions
-- never share credentials in documentation, examples, commits, screenshots, or logs
-- credentials should be treated as private local machine configuration only
-- if logging config state, redact secret values
-
-## 8. Provider Capability Requirements
-
-### 8.1 Shared Contract
-
-Each provider must implement the existing provider interface and return canonical normalized fields where possible.
-
-The canonical schema remains the product contract. Providers map into it.
-
-The generalized CSV schema should remain mostly unchanged.
-
-Schema rule:
-
-- do not add new CSV fields unless there is a clear, documented need
-- prefer mapping provider-native fields into existing canonical columns
-- prefer keeping downstream CSV consumers stable over exposing every provider-specific field
-- if a new field is unavoidable, document why an existing canonical field could not represent it
-
-The default implementation approach is schema preservation, not schema expansion.
-
-Each provider implementation must clearly classify fields as:
-
-- vendor-supplied
-- derived by the app
-- unavailable for that provider
-
-### 8.2 Canonical Field Semantics
-
-Canonical columns must preserve stable meaning across providers.
+- `yfinance` requires no secret
+- `massive` reads `[providers.massive].api_key` from `~/.config/opx/config.toml`
 
 Rules:
 
-- if a provider supplies a field whose meaning matches an existing canonical column, use the provider value directly
-- if the provider does not supply the field, derive it in-app when possible
-- if the provider supplies a similarly named field with materially different semantics, do not map it blindly
-- when semantics differ, either transform the value into the canonical meaning or leave the canonical field blank
+- secrets must never be stored in tracked repo files
+- secrets must never be printed in full
+- secrets must never be copied into docs or logs
 
-This matters especially for pricing and Greeks fields, where two providers may expose similarly named metrics that are not computed from the same assumptions.
+Current missing-key behavior:
 
-### 7.3 YFinance Provider
+- if `massive` is selected but `[providers.massive].api_key` is absent, runtime config falls back to `yfinance` and records a clear warning
+- if `massive` is selected with invalid credentials, the Massive provider fails clearly when used
 
-Status:
+## 5. Provider Implementations
 
-- existing baseline provider
-- unofficial / scraping-based
-- slower and less reliable near market open
+### 5.1 Shared Provider Contract
 
-Expected characteristics:
+Providers implement a shared interface and map vendor payloads into the canonical schema.
 
-- no API key
-- supports underlying snapshot, option expirations, and option chains
-- may provide delayed or stale quote times
-- may have empty or incomplete chains
+Shared contract rules:
 
-YFinance-specific note:
+- preserve the canonical CSV schema unless there is a documented reason to change it
+- use provider-native values directly when semantics match canonical fields
+- transform provider fields when normalization is needed
+- derive fields in app code only when provider values are absent or unsuitable
+- leave fields blank rather than map misleading vendor values into canonical columns
 
-- some canonical metrics are currently derived in-app because Yahoo data does not provide them directly
-- this includes derived fields such as Greeks and related analytics produced by the existing pipeline
+### 5.2 YFinance Provider
 
-### 7.4 Massive Provider
+Current characteristics:
 
-Status:
+- no provider account required
+- supports underlying snapshot, expiration discovery, and option-chain fetches
+- uses app-derived analytics for many canonical fields
+- may return stale, delayed, or sparse data, especially near the market open
 
-- new provider to implement
-- API-key backed
-- expected to be the more explicit and production-oriented data source
-- requires provider onboarding before use
-- should use the official Massive client library installed from `massive`
+### 5.3 Massive Provider
 
-Initial required capabilities:
+Current characteristics:
 
-- load underlying snapshot for a ticker
-- list option expirations
-- load option chain for a ticker and expiration
-- normalize Massive response fields into canonical columns
+- backed by the official `massive` client library
+- requires account onboarding and API key setup
+- uses `RESTClient.list_snapshot_options_chain(...)` as the per-ticker collection path
+- derives underlying details, expiration discovery, and contract rows from the returned snapshot payload
 
-Initial endpoint direction:
+Implemented Massive behavior:
 
-- the implementation should support the Massive snapshot endpoint `/v3/snapshot/options/{underlyingAsset}`
-- the per-ticker Massive flow should use this snapshot endpoint as its collection path for option-chain data, quotes, expiration discovery, and underlying details derived from the returned payload
-- the implementation should request snapshot pages with a configurable `limit`, defaulting to `250`
-- configured snapshot page sizes above the endpoint maximum should be clamped before the request is made
-- the implementation should enforce configurable latency between Massive HTTP requests, including paginated snapshot requests
-- the default Massive request latency should be conservative for delayed-plan usage and configurable per account limits
-- Massive provides the key timestamps needed to compute and assess current freshness metrics for options chain data, especially for real-time or near-real-time plans
-- Massive API access should go through the official client library rather than ad hoc raw HTTP request code in the app
+- request page size is configurable and clamped to the endpoint maximum of `250`
+- request spacing is configurable through `providers.massive.request_interval_seconds`
+- provider retry handling uses exponential backoff with 3 retries
+- request caller header identifies the app as `opx/<version>`
+- fetch progress prints per-page API status and row-count progress
+- raw per-response payload dumps can be written to `debug/`
 
-Massive-specific field policy:
+Field-mapping rules already implemented for Massive include:
 
-- if Massive provides canonical fields directly, use those values directly
-- if Massive provides Greeks or similar analytics whose meaning matches the current canonical columns, prefer the provider-supplied values over recomputing them
-- if Massive provides a field that differs in definition, model, units, or timestamp basis from the canonical field, document that difference before mapping it
-- only fall back to in-app derivation when the provider does not supply the canonical field or when the provider field cannot be safely mapped as-is
+- `underlying_asset.ticker -> underlying_symbol`
+- `details.ticker -> contract_symbol`, stripping the `O:` prefix
+- `underlying_asset.price`, fallback `underlying_asset.value` -> `underlying_price`
+- `last_quote.bid/ask` -> canonical `bid` / `ask`
+- top-level `implied_volatility` -> canonical `implied_volatility`
+- provider greeks populate canonical greek columns when semantics match
+- `is_in_the_money` is derived from spot versus strike because the snapshot model does not expose a direct canonical flag
 
-Onboarding documentation must explicitly state:
+## 6. Output Contract
 
-- `massive` is not zero-setup
-- the user must create a Polygon / Massive account
-- the user must obtain an API key during onboarding
-- the API key is only required when `massive` is the selected provider
-- a user running the default `yfinance` flow does not need to provide any API key
+### 6.1 Canonical CSV
 
-Provider setup docs should include a short provider-specific section such as:
-
-- `yfinance`: no onboarding required beyond Python dependencies
-- `massive`: onboarding required, API key required, key stored in `~/.config/opx/config.toml`
-
-## 9. Data Coverage and Documentation Requirements
-
-### 8.1 Field-Level Clarity
-
-The documentation must explicitly distinguish:
-
-- fields generated for all providers
-- fields generated only for `yfinance`
-- fields generated only for `massive`
-- fields derived in-app and therefore available when required inputs exist
-- fields supplied directly by the provider and passed through into canonical columns
-- fields that may be blank for one provider because the source API does not expose them
-
-This must be visible in:
-
-- `README.md`
-- any field reference shown in the viewer
-- provider setup instructions
-
-### 8.2 Required Coverage Matrix
-
-Add a provider coverage section to the documentation with a matrix like:
-
-- field group
-- `yfinance` support
-- `massive` support
-- notes
-
-Minimum field groups:
-
-- underlying snapshot
-- underlying quote timestamp
-- option bid/ask/last
-- volume
-- open interest
-- implied volatility
-- quote timestamp
-- historical volatility
-- derived Greeks
-- expected move
-- run-log diagnostics
-
-### 8.3 “Generated vs Not Generated” Language
-
-For each provider, docs must avoid implying that all fields are always present.
-
-Use explicit language such as:
-
-- “Generated for both providers”
-- “Generated only when the provider supplies quote timestamps”
-- “Not generated for `yfinance`”
-- “Not currently generated for `massive` in phase 1”
-- “Derived for `yfinance`, provider-supplied for `massive`”
-
-The CSV browser reference tab should reflect the same wording.
-
-## 10. Output Contract
-
-### 9.1 CSV
-
-Each exported row must continue to include:
-
-- `data_source`
-
-The CSV contract should otherwise remain as stable as possible.
+The canonical CSV schema is the primary product contract.
 
 Requirements:
 
-- preserve the existing canonical column set unless there is a strong reason to change it
-- avoid provider-specific CSV branches
-- avoid adding new columns just because one provider exposes more raw fields
-- when one provider offers richer native analytics, map them into existing canonical columns where semantics match
+- exported rows include `data_source`
+- shared export stays pinned to the canonical column set
+- unexpected provider-specific scratch fields are dropped from export
+- provider-specific branches should not create different CSV shapes
 
-Additional desired dataset-level clarity:
+Canonical field sources may be:
 
-- startup log entry showing active provider
-- viewer summary card showing active provider
-- optional future metadata file or dataset header summary if needed
+- direct provider values
+- transformed provider values
+- app-derived values
+- blank when the provider does not expose the required source data
 
-### 9.2 Logging
+Provider-specific field availability and mapping behavior are documented in:
 
-Logging must become provider-neutral.
+- `docs/FIELD_REFERENCE.md`
 
-Current Yahoo-specific phrases such as `raw_yfinance_rows` should be generalized to names like:
+### 6.2 Logging and Progress Output
 
-- `raw_provider_rows`
-- `provider=<name>`
+Runtime output is provider-neutral and intended to make fetch progress visible.
 
-Required log behavior:
+Current behavior includes:
 
-- record active provider at run start
-- record provider-specific raw row counts
-- record provider-raised errors
-- avoid vendor-specific wording in shared code paths
+- startup output for resolved config state
+- provider name shown in shared run logging
+- ticker- and expiration-level progress
+- raw provider row counts
+- kept-row counts after normalization and filtering
+- Massive per-page API status and cumulative result counts
+- final row count and output-path reporting
 
-## 11. Architecture Changes
+### 6.3 Exit Status
 
-### 10.1 Provider Selection
+Current CLI exit behavior:
 
-Refactor provider selection into a small registry/factory model.
+- `0` when a CSV is written successfully
+- `1` when the run completes but no data is fetched
+- `130` when interrupted with `Ctrl+C`
 
-Requirements:
+## 7. Operational Safeguards
 
-- central list of supported providers
-- clear error for unsupported provider names
-- easy addition of future providers without editing unrelated fetch logic
-- selected provider is read from `~/.config/opx/config.toml`
-- default provider is `yfinance`
+### 7.1 Single-Run Lock
 
-### 10.2 Massive Provider Module
+The fetcher uses a lock file to prevent concurrent runs.
 
-Add a new provider module:
+Current behavior:
 
-- `opx/providers/massive.py`
+- a run acquires `logs/fetcher.lock`
+- a second run exits clearly if the lock is already held
+- the lock file is removed when the run finishes or is interrupted
 
-Responsibilities:
+### 7.2 Debug Payload Dumps
 
-- API client calls through the official Massive client library
-- response parsing
-- pagination handling if required by the API
-- provider rate-limit handling with exponential backoff and 3 retries
-- mapping external field names into canonical columns
-- provider-specific timestamp normalization
-- provider-specific market-state normalization if available
-- deciding when provider-native analytics should populate existing canonical fields directly
-- avoiding lossy or misleading mappings when Massive field semantics do not match canonical semantics
+Debug dumping is shared across providers.
 
-### 10.3 Secrets Loader
+Current behavior:
 
-Add a small config-loading utility responsible for:
+- controlled by config flags
+- raw payload files are written under `debug/`
+- dump filenames are prefixed with provider name
+- Massive dumps are written per HTTP response page and include page numbers
+- yfinance dumps cover underlying snapshots, expiration lists, and option-chain payloads
 
-- reading `~/.config/opx/config.toml`
-- exposing selected provider and runtime settings
-- exposing provider credentials to providers
-- distinguishing missing file from missing required key
-- keeping credential access isolated from business logic
+## 8. Documentation and Viewer
 
-This should be simple and local to the repo, not a full configuration framework.
+### 8.1 Documentation Layout
 
-### 11.4 Rename Work
+The documentation is split by audience.
 
-Rename-related implementation work should be scoped explicitly.
+Current structure:
 
-Expected changes:
+- `README.md`: short landing page
+- `docs/USER_GUIDE.md`: user-facing setup, running, config, and behavior
+- `docs/DEVELOPMENT.md`: contributor/development reference
+- `docs/FIELD_REFERENCE.md`: canonical field descriptions and provider mapping matrix
 
-- use the package/module path `opx`
-- update imports and entrypoints that depend on the package name
-- update documentation examples to use the new name where applicable
-- keep `viewer.py` unchanged
-- do not add a temporary compatibility layer for the old package name
+### 8.2 Provider-Aware Documentation
 
-## 12. User Experience Requirements
+The documentation must make provider differences explicit.
 
-### 11.1 Setup
+Current documentation coverage includes:
 
-A new user should be able to determine:
+- provider onboarding requirements
+- provider-specific plan caveats
+- generated versus transformed versus derived field behavior
+- provider mapping matrix by canonical field
+- viewer reference content sourced from the same field-reference document
 
-- which provider is active
-- whether that provider needs an API key
-- whether onboarding is required before the provider can be used
-- where to place the key
-- what data differences to expect from the provider
+### 8.3 Viewer Behavior
 
-The onboarding flow must be explicit:
+The viewer is a local inspection tool for exported datasets.
 
-- `yfinance` is the default and requires no provider account
-- `massive` requires account onboarding and API key setup before first use
-- the point at which the API key becomes mandatory must be stated clearly: only when `massive` is selected in config
+Current viewer behavior includes:
 
-### 11.2 Errors
+- dataset summary cards
+- active provider surfaced through dataset metadata when constant across the file
+- a `Reference` tab backed by the field-reference document
+- sortable/filterable table view
+- summary highlights for exported contracts
 
-Errors should be explicit and actionable.
+## 9. Validation Status
 
-Examples:
+The current repository state is validated by automated tests and lint checks.
 
-- unsupported provider name
-- missing `[providers.massive].api_key` when `massive` is selected
-- provider authentication failure
-- provider rate limit or empty response
-- provider returned data but a field required for derivation is absent
+Current validation coverage includes:
 
-### 11.3 Viewer
+- config loading and fallback behavior
+- provider factory selection and unsupported-provider handling
+- unchanged `viewer.py` entrypoint behavior
+- schema-preserving export behavior
+- shared fetch logging behavior
+- Massive normalization and field mapping
+- Massive auth failure handling
+- Massive retry and request-spacing behavior
+- per-page Massive debug dump behavior
+- viewer helper behavior tied to the field-reference docs
 
-The viewer should surface provider identity in a visible place.
+Current verification state:
 
-At minimum:
+- automated test suite passes
+- tracked Python files pass `pylint`
 
-- active provider in dataset-level metadata
-- field reference language that does not overclaim availability
+## 10. Implementation History
 
-## 13. Testing Requirements
+The following project work has already landed.
 
-Add or update tests for:
+### 10.1 Config Migration and Rename
 
-- provider factory returns `yfinance` and `massive`
-- unsupported provider raises a clear error
-- config loader reads `~/.config/opx/config.toml` correctly
-- missing Massive key fails only when `massive` is selected
-- fetch logging uses provider-neutral messages
-- Massive normalization produces canonical columns
-- Massive provider-native fields map into existing canonical columns without unnecessary schema growth
-- provider-native Greeks are used directly when their meaning matches the canonical fields
-- mismatched provider field semantics are not silently mapped into canonical columns
-- renamed package/import paths resolve correctly after the `opx` rename
-- `viewer.py` remains usable without rename-related regressions
-- field coverage documentation stays aligned with implementation where practical
+Completed:
 
-Prefer fixture-driven tests with provider stubs for shared fetch behavior.
+- migrated runtime settings into `~/.config/opx/config.toml`
+- renamed the project/package to `opx`
+- kept `viewer.py` unchanged
+- isolated credential access behind the config layer
 
-## 14. Milestones
+### 10.2 Provider Contract Cleanup
 
-### Milestone 1: Config Migration Refactor
+Completed:
 
-This is the required first step and must be completed before implementing the new provider.
+- introduced a shared provider registry/factory
+- removed Yahoo-specific wording from shared fetch paths
+- pinned export behavior to the canonical schema
 
-Status: Verified complete on 2026-03-23.
+### 10.3 Massive Provider Support
 
-Completed work:
+Completed:
 
-- project and runtime naming were updated to `opx` where applicable
-- the Python package/module path was renamed to `opx`
-- `viewer.py` remained unchanged as the entrypoint
-- `~/.config/opx/config.toml` was introduced as the user config contract
-- provider selection and user-tunable runtime settings were moved into the config loader model
-- `yfinance` is the default provider when config is absent or incomplete
-- config loading with default fallback behavior was added
-- provider credential access was isolated behind the config layer
+- added the Massive provider module
+- used the official Massive client
+- implemented snapshot-chain fetch flow
+- mapped Massive fields into the canonical schema
+- preserved provider-native greeks when appropriate
 
-Verification notes:
+### 10.4 Documentation and Viewer Alignment
 
-- verified that the runtime loads config from `~/.config/opx/config.toml` with in-repo defaults when absent
-- verified that package imports resolve under `opx` and that no `options_fetcher` compatibility layer remains
-- verified that `viewer.py` remains unchanged as the top-level entrypoint
-- verified that provider selection and provider-specific defaults are driven by the config loader
-- verified that no environment-variable override path is part of the config model
+Completed:
 
-Goals:
+- split user and development docs
+- moved field reference into its own document
+- added provider mapping matrix
+- aligned viewer reference content with the field-reference document
 
-- rename the project and repository references to `opx`
-- rename the Python package/module path where appropriate
-- keep `viewer.py` unchanged
-- introduce `~/.config/opx/config.toml` as the user config contract
-- move provider selection and other relevant user-tunable runtime settings into that file
-- establish `yfinance` as the default provider in the config model
-- add config loading with default fallback behavior for invalid user values
-- isolate credential access from the rest of the fetch pipeline
+### 10.5 Validation and Runtime UX
 
-Exit criteria:
+Completed:
 
-- the project consistently uses `opx` naming where applicable
-- package imports work under the new name
-- `viewer.py` still works without being renamed
-- the application can run from the new config source
-- provider selection is read from config
-- Massive credentials are read from config when needed
-- no environment-variable override path is required
+- expanded automated tests
+- added clear exit-status behavior
+- added graceful interrupt handling
+- added fetch progress output
+- added raw provider debug dumps
+- added single-run locking
 
-### Milestone 2: Provider Contract Cleanup
+## 11. Current Change Rules
 
-Status: Verified complete on 2026-03-23.
+Future changes should preserve these project rules:
 
-Completed work:
+- keep the canonical CSV schema stable by default
+- prefer provider mapping over schema expansion
+- keep provider selection single-source and config-driven
+- keep provider behavior explicit in documentation
+- keep `viewer.py` unchanged as the entrypoint name
+- avoid temporary compatibility shims for completed rename work
 
-- provider selection now uses a central factory/registry structure
-- shared fetch logging was generalized from `raw_yfinance_rows` to `raw_provider_rows`
-- export now enforces the canonical CSV schema instead of appending unexpected provider-specific columns
-- tests now cover provider registry contents, provider-neutral shared logging, and schema-preservation behavior
+## 12. Current Completion Status
 
-Verification notes:
+As of the current repository state:
 
-- verified that the shared provider registry exposes `yfinance` and `massive`
-- verified that shared fetch logging uses provider-neutral wording and preserves provider context on errors
-- verified that CSV export drops unexpected provider-specific fields and stays pinned to the canonical column set
-- verified that shared documentation now describes provider-neutral logging and canonical-schema preservation
+- provider model: complete for `yfinance` and `massive`
+- config migration: complete
+- rename to `opx`: complete
+- documentation split and provider-aware field reference: complete
+- viewer/provider metadata alignment: complete
+- validation coverage for shipped behavior: complete
 
-Goals:
-
-- generalize provider registry/factory behavior
-- remove Yahoo-specific wording from shared logging and shared code paths
-- preserve the canonical CSV schema as the primary contract
-- document and enforce the rules for provider-supplied versus derived canonical fields
-
-Exit criteria:
-
-- shared code paths are provider-neutral
-- schema preservation rules are enforced in implementation and tests
-- the system is ready for a second provider without further config redesign
-
-### Milestone 3: Massive Provider Implementation
-
-Status: Verified complete on 2026-03-23.
-
-Completed work:
-
-- added the real `opx/providers/massive.py` module using the official `massive` client library
-- wired Massive API key usage through the config loader and provider factory
-- implemented snapshot, expiration, and option-chain retrieval through `list_snapshot_options_chain`
-- normalized Massive payloads into the canonical schema
-- preserved provider-native Greeks when their semantics match the canonical columns
-- added clear authentication-failure handling for invalid Massive credentials
-- corrected Massive numeric timestamp normalization for official snapshot nanosecond fields
-- mapped `underlying_asset.ticker` to `underlying_symbol` and `details.ticker` to `contract_symbol`
-- derived `is_in_the_money` from spot versus strike because the option snapshot model does not expose a direct field for it
-
-Verification notes:
-
-- verified that `massive` can be selected in config and execute the shared fetch path end to end in tests
-- verified that missing Massive credentials fall back to the default provider instead of aborting the run
-- verified that invalid Massive credentials fail clearly through the provider fetch path
-- verified that Massive provider-native fields map into the existing canonical schema without schema expansion
-- verified that official client model objects parse correctly with Massive timestamp fields and symbol mappings
-
-Goals:
-
-- add `massive` provider module
-- wire API key usage through the config loader
-- implement expiration, snapshot, and option-chain retrieval
-- normalize payload into canonical schema
-- use Massive-native analytics directly where their meaning matches the canonical fields
-
-Exit criteria:
-
-- `massive` can be selected in config and execute a full fetch run
-- missing or invalid Massive credentials fail clearly
-- provider-native fields map safely into the existing schema
-
-### Milestone 4: Documentation and Viewer Clarity
-
-Status: Verified complete on 2026-03-23.
-
-Completed work:
-
-- docs were split into a landing-page README, a user guide, a development guide, and a dedicated field-reference document
-- user-facing docs now document provider onboarding, `~/.config/opx/config.toml`, fetch-progress output, CLI exit-status behavior, and provider-specific plan requirements
-- the field reference now includes a provider mapping matrix that distinguishes direct, transformed, derived, and blank fields for `yfinance` and `massive`
-- the viewer reference tab now reads from the dedicated field-reference document and dataset cards surface the active provider through `data_source`
-
-Verification notes:
-
-- verified that provider onboarding and API-key requirements are documented in the user guide
-- verified that the field reference and viewer reference content are sourced from the same provider-aware documentation
-- verified that the viewer surfaces active provider metadata through dataset cards when the dataset has a single provider
-- verified that provider coverage and field-generation behavior are documented in the field-reference matrix
-
-Goals:
-
-- add provider setup and onboarding docs
-- document that `massive` requires onboarding and API key setup
-- add coverage matrix
-- update field descriptions to mention provider limitations
-- surface active provider in viewer metadata
-
-Exit criteria:
-
-- a new user can tell when an API key is required
-- generated versus provider-supplied versus unavailable fields are documented clearly
-- viewer reference content matches the written documentation
-
-### Milestone 5: Validation
-
-Status: Verified complete on 2026-03-23.
-
-Completed work:
-
-- automated tests were added for config loading, provider selection, unsupported provider handling, and Massive-key validation
-- package rename behavior and the unchanged `viewer.py` entrypoint are covered by the updated test suite
-- Massive provider behavior is covered by parser, retry, auth-failure, per-page debug dump, request-spacing, and shared fetch-path tests
-- the current documentation and viewer-reference contract were verified against the live code paths through tests and focused review
-
-Verification notes:
-
-- verified the full automated suite passes against the current repository state
-- verified lint passes across tracked Python files
-- verified provider behavior coverage exists for config selection, normalization, auth failure, retry behavior, and viewer helper behavior
-- verified the documented canonical field contract matches the exported-schema enforcement and field-reference documentation
-
-Goals:
-
-- add/update automated tests
-- run fetch path against both providers where feasible
-- verify exported CSV and viewer labels
-
-Exit criteria:
-
-- config migration is covered by tests
-- provider behavior is covered by tests
-- the documented contract matches actual outputs
-
-## 15. Acceptance Criteria
-
-The project is complete when:
-
-1. A user can select `yfinance` or `massive` as the only provider for a run.
-2. Massive credentials are loaded from `~/.config/opx/config.toml`, not tracked source files.
-3. Running with `yfinance` requires no API key.
-4. Selecting `massive` without `[providers.massive].api_key` falls back to `yfinance` with a clear startup warning, while invalid Massive credentials fail clearly when the provider is actually used.
-5. Shared logs and code paths no longer use Yahoo-specific naming.
-6. The exported dataset clearly identifies its provider.
-7. Documentation clearly states which fields are generated, conditionally generated, provider-supplied, or not generated for each provider.
-8. The viewer reference content reflects the same provider-aware documentation.
-9. Documentation clearly states that `massive` requires onboarding and an API key, while `yfinance` is the default low-friction starting point.
-10. Credentials are never leaked, shared, or committed.
-11. The canonical CSV schema remains mostly unchanged unless a new field is justified explicitly.
-12. Provider-native analytics such as Greeks are used directly when they match canonical semantics, and are not remapped blindly when their meaning differs.
-13. The project and repository naming are updated to `opx` where applicable.
-14. `viewer.py` remains unchanged.
-
-## 16. Recommended Implementation Direction
-
-Build this as a strict provider-contract cleanup, not as a large redesign.
-
-Recommended sequence:
-
-1. Introduce `~/.config/opx/config.toml` and move user-local runtime settings there.
-2. Keep project/package references on `opx` while keeping `viewer.py` unchanged.
-3. Generalize provider registry and logging names.
-4. Implement `massive` provider behind the existing interface.
-5. Update onboarding docs and viewer reference text to reflect provider-aware field coverage.
-
-This keeps the current architecture intact while making the data source explicit, replaceable, and understandable.
+There are no open milestone sections remaining in this specification. Future work, if any, should be added as new scoped proposals rather than re-opening the completed migration plan.
