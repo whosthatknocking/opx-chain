@@ -23,5 +23,8 @@ pytest>=8.0
 # massive           - Official Massive / Polygon client library for options snapshot access
 massive>=2.4.0
 
+# marketdata-sdk-py - Official Market Data client library for options chains and stock quotes
+marketdata-sdk-py>=1.2.0
+
 # tomli             - Backfill for tomllib when CI or local environments use Python < 3.11
 tomli>=2.0; python_version < "3.11"

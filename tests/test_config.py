@@ -17,6 +17,9 @@ def test_load_runtime_config_uses_defaults_when_file_is_absent(tmp_path: Path):
 
     assert config.data_provider == "yfinance"
     assert config.massive_api_key is None
+    assert config.marketdata_api_token is None
+    assert config.marketdata_max_retries == 3
+    assert config.marketdata_request_interval_seconds == 0.0
     assert config.massive_snapshot_page_limit == 250
     assert config.massive_request_interval_seconds == 12.0
     assert config.debug_dump_provider_payload is False
@@ -46,6 +49,12 @@ max_expiration_weeks = 8
 api_key = "secret"
 snapshot_page_limit = 250
 request_interval_seconds = 1.5
+
+[providers.marketdata]
+api_token = "market-token"
+mode = "delayed"
+max_retries = 5
+request_interval_seconds = 0.75
 """.strip(),
         encoding="utf-8",
     )
@@ -61,6 +70,10 @@ request_interval_seconds = 1.5
     assert config.max_expiration_weeks == 8
     assert config.max_expiration is not None
     assert config.massive_api_key == "secret"
+    assert config.marketdata_api_token == "market-token"
+    assert config.marketdata_mode == "delayed"
+    assert config.marketdata_max_retries == 5
+    assert config.marketdata_request_interval_seconds == 0.75
     assert config.massive_snapshot_page_limit == 250
     assert config.massive_request_interval_seconds == 1.5
 
@@ -77,6 +90,65 @@ def test_load_runtime_config_requires_massive_key_only_when_selected(tmp_path: P
     config = load_runtime_config(massive_config)
     assert config.data_provider == "yfinance"
     assert any("falling back to 'yfinance'" in warning for warning in config.config_warnings)
+
+
+def test_load_runtime_config_requires_marketdata_token_only_when_selected(tmp_path: Path):
+    """Missing Market Data credentials should fall back to the default provider."""
+    marketdata_config = tmp_path / "marketdata.toml"
+    marketdata_config.write_text(
+        "[settings]\ndata_provider = 'marketdata'\n",
+        encoding="utf-8",
+    )
+
+    config = load_runtime_config(marketdata_config)
+    assert config.data_provider == "yfinance"
+    assert any("providers.marketdata.api_token" in warning for warning in config.config_warnings)
+
+
+def test_load_runtime_config_defaults_invalid_marketdata_mode(tmp_path: Path):
+    """Invalid Market Data mode values should fall back to the default."""
+    config_path = tmp_path / "marketdata-mode.toml"
+    config_path.write_text(
+        """
+[providers.marketdata]
+mode = "fast"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_runtime_config(config_path)
+    assert config.marketdata_mode is None
+    assert any("providers.marketdata.mode" in warning for warning in config.config_warnings)
+
+
+def test_load_runtime_config_defaults_invalid_marketdata_tuning(tmp_path: Path):
+    """Invalid Market Data rate-limit settings should fall back to defaults."""
+    negative_retries = tmp_path / "marketdata-retries.toml"
+    negative_retries.write_text(
+        """
+[providers.marketdata]
+max_retries = -1
+""".strip(),
+        encoding="utf-8",
+    )
+    config = load_runtime_config(negative_retries)
+    assert config.marketdata_max_retries == 3
+    assert any("providers.marketdata.max_retries" in warning for warning in config.config_warnings)
+
+    negative_interval = tmp_path / "marketdata-interval.toml"
+    negative_interval.write_text(
+        """
+[providers.marketdata]
+request_interval_seconds = -0.5
+""".strip(),
+        encoding="utf-8",
+    )
+    config = load_runtime_config(negative_interval)
+    assert config.marketdata_request_interval_seconds == 0.0
+    assert any(
+        "providers.marketdata.request_interval_seconds" in warning
+        for warning in config.config_warnings
+    )
 
 
 def test_get_data_provider_returns_provider_from_runtime_config(monkeypatch, tmp_path: Path):
@@ -235,6 +307,9 @@ def test_describe_runtime_config_masks_massive_key(tmp_path: Path):
         """
 [providers.massive]
 api_key = "secret"
+
+[providers.marketdata]
+api_token = "market-token"
 """.strip(),
         encoding="utf-8",
     )
@@ -243,10 +318,12 @@ api_key = "secret"
 
     assert any(line.endswith("set") for line in lines if "api_key" in line)
     assert all("secret" not in line for line in lines)
+    assert all("market-token" not in line for line in lines)
     assert any("debug_dump_provider_payload" in line for line in lines)
     assert any("debug_dump_dir" in line for line in lines)
+    assert any("providers.marketdata.api_token" in line for line in lines)
 
 
 def test_provider_registry_exposes_supported_providers():
     """The shared factory registry should enumerate the supported provider set."""
-    assert set(PROVIDER_FACTORIES) == {"yfinance", "massive"}
+    assert set(PROVIDER_FACTORIES) == {"yfinance", "massive", "marketdata"}

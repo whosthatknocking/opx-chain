@@ -28,17 +28,21 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 ## Documentation
 
-- User guide: [docs/USER_GUIDE.md](/Users/emt/Workspace/opx/docs/USER_GUIDE.md)
-- CSV field reference: [docs/FIELD_REFERENCE.md](/Users/emt/Workspace/opx/docs/FIELD_REFERENCE.md)
-- Development guide: [docs/DEVELOPMENT.md](/Users/emt/Workspace/opx/docs/DEVELOPMENT.md)
-- Project spec: [PROJECT_SPEC.md](/Users/emt/Workspace/opx/PROJECT_SPEC.md)
-- Design notes: [DESIGN.md](/Users/emt/Workspace/opx/DESIGN.md)
+- User guide: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+- CSV field reference: [docs/FIELD_REFERENCE.md](docs/FIELD_REFERENCE.md)
+- Development guide: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- Project spec: [PROJECT_SPEC.md](PROJECT_SPEC.md)
+- Design notes: [DESIGN.md](DESIGN.md)
 
 ## Important Notes
 
 Yahoo Finance can be delayed, stale, or sparse, especially near the regular market open. Always check freshness fields before relying on the output.
 
 Massive support depends on your plan. Lower tiers can leave you with trades but no `bid` or `ask`, and quote access may require Massive's highest-cost quote-enabled options plan.
+
+Market Data support requires a Market Data account and API token configured under `[providers.marketdata]` in `~/.config/opx/config.toml`. The Market Data Free Forever tier is 24 hours delayed for both stock and options data, so treat that provider as end-of-day-plus data unless your plan includes fresher access.
+You can also set `providers.marketdata.mode` to `live`, `cached`, or `delayed` when you want deterministic SDK-side recency behavior, but mode availability depends on your Market Data plan.
+For rate-limit handling, the provider retries `429` responses with exponential backoff by default and can optionally add client-side pacing through `providers.marketdata.request_interval_seconds`.
 
 ## Requirements
 
@@ -50,6 +54,7 @@ Key dependencies:
 
 - `yfinance` for the baseline Yahoo Finance provider
 - `massive` for the official Massive / Polygon client library
+- `marketdata-sdk-py` for the official Market Data client library
 - `pandas`, `numpy`, and `scipy` for normalization and analytics
 - `pytest` for the automated test suite
 - `playwright` for browser-driven screenshot and UI checks

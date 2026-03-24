@@ -12,7 +12,7 @@ try:
 except ImportError:  # pragma: no cover
     import tomli as tomllib
 
-SUPPORTED_PROVIDERS = frozenset({"yfinance", "massive"})
+SUPPORTED_PROVIDERS = frozenset({"yfinance", "massive", "marketdata"})
 SCRIPT_VERSION = "2026-03-23.3"
 DEFAULT_CONFIG_PATH = Path("~/.config/opx/config.toml").expanduser()
 DEFAULT_TICKERS = ("TSLA", "NVDA", "UBER", "MSFT", "GOOGL", "ORCL", "PLTR")
@@ -28,6 +28,9 @@ DEFAULT_STALE_QUOTE_SECONDS = 15 * 60
 DEFAULT_ENABLE_POST_DOWNLOAD_FILTERS = True
 DEFAULT_MAX_STRIKE_DISTANCE_PCT = 0.30
 DEFAULT_MAX_EXPIRATION_WEEKS = 26
+SUPPORTED_MARKETDATA_MODES = frozenset({"live", "cached", "delayed"})
+DEFAULT_MARKETDATA_MAX_RETRIES = 3
+DEFAULT_MARKETDATA_REQUEST_INTERVAL_SECONDS = 0.0
 MAX_MASSIVE_SNAPSHOT_PAGE_LIMIT = 250
 DEFAULT_MASSIVE_SNAPSHOT_PAGE_LIMIT = MAX_MASSIVE_SNAPSHOT_PAGE_LIMIT
 DEFAULT_MASSIVE_REQUEST_INTERVAL_SECONDS = 12.0
@@ -60,6 +63,10 @@ class RuntimeConfig:
     max_expiration: str | None
     today: date
     massive_api_key: str | None
+    marketdata_api_token: str | None
+    marketdata_mode: str | None
+    marketdata_max_retries: int
+    marketdata_request_interval_seconds: float
     massive_snapshot_page_limit: int
     massive_request_interval_seconds: float
     debug_dump_provider_payload: bool
@@ -205,6 +212,11 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:
         field_name="providers.massive",
         warnings=warnings,
     )
+    marketdata_settings = _resolve_table(
+        providers.get("marketdata", {}),
+        field_name="providers.marketdata",
+        warnings=warnings,
+    )
 
     today = datetime.today().date()
     data_provider = _resolve_config_value(
@@ -222,9 +234,29 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:
         coercer=_coerce_str,
         warnings=warnings,
     )
+    marketdata_api_token = _resolve_config_value(
+        marketdata_settings.get("api_token"),
+        field_name="providers.marketdata.api_token",
+        default=None,
+        coercer=_coerce_str,
+        warnings=warnings,
+    )
+    marketdata_mode = _resolve_config_value(
+        marketdata_settings.get("mode"),
+        field_name="providers.marketdata.mode",
+        default=None,
+        coercer=_coerce_str,
+        warnings=warnings,
+        validator=lambda value: value is None or value in SUPPORTED_MARKETDATA_MODES,
+    )
     if data_provider == "massive" and not massive_api_key:
         warnings.append(
             "providers.massive.api_key: using default None and falling back to 'yfinance'."
+        )
+        data_provider = DEFAULT_DATA_PROVIDER
+    if data_provider == "marketdata" and not marketdata_api_token:
+        warnings.append(
+            "providers.marketdata.api_token: using default None and falling back to 'yfinance'."
         )
         data_provider = DEFAULT_DATA_PROVIDER
 
@@ -332,6 +364,24 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:
         max_expiration=None,
         today=today,
         massive_api_key=massive_api_key,
+        marketdata_api_token=marketdata_api_token,
+        marketdata_mode=marketdata_mode,
+        marketdata_max_retries=_resolve_config_value(
+            marketdata_settings.get("max_retries"),
+            field_name="providers.marketdata.max_retries",
+            default=DEFAULT_MARKETDATA_MAX_RETRIES,
+            coercer=_coerce_int,
+            warnings=warnings,
+            validator=lambda value: value >= 0,
+        ),
+        marketdata_request_interval_seconds=_resolve_config_value(
+            marketdata_settings.get("request_interval_seconds"),
+            field_name="providers.marketdata.request_interval_seconds",
+            default=DEFAULT_MARKETDATA_REQUEST_INTERVAL_SECONDS,
+            coercer=_coerce_float,
+            warnings=warnings,
+            validator=lambda value: value >= 0,
+        ),
         massive_snapshot_page_limit=_clamp_massive_snapshot_page_limit(_resolve_config_value(
             massive_settings.get("snapshot_page_limit"),
             field_name="providers.massive.snapshot_page_limit",
@@ -375,6 +425,28 @@ def validate_runtime_config(config: RuntimeConfig) -> None:
             f"'{config.config_path}'. Set [providers.massive] api_key when using "
             "data_provider = 'massive'."
         )
+    if config.data_provider == "marketdata" and not config.marketdata_api_token:
+        raise ConfigError(
+            "Missing Market Data API token in "
+            f"'{config.config_path}'. Set [providers.marketdata] api_token when using "
+            "data_provider = 'marketdata'."
+        )
+    if (
+        config.marketdata_mode is not None
+        and config.marketdata_mode not in SUPPORTED_MARKETDATA_MODES
+    ):
+        raise ConfigError(
+            "Config field 'providers.marketdata.mode' must be one of: "
+            f"{', '.join(sorted(SUPPORTED_MARKETDATA_MODES))}."
+        )
+    if config.marketdata_max_retries < 0:
+        raise ConfigError(
+            "Config field 'providers.marketdata.max_retries' must be non-negative."
+        )
+    if config.marketdata_request_interval_seconds < 0:
+        raise ConfigError(
+            "Config field 'providers.marketdata.request_interval_seconds' must be non-negative."
+        )
     if not 0 < config.massive_snapshot_page_limit <= MAX_MASSIVE_SNAPSHOT_PAGE_LIMIT:
         raise ConfigError(
             "Config field 'providers.massive.snapshot_page_limit' must be between 1 and 250."
@@ -403,12 +475,15 @@ def get_provider_credentials(provider_name: str) -> dict[str, str]:
     config = get_runtime_config()
     if provider_name == "massive" and config.massive_api_key:
         return {"api_key": config.massive_api_key}
+    if provider_name == "marketdata" and config.marketdata_api_token:
+        return {"api_token": config.marketdata_api_token}
     return {}
 
 
 def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
     """Return human-readable lines describing the resolved runtime configuration."""
     masked_massive_key = "set" if config.massive_api_key else "not set"
+    masked_marketdata_token = "set" if config.marketdata_api_token else "not set"
     return (
         f"Config path: {config.config_path}",
         f"Config file exists: {config.config_path.exists()}",
@@ -429,6 +504,13 @@ def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
         f"Applied max_expiration_weeks: {config.max_expiration_weeks}",
         f"Applied max_expiration: {config.max_expiration or 'disabled'}",
         f"Applied providers.massive.api_key: {masked_massive_key}",
+        f"Applied providers.marketdata.api_token: {masked_marketdata_token}",
+        f"Applied providers.marketdata.mode: {config.marketdata_mode or 'default'}",
+        f"Applied providers.marketdata.max_retries: {config.marketdata_max_retries}",
+        (
+            "Applied providers.marketdata.request_interval_seconds: "
+            f"{config.marketdata_request_interval_seconds}"
+        ),
         f"Applied providers.massive.snapshot_page_limit: {config.massive_snapshot_page_limit}",
         (
             "Applied providers.massive.request_interval_seconds: "

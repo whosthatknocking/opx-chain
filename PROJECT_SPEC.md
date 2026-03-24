@@ -10,6 +10,7 @@ Current supported providers:
 
 - `yfinance`
 - `massive` (`Massive / Polygon.io`)
+- `marketdata` (`Market Data`)
 
 Core product rules:
 
@@ -26,6 +27,7 @@ The project currently supports:
 - config-driven provider selection
 - config-driven runtime thresholds and fetch behavior
 - provider-backed fetches through `yfinance` or `massive`
+- provider-backed fetches through `marketdata`
 - canonical CSV export with shared derived metrics
 - provider-aware field reference documentation
 - a local viewer for exported CSV files
@@ -60,6 +62,7 @@ Allowed provider keys:
 
 - `yfinance`
 - `massive`
+- `marketdata`
 
 Behavior:
 
@@ -80,6 +83,7 @@ The config loader is responsible for:
 - ticker selection
 - thresholds and model settings
 - Massive credentials
+- Market Data credentials
 - debug-dump settings
 - Massive request pacing and page-size settings
 
@@ -100,6 +104,19 @@ Current credential model:
 
 - `yfinance` requires no secret
 - `massive` reads `[providers.massive].api_key` from `~/.config/opx/config.toml`
+- `marketdata` reads `[providers.marketdata].api_token` from `~/.config/opx/config.toml`
+
+Current Market Data request controls:
+
+- optional `[providers.marketdata].mode`
+- valid values: `live`, `cached`, `delayed`
+- if omitted, the SDK default behavior is used
+- optional `[providers.marketdata].max_retries`
+- default `3`
+- used for `429` retry handling with exponential backoff
+- optional `[providers.marketdata].request_interval_seconds`
+- default `0.0`
+- adds client-side spacing between Market Data HTTP requests when needed
 
 Rules:
 
@@ -110,7 +127,9 @@ Rules:
 Current missing-key behavior:
 
 - if `massive` is selected but `[providers.massive].api_key` is absent, runtime config falls back to `yfinance` and records a clear warning
+- if `marketdata` is selected but `[providers.marketdata].api_token` is absent, runtime config falls back to `yfinance` and records a clear warning
 - if `massive` is selected with invalid credentials, the Massive provider fails clearly when used
+- if `marketdata` is selected with invalid credentials, the Market Data provider fails clearly when used
 
 ## 5. Provider Implementations
 
@@ -163,6 +182,33 @@ Field-mapping rules already implemented for Massive include:
 - provider greeks populate canonical greek columns when semantics match
 - `is_in_the_money` is derived from spot versus strike because the snapshot model does not expose a direct canonical flag
 
+### 5.4 Market Data Provider
+
+Current characteristics:
+
+- backed by the official `marketdata-sdk-py` client library
+- requires account onboarding and API token setup
+- uses one full `options.chain(..., expiration="all")` request per ticker fetch sequence
+- derives expirations and per-expiration option frames from the cached full-chain payload
+
+Implemented Market Data behavior:
+
+- uses the official SDK client rather than ad hoc raw HTTP calls
+- suppresses the SDK startup rate-limit probe so provider initialization does not spend an extra API call
+- supports optional SDK request mode selection through `[providers.marketdata].mode`
+- request caller header identifies the app as `opx/<version>`
+- fetch progress prints per-request API status and row-count progress
+- raw response payload dumps can be written to `debug/`
+
+Field-mapping rules already implemented for Market Data include:
+
+- `optionSymbol -> contract_symbol`
+- `underlying -> underlying_symbol`
+- `underlyingPrice -> underlying_price`
+- `updated -> option_quote_time`, with the first chain update also used as the best-available `underlying_price_time`
+- `underlying_day_change_pct` is currently left blank because the one-call chain payload does not expose a reliable underlying day-change field
+- `bid`, `ask`, `last`, `openInterest`, `volume`, `iv`, and greeks map directly into canonical fields
+
 ## 6. Output Contract
 
 ### 6.1 Canonical CSV
@@ -199,6 +245,7 @@ Current behavior includes:
 - raw provider row counts
 - kept-row counts after normalization and filtering
 - Massive per-page API status and cumulative result counts
+- Market Data per-request API status and result counts
 - final row count and output-path reporting
 
 ### 6.3 Exit Status
@@ -282,9 +329,12 @@ Current validation coverage includes:
 - schema-preserving export behavior
 - shared fetch logging behavior
 - Massive normalization and field mapping
+- Market Data normalization and field mapping
 - Massive auth failure handling
+- Market Data auth failure handling
 - Massive retry and request-spacing behavior
 - per-page Massive debug dump behavior
+- Market Data shared fetch-path behavior
 - viewer helper behavior tied to the field-reference docs
 
 Current verification state:
@@ -323,7 +373,17 @@ Completed:
 - mapped Massive fields into the canonical schema
 - preserved provider-native greeks when appropriate
 
-### 10.4 Documentation and Viewer Alignment
+### 10.4 Market Data Provider Support
+
+Completed:
+
+- added the Market Data provider module
+- used the official Market Data SDK
+- implemented one-chain-per-ticker fetch flow plus stock-quote snapshots
+- mapped Market Data fields into the canonical schema
+- preserved provider-native greeks when appropriate
+
+### 10.5 Documentation and Viewer Alignment
 
 Completed:
 
@@ -332,7 +392,7 @@ Completed:
 - added provider mapping matrix
 - aligned viewer reference content with the field-reference document
 
-### 10.5 Validation and Runtime UX
+### 10.6 Validation and Runtime UX
 
 Completed:
 
@@ -358,7 +418,7 @@ Future changes should preserve these project rules:
 
 As of the current repository state:
 
-- provider model: complete for `yfinance` and `massive`
+- provider model: complete for `yfinance`, `massive`, and `marketdata`
 - config migration: complete
 - rename to `opx`: complete
 - documentation split and provider-aware field reference: complete
