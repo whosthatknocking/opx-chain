@@ -26,6 +26,12 @@ Then open `http://127.0.0.1:8000` in your browser.
 - Writes a timestamped CSV plus an append-only run log
 - Includes a local browser for exploring the output interactively
 
+Generated files are standardized under:
+
+- `outputs/` for exported CSV snapshots
+- `logs/` for run logs
+- `debug/` for optional raw provider payload dumps
+
 ## Documentation
 
 - User guide: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)

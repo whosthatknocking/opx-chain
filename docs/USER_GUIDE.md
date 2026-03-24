@@ -65,6 +65,8 @@ Each run writes a CSV file to the `outputs/` directory using a timestamped filen
 outputs/options_engine_output_YYYYMMDD_HHMMSS.csv
 ```
 
+`outputs/` is the standard export directory used by both the fetcher and the viewer.
+
 Operational details that are not row-specific are written to:
 
 ```text
