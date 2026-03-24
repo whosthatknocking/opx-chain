@@ -86,6 +86,7 @@ The config loader is responsible for:
 - provider selection
 - ticker selection
 - thresholds and model settings
+- validation enable/disable behavior
 - Massive credentials
 - Market Data credentials
 - debug-dump settings
@@ -248,6 +249,7 @@ Runtime output is provider-neutral and intended to make fetch progress visible.
 Current behavior includes:
 
 - startup output for resolved config state
+- optional shared validation summary before export
 - provider name shown in shared run logging
 - ticker- and expiration-level progress
 - raw provider row counts
@@ -287,6 +289,19 @@ Current behavior:
 - dump filenames are prefixed with provider name
 - Massive dumps are written per HTTP response page and include page numbers
 - yfinance dumps cover underlying snapshots, expiration lists, and option-chain payloads
+
+### 7.3 Shared Validation
+
+Shared validation is configurable and provider-agnostic.
+
+Current behavior:
+
+- controlled by `settings.enable_validation`
+- row-level validation runs after normalization/enrichment and before post-download filtering
+- file-level validation runs on the combined frame before export
+- validation findings use `warning` and `error` severities
+- validation errors do not stop the run or block CSV export
+- when validation is enabled, the run prints a validation summary before the CSV write
 
 ## 8. Documentation and Viewer
 
