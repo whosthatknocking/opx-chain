@@ -2,6 +2,7 @@
 
 from opx.config import get_runtime_config
 from opx.providers.massive import MassiveProvider
+from opx.providers.marketdata import MarketDataProvider
 from opx.providers.base import DataProvider
 from opx.providers.yfinance import YFinanceProvider
 
@@ -9,6 +10,7 @@ from opx.providers.yfinance import YFinanceProvider
 PROVIDER_FACTORIES = {
     "yfinance": YFinanceProvider,
     "massive": MassiveProvider,
+    "marketdata": MarketDataProvider,
 }
 
 

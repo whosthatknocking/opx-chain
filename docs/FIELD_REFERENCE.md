@@ -13,12 +13,12 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 - `days_to_expiration`: Calendar days until expiration. Use it for short-dated screening and decay analysis. Lower means faster decay and more event risk.
 - `time_to_expiration_years`: `days_to_expiration` expressed in years. Use it as the time input for Black-Scholes calculations.
 - `strike`: Strike price of the contract. Use it to measure moneyness and break-even.
-- `contract_size`: Contract multiplier from the vendor. Yahoo often reports `REGULAR`, while Massive maps the numeric `shares_per_contract` value from the snapshot payload. Use it to confirm contract sizing conventions.
+- `contract_size`: Contract multiplier from the vendor. Yahoo often reports `REGULAR`, Massive maps the numeric `shares_per_contract` value from the snapshot payload, and Market Data currently defaults this field to `REGULAR` because the chain response does not expose a separate contract-size field. Use it to confirm contract sizing conventions.
 
 ## Underlying Snapshot Fields
 
 - `underlying_price`: Current underlying stock price used in calculations. Use it as the reference price for moneyness and Greeks.
-- `underlying_day_change_pct`: Underlying percentage move versus previous close. Use it to add context to the option chain. Large absolute moves mean the underlying is already having an outsized session.
+- `underlying_day_change_pct`: Underlying percentage move versus previous close. Use it to add context to the option chain. Large absolute moves mean the underlying is already having an outsized session. This can be blank for providers that do not expose a reliable underlying previous-close context in the active fetch path.
 - `historical_volatility`: Annualized realized volatility computed from the underlying's trailing 30 daily log returns. Use it to compare recent realized movement against option-implied pricing. Lower is calmer; higher means the stock has been moving more.
 - `underlying_price_time`: Timestamp of the underlying quote snapshot. Use it to compare timing with the option quote.
 - `underlying_price_age_seconds`: Age of the underlying quote at fetch time. Use it to detect stale stock prices. Lower is better; high values mean the stock snapshot may be stale.
@@ -32,8 +32,8 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 - `volume`: Current session option volume. Use it as a liquidity signal. Higher usually means better trading activity and easier fills.
 - `open_interest`: Open contracts outstanding. Use it to judge market participation and contract depth. Higher usually means deeper, more established trading interest.
 - `implied_volatility`: Vendor-supplied implied volatility. Use it as the volatility input for Greeks and relative richness checks. Higher means richer option pricing, but usually also more underlying uncertainty.
-- `change`: Absolute price change reported by the vendor. Use it to understand the contract's move during the session.
-- `percent_change`: Percentage price change reported by the vendor. Use it for relative move comparisons.
+- `change`: Absolute price change reported by the vendor. Use it to understand the contract's move during the session. Some providers leave this blank in the single-call chain flow.
+- `percent_change`: Percentage price change reported by the vendor. Use it for relative move comparisons. Some providers leave this blank in the single-call chain flow.
 - `option_quote_time`: Timestamp of the option quote or last trade update. Use it to measure quote freshness.
 - `is_in_the_money`: In-the-money classification from the provider when available, or derived from spot versus strike when the provider snapshot omits a direct flag. Use it as a quick classification check against derived moneyness fields.
 
@@ -124,127 +124,127 @@ Legend:
 
 ### Contract and Expiration Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `underlying_symbol` | Transformed: request ticker, filled into canonical field during normalization | Transformed: `underlying_asset.ticker`, fallback request ticker |
-| `contract_symbol` | Direct: `contractSymbol` -> `contract_symbol` | Transformed: `details.ticker`, strips `O:` prefix |
-| `option_type` | Transformed: side supplied by fetch loop (`call`/`put`) | Transformed: `details.contract_type` mapped to canonical `call`/`put` |
-| `expiration_date` | Transformed: expiration from fetch loop | Direct: `details.expiration_date` |
-| `days_to_expiration` | Derived: from expiration date vs runtime `today` | Derived: from expiration date vs runtime `today` |
-| `time_to_expiration_years` | Derived: `days_to_expiration / 365` | Derived: `days_to_expiration / 365` |
-| `strike` | Direct: `strike` | Direct: `details.strike_price` |
-| `contract_size` | Transformed: `contractSize` -> `contract_size` | Transformed: `details.shares_per_contract`, fallback `REGULAR` |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `underlying_symbol` | Transformed: request ticker, filled into canonical field during normalization | Transformed: `underlying_asset.ticker`, fallback request ticker | Transformed: `underlying` -> `underlying_symbol` |
+| `contract_symbol` | Direct: `contractSymbol` -> `contract_symbol` | Transformed: `details.ticker`, strips `O:` prefix | Direct: `optionSymbol` |
+| `option_type` | Transformed: side supplied by fetch loop (`call`/`put`) | Transformed: `details.contract_type` mapped to canonical `call`/`put` | Transformed: chain rows are split by `side`, and shared normalization fills canonical `call`/`put` |
+| `expiration_date` | Transformed: expiration from fetch loop | Direct: `details.expiration_date` | Transformed: `expiration` timestamp normalized to `YYYY-MM-DD` |
+| `days_to_expiration` | Derived: from expiration date vs runtime `today` | Derived: from expiration date vs runtime `today` | Derived: from expiration date vs runtime `today` |
+| `time_to_expiration_years` | Derived: `days_to_expiration / 365` | Derived: `days_to_expiration / 365` | Derived: `days_to_expiration / 365` |
+| `strike` | Direct: `strike` | Direct: `details.strike_price` | Direct: `strike` |
+| `contract_size` | Transformed: `contractSize` -> `contract_size` | Transformed: `details.shares_per_contract`, fallback `REGULAR` | Blank/Defaulted: chain payload does not expose contract size, so app fills `REGULAR` |
 
 ### Underlying Snapshot Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `underlying_price` | Transformed: `fast_info.lastPrice`, fallback `info.regularMarketPrice` / `info.previousClose` | Transformed: `underlying_asset.price`, fallback `underlying_asset.value` |
-| `underlying_day_change_pct` | Derived from provider values: `(last_price - previous_close) / previous_close` | Derived from provider values: `(underlying_price - day.previous_close) / day.previous_close` |
-| `historical_volatility` | Derived from provider history: trailing daily log returns | Blank: not currently supplied or derived for Massive |
-| `underlying_price_time` | Transformed: `info.regularMarketTime` normalized to UTC timestamp | Transformed: `underlying_asset.last_updated`, fallback day/trade/quote timestamps |
-| `underlying_price_age_seconds` | Derived: fetch time minus `underlying_price_time` | Derived: fetch time minus `underlying_price_time` |
-| `is_stale_underlying_price` | Derived: age compared to `stale_quote_seconds` | Derived: age compared to `stale_quote_seconds` |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `underlying_price` | Transformed: `fast_info.lastPrice`, fallback `info.regularMarketPrice` / `info.previousClose` | Transformed: `underlying_asset.price`, fallback `underlying_asset.value` | Transformed: first chain `underlyingPrice` |
+| `underlying_day_change_pct` | Derived from provider values: `(last_price - previous_close) / previous_close` | Derived from provider values: `(underlying_price - day.previous_close) / previous_close` | Blank: one-call chain payload does not expose a reliable underlying day-change field |
+| `historical_volatility` | Derived from provider history: trailing daily log returns | Blank: not currently supplied or derived for Massive | Blank: not currently supplied or derived for Market Data |
+| `underlying_price_time` | Transformed: `info.regularMarketTime` normalized to UTC timestamp | Transformed: `underlying_asset.last_updated`, fallback day/trade/quote timestamps | Transformed: first chain `updated` normalized to UTC as the best-available underlying timestamp |
+| `underlying_price_age_seconds` | Derived: fetch time minus `underlying_price_time` | Derived: fetch time minus `underlying_price_time` | Derived: fetch time minus `underlying_price_time` |
+| `is_stale_underlying_price` | Derived: age compared to `stale_quote_seconds` | Derived: age compared to `stale_quote_seconds` | Derived: age compared to `stale_quote_seconds` |
 
 ### Raw Quote and Activity Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `bid` | Direct: `bid` | Transformed: `last_quote.bid`, fallback `last_quote.bid_price` |
-| `ask` | Direct: `ask` | Transformed: `last_quote.ask`, fallback `last_quote.ask_price` |
-| `last_trade_price` | Transformed: `lastPrice` -> `last_trade_price` | Transformed: `last_trade.price`, fallback `day.close` |
-| `volume` | Direct: `volume` | Direct: `day.volume` |
-| `open_interest` | Transformed: `openInterest` -> `open_interest` | Direct: `open_interest` |
-| `implied_volatility` | Transformed: `impliedVolatility` -> `implied_volatility` | Direct/Transformed: top-level `implied_volatility`, coerced numeric |
-| `change` | Direct: `change` | Direct: `day.change` |
-| `percent_change` | Transformed: `percentChange` -> `percent_change` | Direct: `day.change_percent` |
-| `option_quote_time` | Transformed: `lastTradeDate` -> UTC timestamp | Transformed: `last_quote.last_updated`, fallback `last_trade.sip_timestamp` / `day.last_updated` |
-| `is_in_the_money` | Transformed: `inTheMoney` -> `is_in_the_money` | Derived from provider values: underlying spot vs strike |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `bid` | Direct: `bid` | Transformed: `last_quote.bid`, fallback `last_quote.bid_price` | Direct: `bid` |
+| `ask` | Direct: `ask` | Transformed: `last_quote.ask`, fallback `last_quote.ask_price` | Direct: `ask` |
+| `last_trade_price` | Transformed: `lastPrice` -> `last_trade_price` | Transformed: `last_trade.price`, fallback `day.close` | Transformed: `last` -> `last_trade_price` |
+| `volume` | Direct: `volume` | Direct: `day.volume` | Direct: `volume` |
+| `open_interest` | Transformed: `openInterest` -> `open_interest` | Direct: `open_interest` | Transformed: `openInterest` -> `open_interest` |
+| `implied_volatility` | Transformed: `impliedVolatility` -> `implied_volatility` | Direct/Transformed: top-level `implied_volatility`, coerced numeric | Direct/Transformed: `iv` -> `implied_volatility` |
+| `change` | Direct: `change` | Direct: `day.change` | Blank: current options-chain payload does not expose contract change |
+| `percent_change` | Transformed: `percentChange` -> `percent_change` | Direct: `day.change_percent` | Blank: current options-chain payload does not expose contract percent change |
+| `option_quote_time` | Transformed: `lastTradeDate` -> UTC timestamp | Transformed: `last_quote.last_updated`, fallback `last_trade.sip_timestamp` / `day.last_updated` | Transformed: `updated` -> `option_quote_time` |
+| `is_in_the_money` | Transformed: `inTheMoney` -> `is_in_the_money` | Derived from provider values: underlying spot vs strike | Transformed: `inTheMoney` -> `is_in_the_money` |
 
 ### Quote Quality and Liquidity Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `mark_price_mid` | Derived: midpoint of canonical bid/ask | Derived: midpoint of canonical bid/ask |
-| `premium_reference_price` | Derived: midpoint, fallback bid, fallback last trade | Derived: midpoint, fallback bid, fallback last trade |
-| `premium_reference_method` | Derived: source used for `premium_reference_price` | Derived: source used for `premium_reference_price` |
-| `bid_ask_spread` | Derived: `ask - bid` when quote is valid | Derived: `ask - bid` when quote is valid |
-| `bid_ask_spread_pct_of_mid` | Derived: spread divided by midpoint | Derived: spread divided by midpoint |
-| `spread_to_strike_pct` | Derived: spread divided by strike | Derived: spread divided by strike |
-| `spread_to_bid_pct` | Derived: spread divided by bid | Derived: spread divided by bid |
-| `oi_to_volume_ratio` | Derived: open interest divided by volume | Derived: open interest divided by volume |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `mark_price_mid` | Derived: midpoint of canonical bid/ask | Derived: midpoint of canonical bid/ask | Derived: midpoint of canonical bid/ask |
+| `premium_reference_price` | Derived: midpoint, fallback bid, fallback last trade | Derived: midpoint, fallback bid, fallback last trade | Derived: midpoint, fallback bid, fallback last trade |
+| `premium_reference_method` | Derived: source used for `premium_reference_price` | Derived: source used for `premium_reference_price` | Derived: source used for `premium_reference_price` |
+| `bid_ask_spread` | Derived: `ask - bid` when quote is valid | Derived: `ask - bid` when quote is valid | Derived: `ask - bid` when quote is valid |
+| `bid_ask_spread_pct_of_mid` | Derived: spread divided by midpoint | Derived: spread divided by midpoint | Derived: spread divided by midpoint |
+| `spread_to_strike_pct` | Derived: spread divided by strike | Derived: spread divided by strike | Derived: spread divided by strike |
+| `spread_to_bid_pct` | Derived: spread divided by bid | Derived: spread divided by bid | Derived: spread divided by bid |
+| `oi_to_volume_ratio` | Derived: open interest divided by volume | Derived: open interest divided by volume | Derived: open interest divided by volume |
 
 ### Moneyness and Value Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `strike_minus_spot` | Derived: strike minus underlying price | Derived: strike minus underlying price |
-| `strike_vs_spot_pct` | Derived: `strike_minus_spot / underlying_price` | Derived: `strike_minus_spot / underlying_price` |
-| `strike_distance_pct` | Derived: absolute strike-vs-spot percent | Derived: absolute strike-vs-spot percent |
-| `itm_amount` | Derived from option type, strike, and spot | Derived from option type, strike, and spot |
-| `otm_pct` | Derived from option type, strike, and spot | Derived from option type, strike, and spot |
-| `intrinsic_value` | Derived: equals `itm_amount` | Derived: equals `itm_amount` |
-| `extrinsic_value_bid` | Derived: `bid - intrinsic_value` | Derived: `bid - intrinsic_value` |
-| `extrinsic_value_mid` | Derived: `mark_price_mid - intrinsic_value` | Derived: `mark_price_mid - intrinsic_value` |
-| `extrinsic_value_ask` | Derived: `ask - intrinsic_value` | Derived: `ask - intrinsic_value` |
-| `extrinsic_pct_mid` | Derived: extrinsic mid divided by midpoint | Derived: extrinsic mid divided by midpoint |
-| `has_negative_extrinsic_mid` | Derived: midpoint below intrinsic value flag | Derived: midpoint below intrinsic value flag |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `strike_minus_spot` | Derived: strike minus underlying price | Derived: strike minus underlying price | Derived: strike minus underlying price |
+| `strike_vs_spot_pct` | Derived: `strike_minus_spot / underlying_price` | Derived: `strike_minus_spot / underlying_price` | Derived: `strike_minus_spot / underlying_price` |
+| `strike_distance_pct` | Derived: absolute strike-vs-spot percent | Derived: absolute strike-vs-spot percent | Derived: absolute strike-vs-spot percent |
+| `itm_amount` | Derived from option type, strike, and spot | Derived from option type, strike, and spot | Derived from option type, strike, and spot |
+| `otm_pct` | Derived from option type, strike, and spot | Derived from option type, strike, and spot | Derived from option type, strike, and spot |
+| `intrinsic_value` | Derived: equals `itm_amount` | Derived: equals `itm_amount` | Derived: shared calculations treat intrinsic as strike-vs-spot based even though provider `intrinsicValue` may exist |
+| `extrinsic_value_bid` | Derived: `bid - intrinsic_value` | Derived: `bid - intrinsic_value` | Derived: `bid - intrinsic_value` |
+| `extrinsic_value_mid` | Derived: `mark_price_mid - intrinsic_value` | Derived: `mark_price_mid - intrinsic_value` | Derived: `mark_price_mid - intrinsic_value` |
+| `extrinsic_value_ask` | Derived: `ask - intrinsic_value` | Derived: `ask - intrinsic_value` | Derived: `ask - intrinsic_value` |
+| `extrinsic_pct_mid` | Derived: extrinsic mid divided by midpoint | Derived: extrinsic mid divided by midpoint | Derived: extrinsic mid divided by midpoint |
+| `has_negative_extrinsic_mid` | Derived: midpoint below intrinsic value flag | Derived: midpoint below intrinsic value flag | Derived: midpoint below intrinsic value flag |
 
 ### Premium and Return-Oriented Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `premium_to_strike` | Derived: premium reference divided by strike | Derived: premium reference divided by strike |
-| `premium_to_strike_bid` | Derived: bid divided by strike | Derived: bid divided by strike |
-| `premium_to_strike_annualized` | Derived: premium-to-strike annualized by expiry | Derived: premium-to-strike annualized by expiry |
-| `premium_per_day` | Derived: premium reference divided by days to expiry | Derived: premium reference divided by days to expiry |
-| `estimated_margin_requirement` | Derived: shared margin proxy formula | Derived: shared margin proxy formula |
-| `return_on_margin` | Derived: premium reference divided by margin proxy | Derived: premium reference divided by margin proxy |
-| `return_on_margin_annualized` | Derived: return on margin annualized by expiry | Derived: return on margin annualized by expiry |
-| `break_even_if_short` | Derived from strike, side, and premium reference | Derived from strike, side, and premium reference |
-| `expected_move` | Derived: expiry-level ATM-IV move estimate | Derived: expiry-level ATM-IV move estimate |
-| `expected_move_pct` | Derived: expected move divided by spot | Derived: expected move divided by spot |
-| `expected_move_lower_bound` | Derived: spot minus expected move | Derived: spot minus expected move |
-| `expected_move_upper_bound` | Derived: spot plus expected move | Derived: spot plus expected move |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `premium_to_strike` | Derived: premium reference divided by strike | Derived: premium reference divided by strike | Derived: premium reference divided by strike |
+| `premium_to_strike_bid` | Derived: bid divided by strike | Derived: bid divided by strike | Derived: bid divided by strike |
+| `premium_to_strike_annualized` | Derived: premium-to-strike annualized by expiry | Derived: premium-to-strike annualized by expiry | Derived: premium-to-strike annualized by expiry |
+| `premium_per_day` | Derived: premium reference divided by days to expiry | Derived: premium reference divided by days to expiry | Derived: premium reference divided by days to expiry |
+| `estimated_margin_requirement` | Derived: shared margin proxy formula | Derived: shared margin proxy formula | Derived: shared margin proxy formula |
+| `return_on_margin` | Derived: premium reference divided by margin proxy | Derived: premium reference divided by margin proxy | Derived: premium reference divided by margin proxy |
+| `return_on_margin_annualized` | Derived: return on margin annualized by expiry | Derived: return on margin annualized by expiry | Derived: return on margin annualized by expiry |
+| `break_even_if_short` | Derived from strike, side, and premium reference | Derived from strike, side, and premium reference | Derived from strike, side, and premium reference |
+| `expected_move` | Derived: expiry-level ATM-IV move estimate | Derived: expiry-level ATM-IV move estimate | Derived: expiry-level ATM-IV move estimate |
+| `expected_move_pct` | Derived: expected move divided by spot | Derived: expected move divided by spot | Derived: expected move divided by spot |
+| `expected_move_lower_bound` | Derived: spot minus expected move | Derived: spot minus expected move | Derived: spot minus expected move |
+| `expected_move_upper_bound` | Derived: spot plus expected move | Derived: spot plus expected move | Derived: spot plus expected move |
 
 ### Greek Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `delta` | Derived: Black-Scholes in shared app code | Transformed or Derived: provider `greeks.delta` preserved, app fills gaps |
-| `delta_abs` | Derived: absolute value of delta | Derived: absolute value of delta |
-| `delta_itm_proxy` | Derived: side-normalized delta | Derived: side-normalized delta |
-| `probability_itm` | Derived: Black-Scholes `d2` probability | Derived: Black-Scholes `d2` probability unless provider value is present later |
-| `gamma` | Derived: Black-Scholes in shared app code | Transformed or Derived: provider `greeks.gamma` preserved, app fills gaps |
-| `vega` | Derived: Black-Scholes in shared app code | Transformed or Derived: provider `greeks.vega` preserved, app fills gaps |
-| `vega_per_day` | Derived: vega divided by days to expiry | Derived: vega divided by days to expiry |
-| `theta` | Derived: Black-Scholes daily theta | Transformed or Derived: provider `greeks.theta` preserved, app fills gaps |
-| `theta_to_premium_ratio` | Derived: absolute theta divided by premium reference | Derived: absolute theta divided by premium reference |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `delta` | Derived: Black-Scholes in shared app code | Transformed or Derived: provider `greeks.delta` preserved, app fills gaps | Direct/Transformed: provider `delta` preserved, app fills gaps |
+| `delta_abs` | Derived: absolute value of delta | Derived: absolute value of delta | Derived: absolute value of delta |
+| `delta_itm_proxy` | Derived: side-normalized delta | Derived: side-normalized delta | Derived: side-normalized delta |
+| `probability_itm` | Derived: Black-Scholes `d2` probability | Derived: Black-Scholes `d2` probability unless provider value is present later | Derived: Black-Scholes `d2` probability |
+| `gamma` | Derived: Black-Scholes in shared app code | Transformed or Derived: provider `greeks.gamma` preserved, app fills gaps | Direct/Transformed: provider `gamma` preserved, app fills gaps |
+| `vega` | Derived: Black-Scholes in shared app code | Transformed or Derived: provider `greeks.vega` preserved, app fills gaps | Direct/Transformed: provider `vega` preserved, app fills gaps |
+| `vega_per_day` | Derived: vega divided by days to expiry | Derived: vega divided by days to expiry | Derived: vega divided by days to expiry |
+| `theta` | Derived: Black-Scholes daily theta | Transformed or Derived: provider `greeks.theta` preserved, app fills gaps | Direct/Transformed: provider `theta` preserved, app fills gaps |
+| `theta_to_premium_ratio` | Derived: absolute theta divided by premium reference | Derived: absolute theta divided by premium reference | Derived: absolute theta divided by premium reference |
 
 ### Validation, Freshness, and Screening Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `has_valid_underlying` | Derived: underlying price positive | Derived: underlying price positive |
-| `has_valid_strike` | Derived: strike positive | Derived: strike positive |
-| `has_valid_quote` | Derived: bid/ask present, non-negative, and ordered | Derived: bid/ask present, non-negative, and ordered |
-| `has_valid_iv` | Derived: implied volatility positive | Derived: implied volatility positive |
-| `has_valid_greeks` | Derived: valid Black-Scholes inputs or provider greek present | Derived: valid Black-Scholes inputs or provider greek present |
-| `bid_le_ask` | Derived: `bid <= ask` | Derived: `bid <= ask` |
-| `has_nonzero_bid` | Derived: bid greater than zero | Derived: bid greater than zero |
-| `has_nonzero_ask` | Derived: ask greater than zero | Derived: ask greater than zero |
-| `has_crossed_or_locked_market` | Derived: bid greater than or equal to ask | Derived: bid greater than or equal to ask |
-| `is_wide_market` | Derived: spread percent exceeds configured threshold | Derived: spread percent exceeds configured threshold |
-| `quote_age_seconds` | Derived: fetch time minus option quote time | Derived: fetch time minus option quote time |
-| `is_stale_quote` | Derived: quote age exceeds `stale_quote_seconds` | Derived: quote age exceeds `stale_quote_seconds` |
-| `days_bucket` | Derived: calendar bucket from days to expiry | Derived: calendar bucket from days to expiry |
-| `near_expiry_near_money_flag` | Derived: expiry and moneyness flag | Derived: expiry and moneyness flag |
-| `passes_primary_screen` | Derived: bid, spread, OI, and volume thresholds | Derived: bid, spread, OI, and volume thresholds |
-| `quote_quality_score` | Derived: shared composite quality score | Derived: shared composite quality score |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `has_valid_underlying` | Derived: underlying price positive | Derived: underlying price positive | Derived: underlying price positive |
+| `has_valid_strike` | Derived: strike positive | Derived: strike positive | Derived: strike positive |
+| `has_valid_quote` | Derived: bid/ask present, non-negative, and ordered | Derived: bid/ask present, non-negative, and ordered | Derived: bid/ask present, non-negative, and ordered |
+| `has_valid_iv` | Derived: implied volatility positive | Derived: implied volatility positive | Derived: implied volatility positive |
+| `has_valid_greeks` | Derived: valid Black-Scholes inputs or provider greek present | Derived: valid Black-Scholes inputs or provider greek present | Derived: valid Black-Scholes inputs or provider greek present |
+| `bid_le_ask` | Derived: `bid <= ask` | Derived: `bid <= ask` | Derived: `bid <= ask` |
+| `has_nonzero_bid` | Derived: bid greater than zero | Derived: bid greater than zero | Derived: bid greater than zero |
+| `has_nonzero_ask` | Derived: ask greater than zero | Derived: ask greater than zero | Derived: ask greater than zero |
+| `has_crossed_or_locked_market` | Derived: bid greater than or equal to ask | Derived: bid greater than or equal to ask | Derived: bid greater than or equal to ask |
+| `is_wide_market` | Derived: spread percent exceeds configured threshold | Derived: spread percent exceeds configured threshold | Derived: spread percent exceeds configured threshold |
+| `quote_age_seconds` | Derived: fetch time minus option quote time | Derived: fetch time minus option quote time | Derived: fetch time minus option quote time |
+| `is_stale_quote` | Derived: quote age exceeds `stale_quote_seconds` | Derived: quote age exceeds `stale_quote_seconds` | Derived: quote age exceeds `stale_quote_seconds` |
+| `days_bucket` | Derived: calendar bucket from days to expiry | Derived: calendar bucket from days to expiry | Derived: calendar bucket from days to expiry |
+| `near_expiry_near_money_flag` | Derived: expiry and moneyness flag | Derived: expiry and moneyness flag | Derived: expiry and moneyness flag |
+| `passes_primary_screen` | Derived: bid, spread, OI, and volume thresholds | Derived: bid, spread, OI, and volume thresholds | Derived: bid, spread, OI, and volume thresholds |
+| `quote_quality_score` | Derived: shared composite quality score | Derived: shared composite quality score | Derived: shared composite quality score |
 
 ### Run Metadata Mapping
 
-| Field | yfinance | massive |
-| --- | --- | --- |
-| `data_source` | Derived/Constant: provider name `yfinance` | Derived/Constant: provider name `massive` |
-| `risk_free_rate_used` | Derived/Constant: runtime config value | Derived/Constant: runtime config value |
+| Field | yfinance | massive | marketdata |
+| --- | --- | --- | --- |
+| `data_source` | Derived/Constant: provider name `yfinance` | Derived/Constant: provider name `massive` | Derived/Constant: provider name `marketdata` |
+| `risk_free_rate_used` | Derived/Constant: runtime config value | Derived/Constant: runtime config value | Derived/Constant: runtime config value |

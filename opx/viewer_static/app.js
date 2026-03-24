@@ -686,6 +686,45 @@ function escapeHtml(text) {
     .replaceAll('"', '&quot;');
 }
 
+function parseTableCells(line) {
+  const trimmed = line.trim();
+  if (!trimmed.includes('|')) return [];
+  return trimmed
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+function isMarkdownTableSeparator(line) {
+  const cells = parseTableCells(line);
+  if (cells.length === 0) return false;
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function renderMarkdownTable(lines) {
+  const [headerLine, , ...bodyLines] = lines;
+  const headers = parseTableCells(headerLine);
+  const rows = bodyLines
+    .map((line) => parseTableCells(line))
+    .filter((cells) => cells.length > 0);
+
+  const headHtml = headers.map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join('');
+  const bodyHtml = rows.map((cells) => {
+    const normalizedCells = headers.map((_, index) => cells[index] || '');
+    return `<tr>${normalizedCells.map((cell) => `<td>${inlineMarkdown(cell)}</td>`).join('')}</tr>`;
+  }).join('');
+
+  return `
+    <div class="reference-table-wrap">
+      <table class="reference-table">
+        <thead><tr>${headHtml}</tr></thead>
+        <tbody>${bodyHtml}</tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderMarkdown(markdown) {
   const lines = markdown.split('\n');
   let html = '';
@@ -699,7 +738,8 @@ function renderMarkdown(markdown) {
     }
   };
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     if (line.startsWith('```')) {
       closeList();
       html += inCode ? '</code></pre>' : '<pre><code>';
@@ -714,6 +754,27 @@ function renderMarkdown(markdown) {
 
     if (!line.trim()) {
       closeList();
+      continue;
+    }
+
+    const nextLine = lines[index + 1];
+    if (nextLine && line.includes('|') && isMarkdownTableSeparator(nextLine)) {
+      closeList();
+      const tableLines = [line, nextLine];
+      index += 2;
+      while (index < lines.length) {
+        const candidate = lines[index];
+        if (!candidate.trim() || !candidate.includes('|')) {
+          index -= 1;
+          break;
+        }
+        tableLines.push(candidate);
+        index += 1;
+      }
+      if (index === lines.length) {
+        index -= 1;
+      }
+      html += renderMarkdownTable(tableLines);
       continue;
     }
 
