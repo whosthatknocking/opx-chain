@@ -217,11 +217,13 @@ These settings are only used by the matching provider.
 
 Current scoring logic:
 
-- Income: penalizes contracts with `premium_per_day < 0.01` as near useless, then linearly rewards `premium_per_day` from `0.01` up to the default `0.05` cap
-- Liquidity: rewards tighter spreads, higher open interest, and higher volume using default references of `25%` spread-of-mid, `1000` open interest, and `100` volume; the liquidity sub-mix is `50%` spread, `30%` open interest, `20%` volume
-- Risk: rewards delta closer to the current side-aware target, using default targets of `0.25` for calls and `0.20` for puts
-- Efficiency: rewards strikes closer to spot and uses a tiered DTE preference rather than a linear curve. By default, `7-21` DTE gets the maximum DTE score, `22-35` is slightly lower, `36-45` is penalized, and `46+` is penalized further
-- Short-DTE adjustment: `5-6` DTE scores below the preferred `7-21` tier, while `<5` DTE takes the strongest penalty unless `premium_per_day` is exceptional enough to offset much of that hit
+- Expected fill: when `bid_ask_spread_pct_of_mid <= 10%`, scoring assumes fill at midpoint; otherwise it uses `bid + 25%` of the spread
+- Income: `premium_per_day` is now derived from `expected_fill_price / max(days_to_expiration, 1)`, then adjusted by implied volatility using a `0.30` IV baseline to form `iv_adjusted_premium_per_day`
+- Income scoring: penalizes `iv_adjusted_premium_per_day < 0.01` as near useless, then linearly rewards it from `0.01` up to the `0.05` cap
+- Execution: `spread_score` uses prompt tiers with `<10% => 100`, `10-15% => 85`, `15-25%` decaying linearly to `0`, and `>25% => 0`
+- DTE: `dte_score` uses prompt tiers with `7-21 => 100`, `5-6 => 75`, `22-35 => 85`, `36-45 => 65`, `<5 => 25`, and `>45 => 30`
+- Risk: delta is the only score-driving risk input; `probability_itm` is used only to validate whether the risk model looks inconsistent
+- Final score: `score_validation` flags `DISCREPANCY`, `UNDERVALUED`, or `ALIGNED`, and `final_score` applies the corresponding adjustment on top of `option_score`
 
 Default top-level weights:
 

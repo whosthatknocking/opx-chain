@@ -79,8 +79,8 @@ def test_build_freshness_summary_reports_file_and_quote_ages(tmp_path: Path):
     assert len(summary["file_modified_at"]) == 19
 
 
-def test_pick_profitable_opportunity_prefers_higher_option_score_when_rom_matches():
-    """Summary highlights should use option score as a tie-breaker ahead of quote quality."""
+def test_pick_profitable_opportunity_prefers_higher_final_score_when_rom_matches():
+    """Summary highlights should use final score as a tie-breaker ahead of quote quality."""
     frame = pd.DataFrame(
         [
             {
@@ -89,9 +89,14 @@ def test_pick_profitable_opportunity_prefers_higher_option_score_when_rom_matche
                 "strike": 100.0,
                 "expiration_date": "2026-04-17",
                 "probability_itm": 0.22,
+                "risk_level": "LOW",
+                "spread_score": 100.0,
+                "dte_score": 100.0,
+                "theta_efficiency": 10.0,
                 "bid_ask_spread_pct_of_mid": 0.08,
                 "return_on_margin_annualized": 1.5,
-                "option_score": 70.0,
+                "option_score": 90.0,
+                "final_score": 80.0,
                 "quote_quality_score": 7,
                 "passes_primary_screen": True,
             },
@@ -101,9 +106,14 @@ def test_pick_profitable_opportunity_prefers_higher_option_score_when_rom_matche
                 "strike": 105.0,
                 "expiration_date": "2026-04-17",
                 "probability_itm": 0.24,
+                "risk_level": "LOW",
+                "spread_score": 85.0,
+                "dte_score": 85.0,
+                "theta_efficiency": 8.0,
                 "bid_ask_spread_pct_of_mid": 0.09,
                 "return_on_margin_annualized": 1.5,
                 "option_score": 88.0,
+                "final_score": 92.0,
                 "quote_quality_score": 5,
                 "passes_primary_screen": True,
             },
@@ -115,6 +125,7 @@ def test_pick_profitable_opportunity_prefers_higher_option_score_when_rom_matche
     assert summary is not None
     assert summary["contract_symbol"] == "TSLA260417C00105000"
     assert summary["option_score"] == 88.0
+    assert summary["final_score"] == 92.0
 
 
 def test_pick_moderate_risk_opportunity_accepts_spread_at_config_cutoff(monkeypatch):
@@ -131,10 +142,12 @@ def test_pick_moderate_risk_opportunity_accepts_spread_at_config_cutoff(monkeypa
                 "strike": 95.0,
                 "expiration_date": "2026-04-17",
                 "probability_itm": 0.30,
+                "delta_abs": 0.35,
                 "strike_distance_pct": 0.04,
                 "bid_ask_spread_pct_of_mid": 0.25,
                 "return_on_margin_annualized": 1.2,
                 "option_score": 82.0,
+                "final_score": 87.0,
                 "quote_quality_score": 7,
                 "passes_primary_screen": True,
             }

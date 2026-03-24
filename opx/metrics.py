@@ -1,6 +1,7 @@
 """Derived pricing, screening, and freshness metrics for option rows."""
 
 import numpy as np
+import pandas as pd
 
 from opx.config import get_runtime_config
 from opx.greeks import compute_greeks
@@ -22,8 +23,25 @@ def _clip_zero_to_one(values):
     return np.clip(values, 0.0, 1.0)
 
 
-def _compute_dte_score(days_to_expiration, income_score):
-    """Apply the tiered DTE preference used by option scoring."""
+def _compute_spread_score(spread_pct):
+    """Score execution quality from spread percent using prompt-aligned tiers."""
+    return np.select(
+        [
+            spread_pct < 0.10,
+            spread_pct <= 0.15,
+            spread_pct <= 0.25,
+        ],
+        [
+            100.0,
+            85.0,
+            np.maximum(0.0, 85.0 * (1 - ((spread_pct - 0.15) / 0.10))),
+        ],
+        default=0.0,
+    )
+
+
+def _compute_dte_score(days_to_expiration):
+    """Apply the prompt's tiered DTE preference."""
     return np.select(
         [
             days_to_expiration < 5,
@@ -33,45 +51,70 @@ def _compute_dte_score(days_to_expiration, income_score):
             days_to_expiration <= 45,
         ],
         [
-            0.4 + (0.6 * income_score),
-            0.75 + (0.25 * income_score),
+            25.0,
+            75.0,
+            100.0,
+            85.0,
+            65.0,
+        ],
+        default=30.0,
+    )
+
+
+def _compute_income_score(iv_adjusted_premium_per_day):
+    """Score IV-adjusted premium-per-day with a floor and hard cap."""
+    min_useful_premium_per_day = 0.01
+    max_premium_per_day = 0.05
+    return _clip_zero_to_one(
+        (iv_adjusted_premium_per_day - min_useful_premium_per_day)
+        / (max_premium_per_day - min_useful_premium_per_day)
+    )
+
+
+def _compute_theta_efficiency_score(theta_efficiency):
+    """Normalize theta efficiency into a bounded score."""
+    return _clip_zero_to_one(theta_efficiency / 15.0)
+
+
+def _compute_risk_level(df):
+    """Classify row-level risk using delta as the score driver and ITM probability as validation."""
+    return np.select(
+        [
+            (df["delta_abs"] < 0.30) & (df["probability_itm"] < 0.25),
+            ((df["delta_abs"] >= 0.30) & (df["delta_abs"] <= 0.40))
+            | ((df["probability_itm"] >= 0.25) & (df["probability_itm"] <= 0.35)),
+            (df["delta_abs"] > 0.40) | (df["probability_itm"] > 0.35),
+        ],
+        ["LOW", "MODERATE", "HIGH"],
+        default="UNKNOWN",
+    )
+
+
+def _compute_risk_score(delta_abs):
+    """Use delta alone as the score-driving risk input."""
+    return np.select(
+        [
+            delta_abs < 0.30,
+            delta_abs <= 0.40,
+        ],
+        [
             1.0,
-            0.85,
-            0.55,
+            0.75,
         ],
         default=0.35,
     )
 
 
-def _compute_income_score(premium_per_day):
-    """Score premium-per-day with a floor for near-useless income and a hard cap."""
-    min_useful_premium_per_day = 0.01
-    max_premium_per_day = 0.05
-    return _clip_zero_to_one(
-        (premium_per_day - min_useful_premium_per_day)
-        / (max_premium_per_day - min_useful_premium_per_day)
+def _compute_score_validation(option_score, income_score, spread_score):
+    """Assign row-level score validation labels from income and liquidity alignment."""
+    return np.select(
+        [
+            (option_score >= 70.0) & ((income_score < 0.35) | (spread_score < 50.0)),
+            (option_score < 50.0) & (income_score >= 0.60) & (spread_score >= 70.0),
+        ],
+        ["DISCREPANCY", "UNDERVALUED"],
+        default="ALIGNED",
     )
-
-
-def _compute_liquidity_score(df):
-    """Blend spread, open-interest, and volume into one liquidity score."""
-    spread_score = _clip_zero_to_one(1 - (df["bid_ask_spread_pct_of_mid"] / 0.25))
-    oi_score = _clip_zero_to_one(df["open_interest"] / 1000.0)
-    volume_score = _clip_zero_to_one(df["volume"] / 100.0)
-    return spread_score * 0.5 + oi_score * 0.3 + volume_score * 0.2
-
-
-def _compute_risk_score(df):
-    """Reward delta staying close to the side-aware target."""
-    target_delta = np.where(df["option_type"] == "call", 0.25, 0.20)
-    return _clip_zero_to_one(1 - (np.abs(df["delta_abs"] - target_delta) / target_delta))
-
-
-def _compute_efficiency_score(df, income_score):
-    """Blend DTE preference and strike-distance efficiency into one score."""
-    dte_score = _compute_dte_score(df["days_to_expiration"], income_score)
-    distance_score = _clip_zero_to_one(1 - (df["strike_distance_pct"] / 0.30))
-    return dte_score * 0.5 + distance_score * 0.5
 
 
 def add_option_score(df):
@@ -85,16 +128,21 @@ def add_option_score(df):
     )
     if total_weight <= 0:
         df["option_score"] = np.nan
+        df["score_validation"] = np.nan
+        df["score_adjustment"] = np.nan
+        df["final_score"] = np.nan
         return df
 
-    income_score = _compute_income_score(df["premium_per_day"])
-    liquidity_score = _compute_liquidity_score(df)
-    risk_score = _compute_risk_score(df)
-    efficiency_score = _compute_efficiency_score(df, income_score)
+    income_score = _compute_income_score(df["iv_adjusted_premium_per_day"])
+    spread_score_norm = _clip_zero_to_one(df["spread_score"] / 100.0)
+    dte_score_norm = _clip_zero_to_one(df["dte_score"] / 100.0)
+    risk_score = _compute_risk_score(df["delta_abs"])
+    theta_efficiency_score = _compute_theta_efficiency_score(df["theta_efficiency"])
+    efficiency_score = (dte_score_norm * 0.5) + (theta_efficiency_score * 0.5)
 
     weighted_score = (
         income_score * config.option_score_income_weight
-        + liquidity_score * config.option_score_liquidity_weight
+        + spread_score_norm * config.option_score_liquidity_weight
         + risk_score * config.option_score_risk_weight
         + efficiency_score * config.option_score_efficiency_weight
     ) / total_weight
@@ -106,13 +154,35 @@ def add_option_score(df):
         & df["open_interest"].notna()
         & df["volume"].notna()
         & df["delta_abs"].notna()
+        & df["probability_itm"].notna()
         & df["days_to_expiration"].notna()
         & df["strike"].notna()
         & df["underlying_price"].notna()
-        & df["strike_distance_pct"].notna()
+        & df["iv_adjusted_premium_per_day"].notna()
+        & df["spread_score"].notna()
+        & df["dte_score"].notna()
+        & df["theta_efficiency"].notna()
         & df["option_type"].isin(["call", "put"])
     )
     df["option_score"] = np.where(required, _clip_zero_to_one(weighted_score) * 100, np.nan)
+    validation_values = _compute_score_validation(
+        df["option_score"], income_score, df["spread_score"]
+    )
+    df["score_validation"] = pd.Series(validation_values, index=df.index, dtype="object")
+    df.loc[~required, "score_validation"] = np.nan
+    df["score_adjustment"] = np.select(
+        [
+            df["score_validation"] == "DISCREPANCY",
+            df["score_validation"] == "UNDERVALUED",
+        ],
+        [-10.0, 5.0],
+        default=0.0,
+    )
+    df["final_score"] = np.where(
+        required,
+        np.clip(df["option_score"] + df["score_adjustment"], 0.0, 100.0),
+        np.nan,
+    )
     return df
 
 
@@ -220,9 +290,19 @@ def add_derived_pricing_metrics(df, underlying_price):
         df["premium_to_strike"] / df["time_to_expiration_years"],
         np.nan,
     )
+    df["expected_fill_price"] = np.where(
+        df["bid_ask_spread_pct_of_mid"] <= 0.10,
+        df["mark_price_mid"],
+        df["bid"] + (0.25 * df["bid_ask_spread"]),
+    )
     df["premium_per_day"] = np.where(
-        df["days_to_expiration"] > 0,
-        df["premium_reference_price"] / df["days_to_expiration"],
+        df["expected_fill_price"].notna(),
+        df["expected_fill_price"] / np.maximum(df["days_to_expiration"], 1),
+        np.nan,
+    )
+    df["iv_adjusted_premium_per_day"] = np.where(
+        df["implied_volatility"] > 0,
+        df["premium_per_day"] * (df["implied_volatility"] / 0.30),
         np.nan,
     )
     otm_amount = np.where(
@@ -257,6 +337,17 @@ def add_derived_pricing_metrics(df, underlying_price):
         np.abs(df["theta"]) / df["premium_reference_price"],
         np.nan,
     )
+    df["theta_dollars_per_day"] = np.abs(df["theta"]) * 100
+    df["capital_required"] = np.where(
+        df["option_type"] == "call",
+        df["last_trade_price"] * 100,
+        df["strike"] * 100,
+    )
+    df["theta_efficiency"] = np.where(
+        df["capital_required"] > 0,
+        df["theta_dollars_per_day"] / (df["capital_required"] / 1000.0),
+        np.nan,
+    )
     df["vega_per_day"] = np.where(
         df["days_to_expiration"] > 0,
         df["vega"] / df["days_to_expiration"],
@@ -284,14 +375,22 @@ def add_screening_and_freshness_flags(df, fetched_at):
     df["near_expiry_near_money_flag"] = (
         (df["days_to_expiration"] <= 14) & (df["strike_distance_pct"] <= 0.03)
     )
+    df["spread_score"] = _compute_spread_score(df["bid_ask_spread_pct_of_mid"])
+    df["dte_score"] = _compute_dte_score(df["days_to_expiration"])
+    df["risk_level"] = _compute_risk_level(df)
+    df["risk_model_inconsistent"] = np.where(
+        df["delta_abs"].notna() & df["probability_itm"].notna(),
+        np.abs(df["delta_abs"] - df["probability_itm"]) > 0.15,
+        np.nan,
+    )
     df["is_wide_market"] = (
         df["bid_ask_spread_pct_of_mid"] > config.max_spread_pct_of_mid
     )
     df["passes_primary_screen"] = (
         (df["bid"] >= config.min_bid)
         & (df["bid_ask_spread_pct_of_mid"] <= config.max_spread_pct_of_mid)
-        & (df["open_interest"] > config.min_open_interest)
-        & (df["volume"] > config.min_volume)
+        & (df["open_interest"] >= config.min_open_interest)
+        & (df["volume"] >= config.min_volume)
     )
     df["quote_quality_score"] = (
         df["has_valid_quote"].astype(int)

@@ -63,6 +63,10 @@ async function fetchJson(url) {
 
 function formatCell(value) {
   if (value === null || value === undefined || value === '') return '—';
+  const number = Number(value);
+  if (Number.isFinite(number) && typeof value !== 'boolean') {
+    return number.toFixed(4);
+  }
   return String(value);
 }
 
@@ -124,7 +128,7 @@ function formatDatasetValue(card) {
   if (card.name === 'risk_free_rate_used') {
     const number = Number(card.value);
     if (Number.isFinite(number)) {
-      return `${(number * 100).toFixed(2)}%`;
+      return `${(number * 100).toFixed(4)}%`;
     }
   }
   return formatCell(card.value);
@@ -169,7 +173,7 @@ function renderDatasetCards(cards) {
   `).join('');
 }
 
-function formatNumber(value, digits = 1) {
+function formatNumber(value, digits = 4) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
   return Number(value).toFixed(digits);
 }
@@ -178,7 +182,7 @@ function formatSignedPercent(value) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
   const number = Number(value);
   const sign = number > 0 ? '+' : '';
-  return `${sign}${number.toFixed(1)}%`;
+  return `${sign}${number.toFixed(4)}%`;
 }
 
 function getFieldDescription(label) {
@@ -190,11 +194,16 @@ function getFieldDescription(label) {
     'Latest Status': 'Compact status derived from the latest underlying day move and the relationship between implied volatility and historical volatility.',
     'IV / HV': 'Ratio of implied volatility to historical volatility. Above 1 usually means options are priced richer than recent realized movement.',
     'Best ROM': 'Highest return_on_margin_annualized among candidate contracts for this ticker. Higher can be attractive, but extreme values usually mean more risk.',
-    'Moderate ROM': 'return_on_margin_annualized for the selected moderate-risk candidate for this ticker. A middle-ground value is often more realistic than the top outlier.',
-    'Option Score': 'Shared 0-100 score built from income, liquidity, risk, and efficiency. Income penalizes premium_per_day below 0.01 and caps at 0.05. DTE is tiered, with 7-21 days preferred and very short-dated rows penalized unless premium is exceptional. Higher is better within one run.',
+    'Moderate ROM': 'return_on_margin_annualized for the selected lower-delta candidate for this ticker. A middle-ground value is often more realistic than the top outlier.',
+    'Option Score': 'Shared 0-100 row score built from IV-adjusted premium/day, spread execution quality, DTE execution quality, delta-only risk, and theta efficiency. Higher is better within one run.',
+    'Final Score': 'Option Score after the row-level score validation adjustment is applied.',
+    'Risk Level': 'Prompt-aligned row risk label using delta as the score-driving risk input and probability_itm only as a consistency check.',
+    'Spread Score': 'Execution-quality score derived from spread percent tiers. Higher is better.',
+    'DTE Score': 'Execution-quality score derived from DTE tiers. Higher is better.',
+    'Theta Efficiency': 'Row-level daily theta capture per $1,000 of capital required. Higher is better.',
     'Calls / Puts': 'Count of call and put option rows available for this underlying symbol.',
     'Most Profitable': 'Heuristic pick for the highest annualized return on margin among candidate contracts. Highest return is not always the safest setup.',
-    'Moderate Risk': 'Heuristic pick balancing return on margin with lower ITM probability, wider distance from spot, and tighter spread. Usually safer than the top-return candidate.',
+    'Moderate Risk': 'Heuristic pick balancing return on margin with lower delta and acceptable spread after primary-screen filtering.',
   };
   const columnDescription = getColumnDefinition(label)?.description;
   return columnDescription || summaryDescriptions[label] || '';
@@ -222,15 +231,32 @@ function renderOpportunityCard(title, opportunity, tone = 'default') {
       </article>
     `;
   }
-  const score = Number.isFinite(Number(opportunity.option_score))
-    ? `${Number(opportunity.option_score).toFixed(1)}`
+  const optionScore = Number.isFinite(Number(opportunity.option_score))
+    ? `${Number(opportunity.option_score).toFixed(4)}`
     : '—';
+  const finalScore = Number.isFinite(Number(opportunity.final_score))
+    ? `${Number(opportunity.final_score).toFixed(4)}`
+    : '—';
+  const spreadScore = Number.isFinite(Number(opportunity.spread_score))
+    ? `${Number(opportunity.spread_score).toFixed(4)}`
+    : '—';
+  const dteScore = Number.isFinite(Number(opportunity.dte_score))
+    ? `${Number(opportunity.dte_score).toFixed(4)}`
+    : '—';
+  const thetaEfficiency = Number.isFinite(Number(opportunity.theta_efficiency))
+    ? `${Number(opportunity.theta_efficiency).toFixed(4)}`
+    : '—';
+  const riskLevel = opportunity.risk_level || '—';
   return `
     <article class="opportunity-card opportunity-card-${tone}">
       ${renderFieldLabel(title, 'opportunity-label')}
-      <strong>${escapeHtml(`${opportunity.option_type} ${formatNumber(opportunity.strike, 2)} · ${opportunity.expiration_date}`)}</strong>
+      <strong>${escapeHtml(`${opportunity.option_type} ${formatNumber(opportunity.strike, 4)} · ${opportunity.expiration_date}`)}</strong>
       <span class="opportunity-detail">${escapeHtml(opportunity.summary || 'No summary available.')}</span>
-      <span class="opportunity-detail">${renderFieldLabel('Option Score')} ${escapeHtml(score)}</span>
+      <span class="opportunity-detail">${renderFieldLabel('Final Score')} ${escapeHtml(finalScore)}</span>
+      <span class="opportunity-detail">${renderFieldLabel('Option Score')} ${escapeHtml(optionScore)}</span>
+      <span class="opportunity-detail">${renderFieldLabel('Risk Level')} ${escapeHtml(riskLevel)}</span>
+      <span class="opportunity-detail">${renderFieldLabel('Spread Score')} ${escapeHtml(spreadScore)} · ${renderFieldLabel('DTE Score')} ${escapeHtml(dteScore)}</span>
+      <span class="opportunity-detail">${renderFieldLabel('Theta Efficiency')} ${escapeHtml(thetaEfficiency)}</span>
     </article>
   `;
 }
@@ -247,7 +273,7 @@ function renderSummaryTickerGrid(tickers) {
           <div class="ticker-summary-primary-metrics">
             <div class="ticker-summary-spot">
               ${renderFieldLabel('Underlying Price')}
-              <strong>${escapeHtml(formatNumber(item.underlying_price, 2))}</strong>
+              <strong>${escapeHtml(formatNumber(item.underlying_price, 4))}</strong>
             </div>
             <span class="ticker-summary-status-pill" title="${escapeHtml(getFieldDescription('Latest Status'))}">${escapeHtml(item.latest_status || 'Snapshot available')}</span>
           </div>
@@ -260,15 +286,15 @@ function renderSummaryTickerGrid(tickers) {
         </div>
         <div class="ticker-summary-stat">
           ${renderFieldLabel('Implied Volatility')}
-          <strong>${escapeHtml(formatNumber(item.median_implied_volatility_pct, 1))}%</strong>
+          <strong>${escapeHtml(formatNumber(item.median_implied_volatility_pct, 4))}%</strong>
         </div>
         <div class="ticker-summary-stat">
           ${renderFieldLabel('Historical Volatility')}
-          <strong>${escapeHtml(formatNumber(item.historical_volatility_pct, 1))}%</strong>
+          <strong>${escapeHtml(formatNumber(item.historical_volatility_pct, 4))}%</strong>
         </div>
         <div class="ticker-summary-stat">
           ${renderFieldLabel('IV / HV')}
-          <strong>${escapeHtml(formatNumber(item.iv_hv_ratio, 2))}</strong>
+          <strong>${escapeHtml(formatNumber(item.iv_hv_ratio, 4))}</strong>
         </div>
         <div class="ticker-summary-stat">
           ${renderFieldLabel('Best ROM')}

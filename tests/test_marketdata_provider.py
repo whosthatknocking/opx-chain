@@ -126,6 +126,10 @@ def fake_client(provider: MarketDataProvider) -> FakeMarketDataClient:
 def test_marketdata_provider_builds_snapshot_and_option_chain(monkeypatch):
     """Market Data provider should derive expirations, chains, and underlying snapshot."""
     patch_marketdata_client(monkeypatch)
+    monkeypatch.setattr(
+        "opx.providers.marketdata.get_runtime_config",
+        lambda: make_runtime_config(marketdata_mode=None),
+    )
     provider = MarketDataProvider()
 
     snapshot = provider.load_underlying_snapshot("TSLA")

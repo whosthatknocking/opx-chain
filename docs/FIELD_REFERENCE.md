@@ -40,6 +40,7 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 ## Quote Quality and Liquidity Fields
 
 - `mark_price_mid`: Midpoint of bid and ask when the quote is valid. Use it as the default fair reference premium.
+- `expected_fill_price`: Prompt-aligned sell-side execution estimate. It uses midpoint when `bid_ask_spread_pct_of_mid <= 0.10`, otherwise `bid + 25%` of the spread.
 - `premium_reference_price`: Preferred premium used by derived calculations. It falls back from mid to bid to last trade price.
 - `premium_reference_method`: Which source supplied `premium_reference_price`. Use it to judge how reliable premium-based metrics are.
 - `bid_ask_spread`: Absolute spread between ask and bid. Use it to measure trading friction. Lower is better.
@@ -67,7 +68,8 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 - `premium_to_strike`: Reference premium divided by strike. Use it as a simple premium yield measure.
 - `premium_to_strike_bid`: Bid divided by strike. Use it for a more conservative premium yield estimate.
 - `premium_to_strike_annualized`: `premium_to_strike` annualized by time to expiration. Use it to compare contracts with different expiries. Higher can be attractive, but very high values often come with more risk or weaker liquidity.
-- `premium_per_day`: Reference premium earned per day until expiration. Use it to compare short-dated income efficiency. In the shared `option_score`, values below `0.01` are treated as near useless, values from `0.01` to `0.05` are rewarded linearly, and values above `0.05` are capped for the income component. Higher usually means more daily premium, but often with more event and assignment risk.
+- `premium_per_day`: Expected-fill premium earned per day until expiration, computed as `expected_fill_price / max(days_to_expiration, 1)`. Use it to compare short-dated income efficiency under a simple execution assumption.
+- `iv_adjusted_premium_per_day`: `premium_per_day * (implied_volatility / 0.30)`. Use it as the main income-quality input for scoring so richer IV is reflected in the premium/day signal.
 - `estimated_margin_requirement`: Reg-T style per-share margin proxy for a short option, using `premium + max(20% of spot - OTM amount, 10% floor)`. Use it as the denominator for ROM-style comparisons. Lower means less capital tied up, but not necessarily less real risk.
 - `return_on_margin`: `premium_reference_price / estimated_margin_requirement`. Use it to compare premium collected relative to estimated capital at risk. Higher is usually better if quote quality and downside risk are still acceptable.
 - `return_on_margin_annualized`: `return_on_margin` annualized by time to expiration. Use it to compare ROM across expirations. Higher is stronger on paper, but extreme values deserve extra caution.
@@ -87,7 +89,10 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 - `vega`: Black-Scholes vega. Use it to measure sensitivity to implied volatility changes. Higher means the option is more sensitive to vol expansion or crush.
 - `vega_per_day`: Vega divided by days to expiration. Use it to compare vol sensitivity across expiries on a per-day basis.
 - `theta`: Black-Scholes daily theta. Use it to estimate daily time decay.
+- `theta_dollars_per_day`: Absolute daily theta scaled to one contract as `abs(theta) * 100`. Use it to compare raw daily decay capture across rows.
 - `theta_to_premium_ratio`: Absolute theta divided by premium. Use it to compare time decay efficiency relative to premium collected or paid. Higher means faster daily decay relative to the option price.
+- `capital_required`: Simplified one-contract capital proxy. Calls use `last_trade_price * 100`; puts use `strike * 100`.
+- `theta_efficiency`: `theta_dollars_per_day / (capital_required / 1000)`. Use it to compare daily theta generation per `$1,000` of row-level capital.
 
 ## Validation, Freshness, and Screening Fields
 
@@ -106,8 +111,15 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 - `days_bucket`: Expiration bucket from `Week_1` through `Week_4`. Use it for quick grouping of near-term maturities.
 - `near_expiry_near_money_flag`: True when expiration is within 14 days and strike is within 3% of spot. Use it to highlight short-dated near-the-money contracts.
 - `passes_primary_screen`: True when bid, spread, open interest, and volume all pass configured thresholds. Use it as the main tradability filter. `True` is generally better for practical trading candidates.
+- `spread_score`: Execution-quality score from the prompt spread tiers. Higher is better.
+- `dte_score`: Execution-quality score from the prompt DTE tiers. Higher is better.
+- `risk_level`: Prompt-aligned row risk label using delta as the score-driving risk input.
+- `risk_model_inconsistent`: Flag showing delta and `probability_itm` disagree materially.
 - `quote_quality_score`: Simple composite score built from quote validity, IV, Greeks, market structure, and freshness checks. Use it to rank rows by data quality. Higher is better.
-- `option_score`: Shared 0-100 score built from income, liquidity, risk, and efficiency components using canonical fields such as premium per day, spread quality, open interest, volume, delta, days to expiration, and strike distance. The income component treats `premium_per_day < 0.01` as near useless and caps at `0.05`. The DTE component is tiered: `7-21` days is preferred, `22-35` is slightly lower, `36-45` is penalized, and shorter than `5` days is penalized strongly unless premium is exceptional. Use it to sort contracts by overall attractiveness within one run. Higher is better.
+- `option_score`: Shared 0-100 row score built from IV-adjusted premium/day, spread execution quality, DTE execution quality, delta-only risk, and theta efficiency. Use it to sort contracts by overall attractiveness within one run before score validation adjustments.
+- `score_validation`: Row-level alignment label: `DISCREPANCY`, `UNDERVALUED`, or `ALIGNED`.
+- `score_adjustment`: Numeric adjustment applied after score validation.
+- `final_score`: Final row score after applying `score_adjustment` to `option_score` and clamping the result into `0-100`.
 
 ## Run Metadata Fields
 
@@ -198,7 +210,8 @@ Legend:
 | `premium_to_strike` | Derived: premium reference divided by strike | Derived: premium reference divided by strike | Derived: premium reference divided by strike |
 | `premium_to_strike_bid` | Derived: bid divided by strike | Derived: bid divided by strike | Derived: bid divided by strike |
 | `premium_to_strike_annualized` | Derived: premium-to-strike annualized by expiry | Derived: premium-to-strike annualized by expiry | Derived: premium-to-strike annualized by expiry |
-| `premium_per_day` | Derived: premium reference divided by days to expiry | Derived: premium reference divided by days to expiry | Derived: premium reference divided by days to expiry |
+| `premium_per_day` | Derived: expected fill divided by `max(days_to_expiration, 1)` | Derived: expected fill divided by `max(days_to_expiration, 1)` | Derived: expected fill divided by `max(days_to_expiration, 1)` |
+| `iv_adjusted_premium_per_day` | Derived: `premium_per_day * (implied_volatility / 0.30)` | Derived: `premium_per_day * (implied_volatility / 0.30)` | Derived: `premium_per_day * (implied_volatility / 0.30)` |
 | `estimated_margin_requirement` | Derived: shared margin proxy formula | Derived: shared margin proxy formula | Derived: shared margin proxy formula |
 | `return_on_margin` | Derived: premium reference divided by margin proxy | Derived: premium reference divided by margin proxy | Derived: premium reference divided by margin proxy |
 | `return_on_margin_annualized` | Derived: return on margin annualized by expiry | Derived: return on margin annualized by expiry | Derived: return on margin annualized by expiry |
@@ -220,7 +233,10 @@ Legend:
 | `vega` | Derived: Black-Scholes in shared app code | Transformed or Derived: provider `greeks.vega` preserved, app fills gaps | Direct/Transformed: provider `vega` preserved, app fills gaps |
 | `vega_per_day` | Derived: vega divided by days to expiry | Derived: vega divided by days to expiry | Derived: vega divided by days to expiry |
 | `theta` | Derived: Black-Scholes daily theta | Transformed or Derived: provider `greeks.theta` preserved, app fills gaps | Direct/Transformed: provider `theta` preserved, app fills gaps |
+| `theta_dollars_per_day` | Derived: `abs(theta) * 100` | Derived: `abs(theta) * 100` | Derived: `abs(theta) * 100` |
 | `theta_to_premium_ratio` | Derived: absolute theta divided by premium reference | Derived: absolute theta divided by premium reference | Derived: absolute theta divided by premium reference |
+| `capital_required` | Derived: calls use `last_trade_price * 100`, puts use `strike * 100` | Derived: calls use `last_trade_price * 100`, puts use `strike * 100` | Derived: calls use `last_trade_price * 100`, puts use `strike * 100` |
+| `theta_efficiency` | Derived: theta dollars per day per `$1,000` of capital required | Derived: theta dollars per day per `$1,000` of capital required | Derived: theta dollars per day per `$1,000` of capital required |
 
 ### Validation, Freshness, and Screening Mapping
 
@@ -241,8 +257,15 @@ Legend:
 | `days_bucket` | Derived: calendar bucket from days to expiry | Derived: calendar bucket from days to expiry | Derived: calendar bucket from days to expiry |
 | `near_expiry_near_money_flag` | Derived: expiry and moneyness flag | Derived: expiry and moneyness flag | Derived: expiry and moneyness flag |
 | `passes_primary_screen` | Derived: bid, spread, OI, and volume thresholds | Derived: bid, spread, OI, and volume thresholds | Derived: bid, spread, OI, and volume thresholds |
+| `spread_score` | Derived: prompt spread execution score | Derived: prompt spread execution score | Derived: prompt spread execution score |
+| `dte_score` | Derived: prompt DTE execution score | Derived: prompt DTE execution score | Derived: prompt DTE execution score |
+| `risk_level` | Derived: delta-led risk classification with ITM-probability validation | Derived: delta-led risk classification with ITM-probability validation | Derived: delta-led risk classification with ITM-probability validation |
+| `risk_model_inconsistent` | Derived: flag for material disagreement between delta and `probability_itm` | Derived: flag for material disagreement between delta and `probability_itm` | Derived: flag for material disagreement between delta and `probability_itm` |
 | `quote_quality_score` | Derived: shared composite quality score | Derived: shared composite quality score | Derived: shared composite quality score |
-| `option_score` | Derived: shared weighted score from income, liquidity, risk, and efficiency components; income penalizes `premium_per_day < 0.01`, caps at `0.05`, and DTE is tiered with `7-21` preferred while `<5` days is penalized unless premium is exceptional | Derived: shared weighted score from income, liquidity, risk, and efficiency components; income penalizes `premium_per_day < 0.01`, caps at `0.05`, and DTE is tiered with `7-21` preferred while `<5` days is penalized unless premium is exceptional | Derived: shared weighted score from income, liquidity, risk, and efficiency components; income penalizes `premium_per_day < 0.01`, caps at `0.05`, and DTE is tiered with `7-21` preferred while `<5` days is penalized unless premium is exceptional |
+| `option_score` | Derived: shared row score from IV-adjusted income, spread execution, delta-only risk, and efficiency | Derived: shared row score from IV-adjusted income, spread execution, delta-only risk, and efficiency | Derived: shared row score from IV-adjusted income, spread execution, delta-only risk, and efficiency |
+| `score_validation` | Derived: row-level alignment label for score review | Derived: row-level alignment label for score review | Derived: row-level alignment label for score review |
+| `score_adjustment` | Derived: numeric post-score adjustment | Derived: numeric post-score adjustment | Derived: numeric post-score adjustment |
+| `final_score` | Derived: `option_score + score_adjustment`, clamped to `0-100` | Derived: `option_score + score_adjustment`, clamped to `0-100` | Derived: `option_score + score_adjustment`, clamped to `0-100` |
 
 ### Run Metadata Mapping
 

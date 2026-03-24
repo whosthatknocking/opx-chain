@@ -76,8 +76,13 @@ class OpportunitySummary(TypedDict):
     probability_itm_pct: float | None
     delta_abs: float | None
     strike_distance_pct: float | None
+    risk_level: str | None
+    spread_score: float | None
+    dte_score: float | None
+    theta_efficiency: float | None
     quote_quality_score: float | None
     option_score: float | None
+    final_score: float | None
     bid_ask_spread_pct_of_mid: float | None
     summary: str | None
 
@@ -281,8 +286,13 @@ def normalize_opportunity(row: dict[str, Any] | None) -> OpportunitySummary | No
         "probability_itm_pct": format_percent(coerce_scalar_number(row.get("probability_itm"))),
         "delta_abs": coerce_scalar_number(row.get("delta_abs")),
         "strike_distance_pct": format_percent(coerce_scalar_number(row.get("strike_distance_pct"))),
+        "risk_level": row.get("risk_level"),
+        "spread_score": coerce_scalar_number(row.get("spread_score")),
+        "dte_score": coerce_scalar_number(row.get("dte_score")),
+        "theta_efficiency": coerce_scalar_number(row.get("theta_efficiency")),
         "quote_quality_score": coerce_scalar_number(row.get("quote_quality_score")),
         "option_score": coerce_scalar_number(row.get("option_score")),
+        "final_score": coerce_scalar_number(row.get("final_score")),
         "bid_ask_spread_pct_of_mid": format_percent(
             coerce_scalar_number(row.get("bid_ask_spread_pct_of_mid"))
         ),
@@ -323,8 +333,7 @@ def screen_primary_candidates(frame: pd.DataFrame) -> pd.DataFrame:
     candidates = frame.copy()
     if "passes_primary_screen" not in candidates.columns:
         return candidates
-    screened = candidates[candidates["passes_primary_screen"].map(is_truthy)]
-    return screened if not screened.empty else candidates
+    return candidates[candidates["passes_primary_screen"].map(is_truthy)]
 
 
 def pick_profitable_opportunity(frame: pd.DataFrame) -> OpportunitySummary | None:
@@ -335,9 +344,11 @@ def pick_profitable_opportunity(frame: pd.DataFrame) -> OpportunitySummary | Non
     candidates = attach_opportunity_summary(candidates)
     candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized"))
     candidates["_score"] = coerce_number(candidates.get("option_score")).fillna(0)
+    candidates["_final_score"] = coerce_number(candidates.get("final_score", candidates["_score"]))
+    candidates["_final_score"] = candidates["_final_score"].fillna(candidates["_score"])
     candidates["_quality"] = coerce_number(candidates.get("quote_quality_score")).fillna(0)
     candidates = candidates.sort_values(
-        by=["_rom", "_score", "_quality"],
+        by=["_rom", "_final_score", "_quality"],
         ascending=[False, False, False],
         na_position="last",
     )
@@ -345,27 +356,27 @@ def pick_profitable_opportunity(frame: pd.DataFrame) -> OpportunitySummary | Non
 
 
 def pick_moderate_risk_opportunity(frame: pd.DataFrame) -> OpportunitySummary | None:
-    """Select a lower-ITM, wider-cushion candidate when possible."""
+    """Select a lower-delta, primary-screen candidate when possible."""
     if frame.empty:
         return None
     config = get_runtime_config()
     candidates = screen_primary_candidates(frame)
-    candidates["_itm"] = coerce_number(candidates.get("probability_itm"))
+    candidates["_delta"] = coerce_number(candidates.get("delta_abs"))
     candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized"))
     candidates["_score"] = coerce_number(candidates.get("option_score")).fillna(0)
-    candidates["_distance"] = coerce_number(candidates.get("strike_distance_pct"))
+    candidates["_final_score"] = coerce_number(candidates.get("final_score", candidates["_score"]))
+    candidates["_final_score"] = candidates["_final_score"].fillna(candidates["_score"])
     candidates["_spread"] = coerce_number(candidates.get("bid_ask_spread_pct_of_mid"))
     moderate = candidates[
-        (candidates["_itm"].notna()) & (candidates["_itm"] <= 0.35)
-        & (candidates["_distance"].notna()) & (candidates["_distance"] >= 0.03)
+        (candidates["_delta"].notna()) & (candidates["_delta"] <= 0.40)
         & (candidates["_spread"].notna())
         & (candidates["_spread"] <= config.max_spread_pct_of_mid)
     ]
     if moderate.empty:
-        moderate = candidates[(candidates["_itm"].notna()) & (candidates["_itm"] <= 0.45)]
+        moderate = candidates[(candidates["_delta"].notna()) & (candidates["_delta"] <= 0.45)]
     moderate = attach_opportunity_summary(moderate)
     moderate = moderate.sort_values(
-        by=["_score", "_rom", "_itm"],
+        by=["_final_score", "_rom", "_delta"],
         ascending=[False, False, True],
         na_position="last",
     )

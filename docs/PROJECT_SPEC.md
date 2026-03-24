@@ -277,13 +277,14 @@ Requirements:
 
 - `option_score` is a canonical derived field in the `0-100` range
 - it is computed from shared normalized fields only, not provider-specific scratch fields
-- the current score combines income, liquidity, risk, and efficiency components
-- the income component penalizes `premium_per_day < 0.01` and caps at `0.05`
-- the DTE component is tiered rather than linear, with `7-21` days preferred and very short-dated rows penalized unless premium is exceptional
+- the current score combines IV-adjusted income quality, spread execution quality, DTE execution quality, delta-only risk, and theta efficiency
+- `premium_per_day` is derived from a prompt-aligned `expected_fill_price`
+- `probability_itm` is validation-only and should not directly drive row ranking
 - score weights are configurable through runtime config so tuning does not require code changes
 - the configured weights must remain non-negative and sum to a positive total; otherwise defaults are used
 - score output is visible both in the exported CSV and in the local viewer
-- current viewer summary heuristics may use `option_score` alongside return-on-margin and quote-quality fields when selecting highlight candidates
+- row-level score validation produces `score_validation`, `score_adjustment`, and `final_score`
+- current viewer summary heuristics rank only rows passing `passes_primary_screen` when that field exists and prefer `final_score` as the score-aware tie-breaker
 
 ### 6.3 Exit Status
 
@@ -365,7 +366,8 @@ Current viewer behavior includes:
 - active provider surfaced through dataset metadata when constant across the file
 - a `Reference` tab backed by the field-reference document
 - sortable/filterable table view
-- summary highlights for exported contracts
+- summary highlights restricted to primary-screen rows when available
+- opportunity cards that surface `final_score`, `option_score`, `risk_level`, `spread_score`, `dte_score`, and `theta_efficiency`
 
 ## 9. Validation Status
 
