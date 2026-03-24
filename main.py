@@ -51,7 +51,7 @@ def release_fetcher_lock(lock_handle):
             pass
 
 
-def main():  # pylint: disable=too-many-branches
+def main():  # pylint: disable=too-many-branches,too-many-locals,too-many-statements
     """Fetch configured tickers and write the consolidated CSV output."""
     lock_handle = acquire_fetcher_lock()
     if lock_handle is None:
@@ -86,15 +86,23 @@ def main():  # pylint: disable=too-many-branches
 
         ticker_frames = []
         validation_findings = []
+        filtered_row_counts = []
         for ticker in config.tickers:
             print(f"Loading {ticker}")
             ticker_df = fetch_ticker_option_chain(
                 ticker,
                 logger=logger,
                 validation_findings=validation_findings,
+                filtered_row_counts=filtered_row_counts,
             )
             if not ticker_df.empty:
                 ticker_frames.append(ticker_df)
+
+        filtered_out_rows = sum(filtered_row_counts)
+        print("Filter summary:")
+        print(f"  filtered_out_rows: {filtered_out_rows}")
+        if logger:
+            logger.info("filter_summary filtered_out_rows=%s", filtered_out_rows)
 
         if not ticker_frames:
             print("No data fetched.")

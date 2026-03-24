@@ -49,6 +49,7 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
     ticker,
     logger=None,
     validation_findings=None,
+    filtered_row_counts=None,
 ):
     """Fetch and normalize all near-term option chains for one ticker."""
     provider = None
@@ -178,12 +179,15 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
                 if config.enable_validation and validation_findings is not None:
                     validation_findings.extend(validate_option_rows(normalized))
                 filtered = apply_post_download_filters(normalized, underlying_price)
+                dropped_rows = len(vendor_normalized) - len(filtered)
+                if filtered_row_counts is not None:
+                    filtered_row_counts.append(dropped_rows)
                 _emit_fetch_info(
                     (
                         f"{ticker}: expiration={expiration_date} side={option_type} "
                         f"normalized_rows={len(vendor_normalized)} "
                         f"post_filter_rows={len(filtered)} "
-                        f"dropped_rows={len(vendor_normalized) - len(filtered)}"
+                        f"dropped_rows={dropped_rows}"
                     ),
                     logger=logger,
                 )

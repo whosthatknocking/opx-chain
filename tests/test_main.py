@@ -67,7 +67,10 @@ def test_main_prints_rows_written_after_saved(monkeypatch, capsys, tmp_path: Pat
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None, validation_findings=None: frames[ticker],
+        (
+            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
+            frames[ticker]
+        ),
     )
 
     written = {}
@@ -112,7 +115,10 @@ def test_main_prints_config_fallbacks(monkeypatch, capsys, tmp_path: Path):
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None, validation_findings=None: pd.DataFrame(),
+        (
+            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
+            pd.DataFrame()
+        ),
     )
 
     exit_code = main.main()
@@ -139,8 +145,14 @@ def test_main_prints_validation_summary_before_export(monkeypatch, capsys, tmp_p
         lambda: (StubLogger(), Path("logs/run.log")),
     )
 
-    def fetch_with_invalid_quote(_ticker, logger=None, validation_findings=None):
+    def fetch_with_invalid_quote(
+        _ticker,
+        logger=None,
+        validation_findings=None,
+        filtered_row_counts=None,
+    ):
         del logger
+        del filtered_row_counts
         if validation_findings is not None:
             validation_findings.extend(
                 validate_option_rows(
@@ -169,6 +181,8 @@ def test_main_prints_validation_summary_before_export(monkeypatch, capsys, tmp_p
 
     stdout = capsys.readouterr().out
     assert exit_code == 0
+    assert "Filter summary:" in stdout
+    assert "filtered_out_rows: 0" in stdout
     assert "Validation summary:" in stdout
     assert "errors: 1" in stdout
 
@@ -191,7 +205,10 @@ def test_main_can_disable_validation_summary(monkeypatch, capsys, tmp_path: Path
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None, validation_findings=None: pd.DataFrame([make_export_row()]),
+        (
+            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
+            pd.DataFrame([make_export_row()])
+        ),
     )
     monkeypatch.setattr(
         main,
@@ -204,6 +221,8 @@ def test_main_can_disable_validation_summary(monkeypatch, capsys, tmp_path: Path
 
     stdout = capsys.readouterr().out
     assert exit_code == 0
+    assert "Filter summary:" in stdout
+    assert "filtered_out_rows: 0" in stdout
     assert "Validation summary:" not in stdout
 
 
@@ -225,7 +244,10 @@ def test_main_returns_failure_when_no_data_is_fetched(monkeypatch, tmp_path: Pat
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None, validation_findings=None: pd.DataFrame(),
+        (
+            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
+            pd.DataFrame()
+        ),
     )
 
     assert main.main() == 1
@@ -269,7 +291,10 @@ def test_main_removes_lock_file_after_success(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None, validation_findings=None: pd.DataFrame([make_export_row()]),
+        (
+            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
+            pd.DataFrame([make_export_row()])
+        ),
     )
     monkeypatch.setattr(
         main,
@@ -298,7 +323,15 @@ def test_main_handles_ctrl_c_gracefully(monkeypatch, capsys, tmp_path: Path):
         lambda: (StubLogger(), Path("logs/run.log")),
     )
 
-    def interrupting_fetch(_ticker, logger=None, validation_findings=None):
+    def interrupting_fetch(
+        _ticker,
+        logger=None,
+        validation_findings=None,
+        filtered_row_counts=None,
+    ):
+        del logger
+        del validation_findings
+        del filtered_row_counts
         raise KeyboardInterrupt
 
     monkeypatch.setattr(main, "fetch_ticker_option_chain", interrupting_fetch)
