@@ -109,6 +109,7 @@ max_expiration_weeks = 26
 
 # Shared diagnostics
 enable_post_download_filters = true
+enable_validation = true
 debug_dump_provider_payload = false
 debug_dump_dir = "debug"
 
@@ -152,6 +153,7 @@ These settings apply regardless of which provider is active.
 #### Shared Diagnostics Defaults
 
 - `ENABLE_POST_DOWNLOAD_FILTERS = true`: applies the zero-bid, strike-band, and wide-spread row filters after download. Set it to `false` when you want the raw downloaded rows to remain in the exported dataset while still computing metrics and quality flags.
+- `ENABLE_VALIDATION = true`: runs shared row-level validation before post-download filtering and file-level validation before export. Set it to `false` when you want to skip validation findings and validation summary output entirely.
 - `DEBUG_DUMP_PROVIDER_PAYLOAD = false`: when `true`, dump raw provider payloads to JSON before normalization so missing fields can be inspected directly.
 - `DEBUG_DUMP_DIR = "debug"`: directory used for raw provider payload dumps. Dump filenames are prefixed with the provider name.
 
@@ -182,6 +184,7 @@ These settings are only used by the matching provider.
 - Switch `data_provider` when you want to use a different market-data implementation.
 - Tighten or loosen the threshold values when you want a narrower or broader tradability filter.
 - Set `enable_post_download_filters = false` when you want to keep rows that would normally be removed by the shared post-download filters.
+- Set `enable_validation = false` when you want to skip shared row/file validation and suppress validation summaries.
 - Turn on `debug_dump_provider_payload = true` when you need to inspect the raw provider payload and confirm whether fields such as `last_quote`, `underlying_asset`, or Yahoo chain columns were present before normalization.
 - Change `max_expiration_weeks` when you want a shorter or longer expiration window, or set it to `0` to disable the max-expiration cutoff.
 - Change the rate, lookback, trading-day, or staleness settings only if you want different modeling or freshness assumptions.
@@ -201,6 +204,7 @@ Startup output:
 - The fetcher prints the config path it read, whether the file exists, and the full set of resolved runtime values it will apply.
 - Secret values are redacted in that output. For example, the Massive API key and Market Data token are shown as `set` or `not set`, never in plaintext.
 - When a config value is invalid and a code default is used instead, the fetcher prints a `Config fallbacks:` block so the override is visible.
+- When validation is enabled, the fetcher prints a validation summary after combining ticker frames and before writing the CSV.
 - During each ticker fetch, the fetcher prints provider progress, expiration counts, raw provider row counts, normalized-versus-kept row counts, and final kept rows so empty runs can be traced to a specific stage.
 - `python fetcher.py` exits with status `0` after a successful CSV write, `1` when the run finishes with `No data fetched.`, and `130` when interrupted with `Ctrl+C`.
 
