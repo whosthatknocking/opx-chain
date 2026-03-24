@@ -88,7 +88,7 @@ def filter_zero_bid_quotes(df):
 def filter_wide_spread_quotes(df):
     """Exclude contracts whose spread exceeds the configured share of mid price."""
     config = get_runtime_config()
-    return df[df["bid_ask_spread_pct_of_mid"] < config.max_spread_pct_of_mid].copy()
+    return df[df["bid_ask_spread_pct_of_mid"] <= config.max_spread_pct_of_mid].copy()
 
 
 def enrich_option_frame(df, underlying_price, fetched_at):

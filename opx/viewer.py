@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
 from pandas.api.types import is_bool_dtype, is_numeric_dtype
+from opx.config import get_runtime_config
 from opx.export import UNWANTED_EXPORT_COLUMNS
 
 
@@ -347,6 +348,7 @@ def pick_moderate_risk_opportunity(frame: pd.DataFrame) -> OpportunitySummary | 
     """Select a lower-ITM, wider-cushion candidate when possible."""
     if frame.empty:
         return None
+    config = get_runtime_config()
     candidates = screen_primary_candidates(frame)
     candidates["_itm"] = coerce_number(candidates.get("probability_itm"))
     candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized"))
@@ -356,7 +358,8 @@ def pick_moderate_risk_opportunity(frame: pd.DataFrame) -> OpportunitySummary | 
     moderate = candidates[
         (candidates["_itm"].notna()) & (candidates["_itm"] <= 0.35)
         & (candidates["_distance"].notna()) & (candidates["_distance"] >= 0.03)
-        & (candidates["_spread"].notna()) & (candidates["_spread"] < 0.20)
+        & (candidates["_spread"].notna())
+        & (candidates["_spread"] <= config.max_spread_pct_of_mid)
     ]
     if moderate.empty:
         moderate = candidates[(candidates["_itm"].notna()) & (candidates["_itm"] <= 0.45)]

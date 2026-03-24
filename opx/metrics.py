@@ -250,7 +250,7 @@ def add_screening_and_freshness_flags(df, fetched_at):
     )
     df["passes_primary_screen"] = (
         (df["bid"] >= config.min_bid)
-        & (df["bid_ask_spread_pct_of_mid"] < config.max_spread_pct_of_mid)
+        & (df["bid_ask_spread_pct_of_mid"] <= config.max_spread_pct_of_mid)
         & (df["open_interest"] > config.min_open_interest)
         & (df["volume"] > config.min_volume)
     )

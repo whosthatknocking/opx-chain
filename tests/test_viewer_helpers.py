@@ -115,3 +115,30 @@ def test_pick_profitable_opportunity_prefers_higher_option_score_when_rom_matche
     assert summary is not None
     assert summary["contract_symbol"] == "TSLA260417C00105000"
     assert summary["option_score"] == 88.0
+
+
+def test_pick_moderate_risk_opportunity_accepts_spread_at_config_cutoff(monkeypatch):
+    """Moderate-risk selection should keep candidates whose spread equals the configured limit."""
+    monkeypatch.setattr("opx.viewer.get_runtime_config", lambda: type("Config", (), {"max_spread_pct_of_mid": 0.25})())
+    frame = pd.DataFrame(
+        [
+            {
+                "contract_symbol": "EDGE",
+                "option_type": "put",
+                "strike": 95.0,
+                "expiration_date": "2026-04-17",
+                "probability_itm": 0.30,
+                "strike_distance_pct": 0.04,
+                "bid_ask_spread_pct_of_mid": 0.25,
+                "return_on_margin_annualized": 1.2,
+                "option_score": 82.0,
+                "quote_quality_score": 7,
+                "passes_primary_screen": True,
+            }
+        ]
+    )
+
+    summary = viewer.pick_moderate_risk_opportunity(frame)
+
+    assert summary is not None
+    assert summary["contract_symbol"] == "EDGE"

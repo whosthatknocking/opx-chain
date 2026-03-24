@@ -20,7 +20,7 @@ def make_runtime_config(**overrides):
         "min_bid": 0.5,
         "min_open_interest": 100,
         "min_volume": 10,
-        "max_spread_pct_of_mid": 0.20,
+        "max_spread_pct_of_mid": 0.25,
         "risk_free_rate": 0.045,
         "hv_lookback_days": 30,
         "trading_days_per_year": 252,

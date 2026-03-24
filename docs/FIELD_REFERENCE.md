@@ -43,7 +43,7 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 - `premium_reference_price`: Preferred premium used by derived calculations. It falls back from mid to bid to last trade price.
 - `premium_reference_method`: Which source supplied `premium_reference_price`. Use it to judge how reliable premium-based metrics are.
 - `bid_ask_spread`: Absolute spread between ask and bid. Use it to measure trading friction. Lower is better.
-- `bid_ask_spread_pct_of_mid`: Spread divided by midpoint. Use it to compare spread quality across cheap and expensive contracts. Lower is better; the default fetch configuration currently keeps only rows below `0.20`.
+- `bid_ask_spread_pct_of_mid`: Spread divided by midpoint. Use it to compare spread quality across cheap and expensive contracts. Lower is better; the default fetch configuration currently keeps rows at or below `0.25` and filters out rows above that level.
 - `spread_to_strike_pct`: Spread divided by strike. Use it to normalize friction relative to contract notional level.
 - `spread_to_bid_pct`: Spread divided by bid. Use it to see how expensive the spread is relative to collectible premium. Lower is better.
 - `oi_to_volume_ratio`: Open interest divided by volume. Use it to distinguish established positions from fresh trading activity. Very high values can mean established positions but muted current trading.

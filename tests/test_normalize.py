@@ -1,6 +1,7 @@
 """Normalization filter tests for zero bids, strike bands, and spread limits."""
 
 import pandas as pd
+import pytest
 
 from opx.normalize import (
     filter_strikes_near_spot,
@@ -41,8 +42,12 @@ def test_filter_strikes_near_spot_keeps_only_rows_within_configured_band():
     assert result["strike"].tolist() == [70.0, 100.0, 130.0]
 
 
-def test_filter_wide_spread_quotes_respects_strict_less_than_cutoff():
-    """The configured spread cutoff should be strict rather than inclusive."""
+def test_filter_wide_spread_quotes_keeps_rows_at_the_cutoff(monkeypatch: pytest.MonkeyPatch):
+    """The configured spread cutoff should exclude only rows above the threshold."""
+    monkeypatch.setattr(
+        "opx.normalize.get_runtime_config",
+        lambda: type("Config", (), {"max_spread_pct_of_mid": 0.25})(),
+    )
     frame = pd.DataFrame(
         [
             {"contract_symbol": "TIGHT", "bid_ask_spread_pct_of_mid": 0.10},
@@ -53,4 +58,4 @@ def test_filter_wide_spread_quotes_respects_strict_less_than_cutoff():
 
     result = filter_wide_spread_quotes(frame)
 
-    assert result["contract_symbol"].tolist() == ["TIGHT"]
+    assert result["contract_symbol"].tolist() == ["TIGHT", "EDGE"]

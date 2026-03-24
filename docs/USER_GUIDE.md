@@ -99,7 +99,7 @@ data_provider = "yfinance"
 filters_min_bid = 0.50
 filters_min_open_interest = 100
 filters_min_volume = 10
-filters_max_spread_pct_of_mid = 0.20
+filters_max_spread_pct_of_mid = 0.25
 filters_max_strike_distance_pct = 0.30
 filters_enable = true
 
@@ -147,7 +147,7 @@ These settings apply regardless of which provider is active.
 - `FILTERS_MIN_BID = 0.50`: excludes very low-premium contracts, in addition to the hard `bid == 0` filter.
 - `FILTERS_MIN_OPEN_INTEREST = 100`: baseline open-interest threshold used by the screening metrics.
 - `FILTERS_MIN_VOLUME = 10`: baseline daily volume threshold used by the screening metrics.
-- `FILTERS_MAX_SPREAD_PCT_OF_MID = 0.20`: excludes contracts with spreads wider than 20% of midpoint.
+- `FILTERS_MAX_SPREAD_PCT_OF_MID = 0.25`: excludes contracts with spreads wider than 25% of midpoint.
 - `FILTERS_MAX_STRIKE_DISTANCE_PCT = 0.30`: keeps only strikes within +/-30% of the latest underlying price.
 
 #### Shared Analytics and Freshness Defaults

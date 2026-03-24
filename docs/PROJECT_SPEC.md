@@ -100,7 +100,7 @@ Defaults:
 - the default provider is `yfinance`
 - shared filter config uses `settings.filters_*` keys
 - current built-in filter defaults include:
-  - `filters_max_spread_pct_of_mid = 0.20`
+  - `filters_max_spread_pct_of_mid = 0.25`
   - `filters_max_strike_distance_pct = 0.30`
   - `filters_enable = true`
 - current built-in freshness default is `stale_quote_seconds = 21600`
