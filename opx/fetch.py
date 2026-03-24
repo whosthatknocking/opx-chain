@@ -7,9 +7,10 @@ import pandas as pd
 
 from opx.config import get_runtime_config
 from opx.metrics import add_expected_move_by_expiration
-from opx.normalize import enrich_option_frame
+from opx.normalize import apply_post_download_filters, enrich_option_frame
 from opx.providers.base import ProviderAuthenticationError
 from opx.providers import get_data_provider
+from opx.validate import validate_option_rows
 
 
 def _emit_fetch_info(message, logger=None):
@@ -47,6 +48,7 @@ def append_underlying_snapshot_fields(df, snapshot, fetched_at, stale_quote_seco
 def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,broad-exception-caught
     ticker,
     logger=None,
+    validation_findings=None,
 ):
     """Fetch and normalize all near-term option chains for one ticker."""
     provider = None
@@ -167,23 +169,25 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
                     underlying_price=underlying_price,
                     fetched_at=fetched_at,
                 )
+                normalized = append_underlying_snapshot_fields(
+                    normalized,
+                    snapshot,
+                    fetched_at,
+                    config.stale_quote_seconds,
+                )
+                if config.enable_validation and validation_findings is not None:
+                    validation_findings.extend(validate_option_rows(normalized))
+                filtered = apply_post_download_filters(normalized, underlying_price)
                 _emit_fetch_info(
                     (
                         f"{ticker}: expiration={expiration_date} side={option_type} "
                         f"normalized_rows={len(vendor_normalized)} "
-                        f"post_filter_rows={len(normalized)} "
-                        f"dropped_rows={len(vendor_normalized) - len(normalized)}"
+                        f"post_filter_rows={len(filtered)} "
+                        f"dropped_rows={len(vendor_normalized) - len(filtered)}"
                     ),
                     logger=logger,
                 )
-                rows.append(
-                    append_underlying_snapshot_fields(
-                        normalized,
-                        snapshot,
-                        fetched_at,
-                        config.stale_quote_seconds,
-                    )
-                )
+                rows.append(filtered)
 
         if not rows:
             _emit_fetch_info(

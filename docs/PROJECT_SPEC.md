@@ -86,6 +86,7 @@ The config loader is responsible for:
 - provider selection
 - ticker selection
 - thresholds and model settings
+- option-score weight tuning
 - validation enable/disable behavior
 - Massive credentials
 - Market Data credentials
@@ -230,6 +231,7 @@ Requirements:
 - shared export stays pinned to the canonical column set
 - unexpected provider-specific scratch fields are dropped from export
 - provider-specific branches should not create different CSV shapes
+- shared derived fields such as `quote_quality_score` and `option_score` must be computed consistently across providers
 
 Canonical field sources may be:
 
@@ -257,6 +259,20 @@ Current behavior includes:
 - Massive per-page API status and cumulative result counts
 - Market Data per-request API status and result counts
 - final row count and output-path reporting
+- viewer summary highlights that can use shared derived scores from the export
+
+### 6.3 Shared Scoring
+
+The product includes a shared provider-agnostic `option_score` field.
+
+Requirements:
+
+- `option_score` is a canonical derived field in the `0-100` range
+- it is computed from shared normalized fields only, not provider-specific scratch fields
+- the current score combines income, liquidity, risk, and efficiency components
+- score weights are configurable through runtime config so tuning does not require code changes
+- the configured weights must remain non-negative and sum to a positive total; otherwise defaults are used
+- score output is visible both in the exported CSV and in the local viewer
 
 ### 6.3 Exit Status
 

@@ -17,6 +17,61 @@ def classify_days_to_expiration_bucket(days_to_expiration):
     return "Week_4"
 
 
+def _clip_zero_to_one(values):
+    """Clamp numeric arrays to the inclusive [0, 1] score range."""
+    return np.clip(values, 0.0, 1.0)
+
+
+def add_option_score(df):
+    """Add a shared 0-100 option score built from income, liquidity, risk, and efficiency."""
+    config = get_runtime_config()
+    total_weight = (
+        config.option_score_income_weight
+        + config.option_score_liquidity_weight
+        + config.option_score_risk_weight
+        + config.option_score_efficiency_weight
+    )
+    if total_weight <= 0:
+        df["option_score"] = np.nan
+        return df
+
+    income_score = _clip_zero_to_one(df["premium_per_day"] / 0.05)
+    spread_score = _clip_zero_to_one(1 - (df["bid_ask_spread_pct_of_mid"] / 0.25))
+    oi_score = _clip_zero_to_one(df["open_interest"] / 1000.0)
+    volume_score = _clip_zero_to_one(df["volume"] / 100.0)
+    liquidity_score = spread_score * 0.5 + oi_score * 0.3 + volume_score * 0.2
+
+    target_delta = np.where(df["option_type"] == "call", 0.25, 0.20)
+    risk_score = _clip_zero_to_one(1 - (np.abs(df["delta_abs"] - target_delta) / target_delta))
+
+    dte_score = _clip_zero_to_one(1 - (df["days_to_expiration"] / 35.0))
+    distance_score = _clip_zero_to_one(1 - (df["strike_distance_pct"] / 0.30))
+    efficiency_score = dte_score * 0.5 + distance_score * 0.5
+
+    weighted_score = (
+        income_score * config.option_score_income_weight
+        + liquidity_score * config.option_score_liquidity_weight
+        + risk_score * config.option_score_risk_weight
+        + efficiency_score * config.option_score_efficiency_weight
+    ) / total_weight
+
+    required = (
+        df["premium_per_day"].notna()
+        & df["bid"].notna()
+        & df["ask"].notna()
+        & df["open_interest"].notna()
+        & df["volume"].notna()
+        & df["delta_abs"].notna()
+        & df["days_to_expiration"].notna()
+        & df["strike"].notna()
+        & df["underlying_price"].notna()
+        & df["strike_distance_pct"].notna()
+        & df["option_type"].isin(["call", "put"])
+    )
+    df["option_score"] = np.where(required, _clip_zero_to_one(weighted_score) * 100, np.nan)
+    return df
+
+
 def add_quote_quality_metrics(df, underlying_price):
     """Add quote validation and basic liquidity quality fields."""
     df["has_valid_underlying"] = underlying_price > 0
@@ -203,6 +258,7 @@ def add_screening_and_freshness_flags(df, fetched_at):
         + (~df["has_crossed_or_locked_market"]).astype(int)
         + df["is_stale_quote"].fillna(False).eq(False).astype(int)
     )
+    df = add_option_score(df)
 
     return df
 

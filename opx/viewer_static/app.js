@@ -191,6 +191,7 @@ function getFieldDescription(label) {
     'IV / HV': 'Ratio of implied volatility to historical volatility. Above 1 usually means options are priced richer than recent realized movement.',
     'Best ROM': 'Highest return_on_margin_annualized among candidate contracts for this ticker. Higher can be attractive, but extreme values usually mean more risk.',
     'Moderate ROM': 'return_on_margin_annualized for the selected moderate-risk candidate for this ticker. A middle-ground value is often more realistic than the top outlier.',
+    'Option Score': 'Shared 0-100 score built from income, liquidity, risk, and efficiency. Higher is better within one run.',
     'Calls / Puts': 'Count of call and put option rows available for this underlying symbol.',
     'Most Profitable': 'Heuristic pick for the highest annualized return on margin among candidate contracts. Highest return is not always the safest setup.',
     'Moderate Risk': 'Heuristic pick balancing return on margin with lower ITM probability, wider distance from spot, and tighter spread. Usually safer than the top-return candidate.',
@@ -221,11 +222,15 @@ function renderOpportunityCard(title, opportunity, tone = 'default') {
       </article>
     `;
   }
+  const score = Number.isFinite(Number(opportunity.option_score))
+    ? `${Number(opportunity.option_score).toFixed(1)}`
+    : '—';
   return `
     <article class="opportunity-card opportunity-card-${tone}">
       ${renderFieldLabel(title, 'opportunity-label')}
       <strong>${escapeHtml(`${opportunity.option_type} ${formatNumber(opportunity.strike, 2)} · ${opportunity.expiration_date}`)}</strong>
       <span class="opportunity-detail">${escapeHtml(opportunity.summary || 'No summary available.')}</span>
+      <span class="opportunity-detail">${renderFieldLabel('Option Score')} ${escapeHtml(score)}</span>
     </article>
   `;
 }

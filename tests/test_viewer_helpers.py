@@ -77,3 +77,41 @@ def test_build_freshness_summary_reports_file_and_quote_ages(tmp_path: Path):
     assert summary["underlying_quote_age_max_seconds"] == 25.0
     assert summary["file_age_seconds"] >= 0
     assert len(summary["file_modified_at"]) == 19
+
+
+def test_pick_profitable_opportunity_prefers_higher_option_score_when_rom_matches():
+    """Summary highlights should use option score as a tie-breaker ahead of quote quality."""
+    frame = pd.DataFrame(
+        [
+            {
+                "contract_symbol": "TSLA260417C00100000",
+                "option_type": "call",
+                "strike": 100.0,
+                "expiration_date": "2026-04-17",
+                "probability_itm": 0.22,
+                "bid_ask_spread_pct_of_mid": 0.08,
+                "return_on_margin_annualized": 1.5,
+                "option_score": 70.0,
+                "quote_quality_score": 7,
+                "passes_primary_screen": True,
+            },
+            {
+                "contract_symbol": "TSLA260417C00105000",
+                "option_type": "call",
+                "strike": 105.0,
+                "expiration_date": "2026-04-17",
+                "probability_itm": 0.24,
+                "bid_ask_spread_pct_of_mid": 0.09,
+                "return_on_margin_annualized": 1.5,
+                "option_score": 88.0,
+                "quote_quality_score": 5,
+                "passes_primary_screen": True,
+            },
+        ]
+    )
+
+    summary = viewer.pick_profitable_opportunity(frame)
+
+    assert summary is not None
+    assert summary["contract_symbol"] == "TSLA260417C00105000"
+    assert summary["option_score"] == 88.0

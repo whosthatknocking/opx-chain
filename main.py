@@ -4,10 +4,13 @@ from datetime import datetime
 import fcntl
 from pathlib import Path
 
+import pandas as pd
+
 from opx.config import describe_runtime_config, get_runtime_config
 from opx.export import write_options_csv
 from opx.fetch import fetch_ticker_option_chain
 from opx.runlog import create_run_logger
+from opx.validate import emit_validation_report, validate_export_frame
 
 OUTPUTS_DIR = Path("outputs")
 LOCKS_DIR = Path("logs")
@@ -48,7 +51,7 @@ def release_fetcher_lock(lock_handle):
             pass
 
 
-def main():
+def main():  # pylint: disable=too-many-branches
     """Fetch configured tickers and write the consolidated CSV output."""
     lock_handle = acquire_fetcher_lock()
     if lock_handle is None:
@@ -82,9 +85,14 @@ def main():
             logger.warning("config_fallback %s", warning)
 
         ticker_frames = []
+        validation_findings = []
         for ticker in config.tickers:
             print(f"Loading {ticker}")
-            ticker_df = fetch_ticker_option_chain(ticker, logger=logger)
+            ticker_df = fetch_ticker_option_chain(
+                ticker,
+                logger=logger,
+                validation_findings=validation_findings,
+            )
             if not ticker_df.empty:
                 ticker_frames.append(ticker_df)
 
@@ -95,8 +103,12 @@ def main():
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
-        row_count = sum(len(frame) for frame in ticker_frames)
-        write_options_csv(ticker_frames, output_path=output_path)
+        combined = pd.concat(ticker_frames, ignore_index=True)
+        if config.enable_validation:
+            validation_findings.extend(validate_export_frame(combined))
+            emit_validation_report(validation_findings, logger=logger)
+        row_count = len(combined)
+        write_options_csv([combined], output_path=output_path)
         file_size_bytes = output_path.stat().st_size
         logger.info(
             "run_finished output_path=%s ticker_frames=%s rows_written=%s file_size_bytes=%s",

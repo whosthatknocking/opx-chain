@@ -7,7 +7,7 @@
 - Fetches call and put chains for configured tickers
 - Filters out zero-bid and wide-spread contracts before export
 - Limits strikes to a configurable band around spot
-- Computes Greeks, expected move, ROM-style metrics, and volatility context
+- Computes Greeks, expected move, ROM-style metrics, option scoring, and volatility context
 - Writes a timestamped CSV plus an append-only run log
 - Includes a local browser for exploring the output interactively
 
@@ -106,6 +106,10 @@ hv_lookback_days = 30
 trading_days_per_year = 252
 stale_quote_seconds = 900
 max_expiration_weeks = 26
+option_score_income_weight = 0.30
+option_score_liquidity_weight = 0.30
+option_score_risk_weight = 0.25
+option_score_efficiency_weight = 0.15
 
 # Shared diagnostics
 enable_filters = true
@@ -149,6 +153,10 @@ These settings apply regardless of which provider is active.
 - `TRADING_DAYS_PER_YEAR = 252`: annualization factor for volatility.
 - `STALE_QUOTE_SECONDS = 900`: staleness threshold for option and underlying quotes.
 - `MAX_EXPIRATION_WEEKS = 26`: caps expirations to roughly the next six months by default. Set it to any positive week count you want, or `0` to disable the expiration cap entirely.
+- `OPTION_SCORE_INCOME_WEIGHT = 0.30`: weight on premium-per-day in the shared `option_score`.
+- `OPTION_SCORE_LIQUIDITY_WEIGHT = 0.30`: weight on spread, open interest, and volume in the shared `option_score`.
+- `OPTION_SCORE_RISK_WEIGHT = 0.25`: weight on the side-aware delta target in the shared `option_score`.
+- `OPTION_SCORE_EFFICIENCY_WEIGHT = 0.15`: weight on days-to-expiration and strike-distance efficiency in the shared `option_score`.
 
 #### Shared Diagnostics Defaults
 
@@ -188,6 +196,7 @@ These settings are only used by the matching provider.
 - Turn on `debug_dump_provider_payload = true` when you need to inspect the raw provider payload and confirm whether fields such as `last_quote`, `underlying_asset`, or Yahoo chain columns were present before normalization.
 - Change `max_expiration_weeks` when you want a shorter or longer expiration window, or set it to `0` to disable the max-expiration cutoff.
 - Change the rate, lookback, trading-day, or staleness settings only if you want different modeling or freshness assumptions.
+- Change the `option_score_*_weight` values when you want to tune the shared score without changing code. The weights must stay non-negative and their total must stay positive or the loader falls back to defaults.
 
 ### Provider-Specific Configuration Tasks
 
@@ -207,6 +216,11 @@ Startup output:
 - When validation is enabled, the fetcher prints a validation summary after combining ticker frames and before writing the CSV.
 - During each ticker fetch, the fetcher prints provider progress, expiration counts, raw provider row counts, normalized-versus-kept row counts, and final kept rows so empty runs can be traced to a specific stage.
 - `python fetcher.py` exits with status `0` after a successful CSV write, `1` when the run finishes with `No data fetched.`, and `130` when interrupted with `Ctrl+C`.
+
+Viewer behavior:
+
+- The exported `option_score` field is visible in the viewer table like any other numeric column.
+- Summary-tab opportunity highlights also use `option_score` as a ranking signal alongside return-on-margin and quote quality, so score-weight changes affect both the CSV and the viewer's top picks.
 
 ## Field Reference
 

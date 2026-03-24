@@ -21,6 +21,10 @@ def test_load_runtime_config_uses_defaults_when_file_is_absent(tmp_path: Path):
     assert config.marketdata_max_retries == 3
     assert config.marketdata_request_interval_seconds == 0.0
     assert config.enable_validation is True
+    assert config.option_score_income_weight == 0.30
+    assert config.option_score_liquidity_weight == 0.30
+    assert config.option_score_risk_weight == 0.25
+    assert config.option_score_efficiency_weight == 0.15
     assert config.massive_snapshot_page_limit == 250
     assert config.massive_request_interval_seconds == 12.0
     assert config.debug_dump_provider_payload is False
@@ -41,6 +45,10 @@ def test_load_runtime_config_reads_user_config_file(tmp_path: Path):
 tickers = ["spy", "qqq"]
 data_provider = "yfinance"
 min_bid = 1.25
+option_score_income_weight = 0.40
+option_score_liquidity_weight = 0.20
+option_score_risk_weight = 0.25
+option_score_efficiency_weight = 0.15
 enable_filters = false
 enable_validation = false
 debug_dump_provider_payload = true
@@ -66,6 +74,10 @@ request_interval_seconds = 0.75
     assert config.tickers == ("SPY", "QQQ")
     assert config.data_provider == "yfinance"
     assert config.min_bid == 1.25
+    assert config.option_score_income_weight == 0.40
+    assert config.option_score_liquidity_weight == 0.20
+    assert config.option_score_risk_weight == 0.25
+    assert config.option_score_efficiency_weight == 0.15
     assert config.enable_filters is False
     assert config.enable_validation is False
     assert config.debug_dump_provider_payload is True
@@ -152,6 +164,39 @@ request_interval_seconds = -0.5
         "providers.marketdata.request_interval_seconds" in warning
         for warning in config.config_warnings
     )
+
+
+def test_load_runtime_config_defaults_invalid_option_score_weights(tmp_path: Path):
+    """Invalid option-score weights should fall back to defaults."""
+    negative_weight = tmp_path / "negative-score-weight.toml"
+    negative_weight.write_text(
+        """
+[settings]
+option_score_income_weight = -1
+""".strip(),
+        encoding="utf-8",
+    )
+    config = load_runtime_config(negative_weight)
+    assert config.option_score_income_weight == 0.30
+    assert any("option_score_income_weight" in warning for warning in config.config_warnings)
+
+    zero_total = tmp_path / "zero-total-score-weights.toml"
+    zero_total.write_text(
+        """
+[settings]
+option_score_income_weight = 0
+option_score_liquidity_weight = 0
+option_score_risk_weight = 0
+option_score_efficiency_weight = 0
+""".strip(),
+        encoding="utf-8",
+    )
+    config = load_runtime_config(zero_total)
+    assert config.option_score_income_weight == 0.30
+    assert config.option_score_liquidity_weight == 0.30
+    assert config.option_score_risk_weight == 0.25
+    assert config.option_score_efficiency_weight == 0.15
+    assert any("option_score_*_weight" in warning for warning in config.config_warnings)
 
 
 def test_get_data_provider_returns_provider_from_runtime_config(monkeypatch, tmp_path: Path):

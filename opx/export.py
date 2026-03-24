@@ -85,6 +85,7 @@ COLUMN_ORDER = [
     "near_expiry_near_money_flag",
     "passes_primary_screen",
     "quote_quality_score",
+    "option_score",
     "contract_size",
     "data_source",
     "risk_free_rate_used",

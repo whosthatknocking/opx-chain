@@ -27,6 +27,10 @@ DEFAULT_TRADING_DAYS_PER_YEAR = 252
 DEFAULT_STALE_QUOTE_SECONDS = 15 * 60
 DEFAULT_ENABLE_FILTERS = True
 DEFAULT_ENABLE_VALIDATION = True
+DEFAULT_OPTION_SCORE_INCOME_WEIGHT = 0.30
+DEFAULT_OPTION_SCORE_LIQUIDITY_WEIGHT = 0.30
+DEFAULT_OPTION_SCORE_RISK_WEIGHT = 0.25
+DEFAULT_OPTION_SCORE_EFFICIENCY_WEIGHT = 0.15
 DEFAULT_MAX_STRIKE_DISTANCE_PCT = 0.30
 DEFAULT_MAX_EXPIRATION_WEEKS = 26
 SUPPORTED_MARKETDATA_MODES = frozenset({"live", "cached", "delayed"})
@@ -56,6 +60,10 @@ class RuntimeConfig:
     risk_free_rate: float
     hv_lookback_days: int
     trading_days_per_year: int
+    option_score_income_weight: float
+    option_score_liquidity_weight: float
+    option_score_risk_weight: float
+    option_score_efficiency_weight: float
     data_provider: str
     stale_quote_seconds: int
     enable_filters: bool
@@ -319,6 +327,38 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:
             coercer=_coerce_int,
             warnings=warnings,
         ),
+        option_score_income_weight=_resolve_config_value(
+            settings.get("option_score_income_weight"),
+            field_name="settings.option_score_income_weight",
+            default=DEFAULT_OPTION_SCORE_INCOME_WEIGHT,
+            coercer=_coerce_float,
+            warnings=warnings,
+            validator=lambda value: value >= 0,
+        ),
+        option_score_liquidity_weight=_resolve_config_value(
+            settings.get("option_score_liquidity_weight"),
+            field_name="settings.option_score_liquidity_weight",
+            default=DEFAULT_OPTION_SCORE_LIQUIDITY_WEIGHT,
+            coercer=_coerce_float,
+            warnings=warnings,
+            validator=lambda value: value >= 0,
+        ),
+        option_score_risk_weight=_resolve_config_value(
+            settings.get("option_score_risk_weight"),
+            field_name="settings.option_score_risk_weight",
+            default=DEFAULT_OPTION_SCORE_RISK_WEIGHT,
+            coercer=_coerce_float,
+            warnings=warnings,
+            validator=lambda value: value >= 0,
+        ),
+        option_score_efficiency_weight=_resolve_config_value(
+            settings.get("option_score_efficiency_weight"),
+            field_name="settings.option_score_efficiency_weight",
+            default=DEFAULT_OPTION_SCORE_EFFICIENCY_WEIGHT,
+            coercer=_coerce_float,
+            warnings=warnings,
+            validator=lambda value: value >= 0,
+        ),
         data_provider=data_provider,
         stale_quote_seconds=_resolve_config_value(
             settings.get("stale_quote_seconds"),
@@ -418,6 +458,29 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:
             else _default_max_expiration(today, config.max_expiration_weeks)
         ),
     )
+    if (
+        config.option_score_income_weight
+        + config.option_score_liquidity_weight
+        + config.option_score_risk_weight
+        + config.option_score_efficiency_weight
+        <= 0
+    ):
+        warnings.append(
+            "settings.option_score_*_weight: total weight must be positive; using defaults."
+        )
+        object.__setattr__(config, "option_score_income_weight", DEFAULT_OPTION_SCORE_INCOME_WEIGHT)
+        object.__setattr__(
+            config,
+            "option_score_liquidity_weight",
+            DEFAULT_OPTION_SCORE_LIQUIDITY_WEIGHT,
+        )
+        object.__setattr__(config, "option_score_risk_weight", DEFAULT_OPTION_SCORE_RISK_WEIGHT)
+        object.__setattr__(
+            config,
+            "option_score_efficiency_weight",
+            DEFAULT_OPTION_SCORE_EFFICIENCY_WEIGHT,
+        )
+        object.__setattr__(config, "config_warnings", tuple(warnings))
     return config
 
 
@@ -456,6 +519,14 @@ def validate_runtime_config(config: RuntimeConfig) -> None:
         raise ConfigError(
             "Config field 'providers.marketdata.request_interval_seconds' must be non-negative."
         )
+    if (
+        config.option_score_income_weight
+        + config.option_score_liquidity_weight
+        + config.option_score_risk_weight
+        + config.option_score_efficiency_weight
+        <= 0
+    ):
+        raise ConfigError("Option score weights must sum to a positive value.")
     if not 0 < config.massive_snapshot_page_limit <= MAX_MASSIVE_SNAPSHOT_PAGE_LIMIT:
         raise ConfigError(
             "Config field 'providers.massive.snapshot_page_limit' must be between 1 and 250."
@@ -506,6 +577,10 @@ def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
         f"Applied risk_free_rate: {config.risk_free_rate}",
         f"Applied hv_lookback_days: {config.hv_lookback_days}",
         f"Applied trading_days_per_year: {config.trading_days_per_year}",
+        f"Applied option_score_income_weight: {config.option_score_income_weight}",
+        f"Applied option_score_liquidity_weight: {config.option_score_liquidity_weight}",
+        f"Applied option_score_risk_weight: {config.option_score_risk_weight}",
+        f"Applied option_score_efficiency_weight: {config.option_score_efficiency_weight}",
         f"Applied stale_quote_seconds: {config.stale_quote_seconds}",
         f"Applied enable_filters: {config.enable_filters}",
         f"Applied enable_validation: {config.enable_validation}",

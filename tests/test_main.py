@@ -1,11 +1,14 @@
 """Entry-point tests for the console output emitted by the main fetch run."""
 
+# pylint: disable=duplicate-code
+
 from pathlib import Path
 
 import pandas as pd
 
 from conftest import make_runtime_config
 import main
+from opx.validate import validate_option_rows
 
 
 class StubLogger:
@@ -18,6 +21,27 @@ class StubLogger:
     def warning(self, *_args, **_kwargs):
         """Accept warning messages without side effects during tests."""
         return None
+
+    def error(self, *_args, **_kwargs):
+        """Accept error messages without side effects during tests."""
+        return None
+
+
+def make_export_row(**overrides):
+    """Build one minimal exported row for main-entrypoint tests."""
+    row = {
+        "data_source": "stub",
+        "underlying_symbol": "AAA",
+        "contract_symbol": "AAA260417C00100000",
+        "option_type": "call",
+        "expiration_date": "2026-04-17",
+        "strike": 100.0,
+        "underlying_price": 101.0,
+        "bid": 1.0,
+        "ask": 1.2,
+    }
+    row.update(overrides)
+    return row
 
 
 def test_main_prints_rows_written_after_saved(monkeypatch, capsys, tmp_path: Path):
@@ -43,7 +67,7 @@ def test_main_prints_rows_written_after_saved(monkeypatch, capsys, tmp_path: Pat
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None: frames[ticker],
+        lambda ticker, logger=None, validation_findings=None: frames[ticker],
     )
 
     written = {}
@@ -88,7 +112,7 @@ def test_main_prints_config_fallbacks(monkeypatch, capsys, tmp_path: Path):
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None: pd.DataFrame(),
+        lambda ticker, logger=None, validation_findings=None: pd.DataFrame(),
     )
 
     exit_code = main.main()
@@ -97,6 +121,90 @@ def test_main_prints_config_fallbacks(monkeypatch, capsys, tmp_path: Path):
     assert exit_code == 1
     assert "Config fallbacks:" in stdout
     assert "settings.min_bid: using default 0.5." in stdout
+
+
+def test_main_prints_validation_summary_before_export(monkeypatch, capsys, tmp_path: Path):
+    """Runs should emit a validation summary even when the export still succeeds."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        main,
+        "get_runtime_config",
+        lambda: make_runtime_config(tickers=("AAA",)),
+    )
+    monkeypatch.setattr(
+        main,
+        "create_run_logger",
+        lambda: (StubLogger(), Path("logs/run.log")),
+    )
+
+    def fetch_with_invalid_quote(_ticker, logger=None, validation_findings=None):
+        del logger
+        if validation_findings is not None:
+            validation_findings.extend(
+                validate_option_rows(
+                    pd.DataFrame(
+                        [
+                            make_export_row(bid=None)
+                        ]
+                    )
+                )
+            )
+        return pd.DataFrame(
+            [
+                make_export_row()
+            ]
+        )
+
+    monkeypatch.setattr(main, "fetch_ticker_option_chain", fetch_with_invalid_quote)
+    monkeypatch.setattr(
+        main,
+        "write_options_csv",
+        lambda ticker_frames, output_path: output_path.parent.mkdir(parents=True, exist_ok=True)
+        or output_path.write_text("ok", encoding="utf-8"),
+    )
+
+    exit_code = main.main()
+
+    stdout = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Validation summary:" in stdout
+    assert "errors: 1" in stdout
+
+
+def test_main_can_disable_validation_summary(monkeypatch, capsys, tmp_path: Path):
+    """Disabling validation should suppress the validation report output."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        main,
+        "get_runtime_config",
+        lambda: make_runtime_config(tickers=("AAA",), enable_validation=False),
+    )
+    monkeypatch.setattr(
+        main,
+        "create_run_logger",
+        lambda: (StubLogger(), Path("logs/run.log")),
+    )
+    monkeypatch.setattr(
+        main,
+        "fetch_ticker_option_chain",
+        lambda ticker, logger=None, validation_findings=None: pd.DataFrame([make_export_row()]),
+    )
+    monkeypatch.setattr(
+        main,
+        "write_options_csv",
+        lambda ticker_frames, output_path: output_path.parent.mkdir(parents=True, exist_ok=True)
+        or output_path.write_text("ok", encoding="utf-8"),
+    )
+
+    exit_code = main.main()
+
+    stdout = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Validation summary:" not in stdout
 
 
 def test_main_returns_failure_when_no_data_is_fetched(monkeypatch, tmp_path: Path):
@@ -117,7 +225,7 @@ def test_main_returns_failure_when_no_data_is_fetched(monkeypatch, tmp_path: Pat
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None: pd.DataFrame(),
+        lambda ticker, logger=None, validation_findings=None: pd.DataFrame(),
     )
 
     assert main.main() == 1
@@ -161,7 +269,7 @@ def test_main_removes_lock_file_after_success(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         main,
         "fetch_ticker_option_chain",
-        lambda ticker, logger=None: pd.DataFrame([{"x": 1}]),
+        lambda ticker, logger=None, validation_findings=None: pd.DataFrame([make_export_row()]),
     )
     monkeypatch.setattr(
         main,
@@ -190,7 +298,7 @@ def test_main_handles_ctrl_c_gracefully(monkeypatch, capsys, tmp_path: Path):
         lambda: (StubLogger(), Path("logs/run.log")),
     )
 
-    def interrupting_fetch(_ticker, logger=None):
+    def interrupting_fetch(_ticker, logger=None, validation_findings=None):
         raise KeyboardInterrupt
 
     monkeypatch.setattr(main, "fetch_ticker_option_chain", interrupting_fetch)

@@ -133,6 +133,22 @@ Rules to keep the provider layer stable:
 - keep debug payload dumps representative of the exact provider response shape so mapping regressions can be audited later
 - update both [FIELD_REFERENCE.md](FIELD_REFERENCE.md) and [PROJECT_SPEC.md](PROJECT_SPEC.md) when a provider mapping or dependency changes
 
+## Shared Metrics and Viewer Scope
+
+Shared metrics should stay provider-agnostic once data has been normalized into the canonical schema.
+
+Current shared ranking fields include:
+
+- `quote_quality_score`
+- `option_score`
+
+Rules:
+
+- derive them from canonical columns only
+- keep formulas and config knobs shared across providers
+- expose meaningful user-tunable inputs through runtime config when that improves iteration without code changes
+- keep the viewer aligned with those fields so exported rankings and summary-tab highlights reflect the same scoring logic
+
 ## Documentation Assets
 
 Regenerate the viewer screenshot used in the user docs with:
