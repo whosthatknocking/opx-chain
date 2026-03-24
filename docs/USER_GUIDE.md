@@ -17,6 +17,8 @@ Warning: Yahoo Finance quote timestamps can lag, and the collected option or und
 
 Warning: Massive options support for this project requires a Massive account with an options plan that exposes the option snapshot data, a usable underlying price, and quote access when you expect `bid` and `ask` to be populated. `Options Basic` does not expose the required access, `Options Starter` is the entry point for delayed options data, and lower tiers may still leave this app with trades but no quote fields. In practice, `bid` and `ask` access may require Massive's highest-cost quote-enabled options plan. Confirm your plan includes the quote and underlying-price coverage you expect before treating the output as current market data.
 
+Warning: Market Data support requires a Market Data account and API token. The provider uses the official `marketdata-sdk-py` client and currently pulls one full options chain per ticker fetch sequence. Market Data's Free Forever tier is 24 hours delayed for both stock and options data, so this provider is not suitable for current-session option monitoring unless your plan includes fresher access.
+
 ## Quick Start
 
 ```bash
@@ -90,67 +92,118 @@ Example config:
 [settings]
 tickers = ["TSLA", "NVDA", "UBER", "MSFT", "GOOGL", "ORCL", "PLTR"]
 data_provider = "yfinance"
+
+# Shared filtering and scoring
 min_bid = 0.50
 min_open_interest = 100
 min_volume = 10
 max_spread_pct_of_mid = 0.25
 max_strike_distance_pct = 0.30
+
+# Shared analytics and freshness
 risk_free_rate = 0.045
 hv_lookback_days = 30
 trading_days_per_year = 252
 stale_quote_seconds = 900
+max_expiration_weeks = 26
+
+# Shared diagnostics
 enable_post_download_filters = true
 debug_dump_provider_payload = false
 debug_dump_dir = "debug"
-max_expiration_weeks = 26
 
 [providers.massive]
 api_key = "replace-me"
 snapshot_page_limit = 250
 request_interval_seconds = 12.0
+
+[providers.marketdata]
+api_token = "replace-me"
+mode = "delayed"
+max_retries = 3
+request_interval_seconds = 0.0
 ```
 
-Current defaults:
+### Shared Settings
+
+These settings apply regardless of which provider is active.
+
+#### Shared Runtime Defaults
 
 - `TICKERS = ["TSLA", "NVDA", "UBER", "MSFT", "GOOGL", "ORCL", "PLTR"]`: list of underlyings to fetch.
+- `data_provider = "yfinance"`: provider implementation used by the fetch pipeline.
+
+#### Shared Filtering Defaults
+
 - `MIN_BID = 0.50`: excludes very low-premium contracts, in addition to the hard `bid == 0` filter.
 - `MIN_OPEN_INTEREST = 100`: baseline open-interest threshold used by the screening metrics.
 - `MIN_VOLUME = 10`: baseline daily volume threshold used by the screening metrics.
 - `MAX_SPREAD_PCT_OF_MID = 0.25`: excludes contracts with spreads wider than 25% of midpoint.
 - `MAX_STRIKE_DISTANCE_PCT = 0.30`: keeps only strikes within +/-30% of the latest underlying price.
+
+#### Shared Analytics and Freshness Defaults
+
 - `RISK_FREE_RATE = 0.045`: risk-free rate used in Black-Scholes calculations.
 - `HV_LOOKBACK_DAYS = 30`: lookback window for historical volatility.
 - `TRADING_DAYS_PER_YEAR = 252`: annualization factor for volatility.
 - `STALE_QUOTE_SECONDS = 900`: staleness threshold for option and underlying quotes.
+- `MAX_EXPIRATION_WEEKS = 26`: caps expirations to roughly the next six months by default. Set it to any positive week count you want, or `0` to disable the expiration cap entirely.
+
+#### Shared Diagnostics Defaults
+
 - `ENABLE_POST_DOWNLOAD_FILTERS = true`: applies the zero-bid, strike-band, and wide-spread row filters after download. Set it to `false` when you want the raw downloaded rows to remain in the exported dataset while still computing metrics and quality flags.
 - `DEBUG_DUMP_PROVIDER_PAYLOAD = false`: when `true`, dump raw provider payloads to JSON before normalization so missing fields can be inspected directly.
 - `DEBUG_DUMP_DIR = "debug"`: directory used for raw provider payload dumps. Dump filenames are prefixed with the provider name.
-- `MAX_EXPIRATION_WEEKS = 26`: caps expirations to roughly the next six months by default. Set it to any positive week count you want, or `0` to disable the expiration cap entirely.
-- `data_provider = "yfinance"`: provider implementation used by the fetch pipeline.
+
+### Provider Settings
+
+These settings are only used by the matching provider.
+
+#### Massive Settings
+
+- `[providers.massive].api_key`: Massive API key used only when `data_provider = "massive"`.
 - `providers.massive.snapshot_page_limit = 250`: per-request Massive snapshot page size used for the option-chain endpoint. Values above `250` are clamped because the Massive snapshot endpoint rejects larger limits.
 - `providers.massive.request_interval_seconds = 12.0`: minimum delay between Massive HTTP requests. This default is conservative for delayed-plan usage.
+
+#### Market Data Settings
+
+- `providers.marketdata.api_token`: Market Data API token used only when `data_provider = "marketdata"`.
+- `providers.marketdata.mode = "default"`: optional Market Data SDK mode. Valid values are `live`, `cached`, and `delayed`. If omitted, the SDK uses its default behavior for your account and plan. Mode support and effective recency depend on the plan you are paying for; the Free Forever tier remains 24 hours delayed.
+- `providers.marketdata.max_retries = 3`: retry count for Market Data rate-limit responses (`429`). The provider uses exponential backoff and honors `Retry-After` when the upstream response supplies it.
+- `providers.marketdata.request_interval_seconds = 0.0`: optional minimum spacing between Market Data HTTP requests. Leave it at `0.0` unless you want extra pacing for low-credit or low-throughput plans.
+
+### Internal Build Metadata
+
 - `SCRIPT_VERSION = "2026-03-23.3"`: run-version string written to the append-only log.
 
-In practice:
+### Common Configuration Tasks
 
 - Change `tickers` when you want a different watchlist.
+- Switch `data_provider` when you want to use a different market-data implementation.
 - Tighten or loosen the threshold values when you want a narrower or broader tradability filter.
 - Set `enable_post_download_filters = false` when you want to keep rows that would normally be removed by the shared post-download filters.
 - Turn on `debug_dump_provider_payload = true` when you need to inspect the raw provider payload and confirm whether fields such as `last_quote`, `underlying_asset`, or Yahoo chain columns were present before normalization.
 - Change `max_expiration_weeks` when you want a shorter or longer expiration window, or set it to `0` to disable the max-expiration cutoff.
 - Change the rate, lookback, trading-day, or staleness settings only if you want different modeling or freshness assumptions.
-- Switch `data_provider` when you want to use a different market-data implementation.
+
+### Provider-Specific Configuration Tasks
+
 - Add `[providers.massive].api_key` only when you select `massive`.
 - Raise or lower `snapshot_page_limit` and `request_interval_seconds` to match your Massive plan and tolerance for throttling.
+
+- Add `[providers.marketdata].api_token` only when you select `marketdata`.
+- Set `[providers.marketdata].mode` when you want to force the Market Data SDK to use `live`, `cached`, or `delayed` mode instead of the provider default. Keep in mind that account entitlements still control whether fresher data is actually available.
+- Raise or lower `[providers.marketdata].max_retries` when you want a different tolerance for rate-limit retries.
+- Set `[providers.marketdata].request_interval_seconds` above `0.0` only when you want additional client-side pacing on top of the provider's normal serial request flow.
 
 Startup output:
 
 - The fetcher prints the config path it read, whether the file exists, and the full set of resolved runtime values it will apply.
-- Secret values are redacted in that output. For example, the Massive API key is shown as `set` or `not set`, never in plaintext.
+- Secret values are redacted in that output. For example, the Massive API key and Market Data token are shown as `set` or `not set`, never in plaintext.
 - When a config value is invalid and a code default is used instead, the fetcher prints a `Config fallbacks:` block so the override is visible.
 - During each ticker fetch, the fetcher prints provider progress, expiration counts, raw provider row counts, normalized-versus-kept row counts, and final kept rows so empty runs can be traced to a specific stage.
 - `python fetcher.py` exits with status `0` after a successful CSV write, `1` when the run finishes with `No data fetched.`, and `130` when interrupted with `Ctrl+C`.
 
 ## Field Reference
 
-The full CSV field reference lives in [docs/FIELD_REFERENCE.md](docs/FIELD_REFERENCE.md).
+The full CSV field reference lives in [FIELD_REFERENCE.md](FIELD_REFERENCE.md).
