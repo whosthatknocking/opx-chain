@@ -51,13 +51,14 @@ The viewer uses a single functional header instead of a persistent sidebar.
 
 Header contents:
 * Viewer title: `Options Chain Viewer`
-* Primary tabs: `Dataset`, `Overview`, `Reference`
+* Primary tabs: `Dataset`, `Overview`, `Chain View`, `Reference`
 * Dataset selector: current CSV file chooser
 * Theme toggle: `Light` / `Dark`
 
 ### B. Main Surfaces
 * **Dataset tab:** toolbar, freshness cards, dataset cards, options table, pagination
 * **Overview tab:** ticker summary cards and opportunity cards
+* **Chain View tab:** one chart card per row, stacked vertically, using the same panel language as the rest of the viewer
 * **Reference tab:** rendered documentation/readme content
 
 Dataset tab behavior:
@@ -65,6 +66,12 @@ Dataset tab behavior:
 * The table scrolls inside its card.
 * The toolbar stays accessible at the top of the dataset pane.
 * Pagination remains visible at the bottom of the table card.
+
+Chain View behavior:
+* Charts are derived client-side from the currently selected CSV snapshot.
+* The tab provides per-underlying and per-expiration selectors plus option-side and x-axis controls.
+* Each chart card keeps its title, note, legend, and plot in a single vertical flow.
+* Chart marks support hover inspection and click-through into the existing row-detail modal.
 
 ### C. Responsive Behavior
 * Desktop-first layout
@@ -95,7 +102,8 @@ Use the current functional UI labels:
 * Title: `Options Chain Viewer`
 * Tab 1: `Dataset`
 * Tab 2: `Overview`
-* Tab 3: `Reference`
+* Tab 3: `Chain View`
+* Tab 4: `Reference`
 
 Avoid reintroducing older names such as `Ledger`, `Portfolio`, or `Equity Ledger` unless the UI changes again.
 

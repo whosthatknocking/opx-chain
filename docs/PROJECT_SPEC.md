@@ -365,9 +365,12 @@ Current viewer behavior includes:
 - dataset summary cards
 - active provider surfaced through dataset metadata when constant across the file
 - a `Reference` tab backed by the field-reference document
+- a `Chain View` tab that derives per-ticker/per-expiration visualizations directly from the exported CSV rows
 - sortable/filterable table view
 - summary highlights restricted to primary-screen rows when available
 - opportunity cards that surface `final_score`, `option_score`, `risk_level`, `spread_score`, `dte_score`, and `theta_efficiency`
+- chain charts for delta-vs-strike/moneyness, premium-vs-spread, theta-efficiency-vs-delta, and a risk/liquidity summary
+- interactive chart hover tooltips and click-through from chart marks into the existing row-detail modal
 
 ## 9. Validation Status
 

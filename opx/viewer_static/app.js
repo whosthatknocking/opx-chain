@@ -13,6 +13,14 @@ const state = {
   pageSize: 100,
   columnWidths: {},
   selectedRow: null,
+  activeTab: 'table',
+  chainRenderToken: 0,
+  chainView: {
+    ticker: null,
+    expiration: null,
+    optionType: 'all',
+    deltaXAxis: 'strike',
+  },
 };
 
 const elements = {
@@ -48,10 +56,22 @@ const elements = {
   summaryStatus: document.getElementById('summaryStatus'),
   summaryTickerGrid: document.getElementById('summaryTickerGrid'),
   tableTab: document.getElementById('tableTab'),
+  chainTab: document.getElementById('chainTab'),
+  chainTickerSelect: document.getElementById('chainTickerSelect'),
+  chainExpirationSelect: document.getElementById('chainExpirationSelect'),
+  chainOptionTypeSelect: document.getElementById('chainOptionTypeSelect'),
+  chainDeltaXAxisSelect: document.getElementById('chainDeltaXAxisSelect'),
+  chainStatus: document.getElementById('chainStatus'),
+  chainDeltaChart: document.getElementById('chainDeltaChart'),
+  chainPremiumChart: document.getElementById('chainPremiumChart'),
+  chainThetaChart: document.getElementById('chainThetaChart'),
+  chainSummaryPanel: document.getElementById('chainSummaryPanel'),
   readmeTab: document.getElementById('readmeTab'),
   readmeContent: document.getElementById('readmeContent'),
   themeToggle: document.getElementById('themeToggle'),
 };
+
+let chainTooltipElement = null;
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -321,6 +341,616 @@ function renderSummary(summary) {
   }
   elements.summaryStatus.textContent = `${summary.selected_file} · ${summary.tickers.length} tickers summarized`;
   renderSummaryTickerGrid(summary.tickers);
+}
+
+function formatCompactNumber(value) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+  return new Intl.NumberFormat(undefined, {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(Number(value));
+}
+
+function formatPercentValue(value, digits = 1) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—';
+  return `${(Number(value) * 100).toFixed(digits)}%`;
+}
+
+function isTruthyValue(value) {
+  return ['true', '1', 'yes'].includes(String(value).trim().toLowerCase());
+}
+
+function getRiskColor(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'LOW') return '#10b981';
+  if (normalized === 'MEDIUM' || normalized === 'MODERATE') return '#3b82f6';
+  if (normalized === 'HIGH') return '#ef4444';
+  return '#94a3b8';
+}
+
+function getChainTickerOptions() {
+  const values = new Set();
+  state.rows.forEach((row) => {
+    if (row.underlying_symbol !== null && row.underlying_symbol !== undefined && row.underlying_symbol !== '') {
+      values.add(String(row.underlying_symbol));
+    }
+  });
+  return [...values].sort((left, right) => compareValues(left, right));
+}
+
+function getChainExpirationOptions(ticker) {
+  const values = new Set();
+  state.rows.forEach((row) => {
+    if (String(row.underlying_symbol) !== String(ticker)) return;
+    if (row.expiration_date !== null && row.expiration_date !== undefined && row.expiration_date !== '') {
+      values.add(String(row.expiration_date));
+    }
+  });
+  return [...values].sort((left, right) => compareValues(left, right));
+}
+
+function syncChainViewState() {
+  const tickers = getChainTickerOptions();
+  if (!tickers.includes(state.chainView.ticker)) {
+    state.chainView.ticker = tickers[0] || null;
+  }
+
+  const expirations = state.chainView.ticker ? getChainExpirationOptions(state.chainView.ticker) : [];
+  if (!expirations.includes(state.chainView.expiration)) {
+    state.chainView.expiration = expirations[0] || null;
+  }
+
+  elements.chainTickerSelect.innerHTML = tickers.map((ticker) => (
+    `<option value="${escapeHtml(ticker)}">${escapeHtml(ticker)}</option>`
+  )).join('');
+  elements.chainTickerSelect.value = state.chainView.ticker || '';
+
+  elements.chainExpirationSelect.innerHTML = expirations.map((expiration) => (
+    `<option value="${escapeHtml(expiration)}">${escapeHtml(expiration)}</option>`
+  )).join('');
+  elements.chainExpirationSelect.value = state.chainView.expiration || '';
+  elements.chainOptionTypeSelect.value = state.chainView.optionType;
+  elements.chainDeltaXAxisSelect.value = state.chainView.deltaXAxis;
+}
+
+function getSelectedChainRows() {
+  return state.rows
+    .filter((row) => String(row.underlying_symbol) === String(state.chainView.ticker))
+    .filter((row) => String(row.expiration_date) === String(state.chainView.expiration))
+    .filter((row) => state.chainView.optionType === 'all' || row.option_type === state.chainView.optionType)
+    .slice()
+    .sort((left, right) => compareValues(left.strike, right.strike));
+}
+
+function getChainRowByContractSymbol(contractSymbol) {
+  if (!contractSymbol) return null;
+  return getSelectedChainRows().find((row) => String(row.contract_symbol) === String(contractSymbol)) || null;
+}
+
+function sampleRowsForChart(rows, maxPoints) {
+  if (rows.length <= maxPoints) return rows;
+  const result = [];
+  const lastIndex = rows.length - 1;
+  for (let index = 0; index < maxPoints; index += 1) {
+    const rowIndex = Math.round((index / Math.max(maxPoints - 1, 1)) * lastIndex);
+    result.push(rows[rowIndex]);
+  }
+  return result;
+}
+
+function buildNumericTicks(domain, count = 4) {
+  if (!domain) return [];
+  const [min, max] = domain;
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [];
+  if (count <= 1 || min === max) return [min];
+  return Array.from({ length: count }, (_, index) => min + (((max - min) * index) / (count - 1)));
+}
+
+function buildIndexedTicks(rows, count = 5) {
+  if (rows.length === 0) return [];
+  if (rows.length <= count) {
+    return rows.map((row, index) => ({ row, index }));
+  }
+  const lastIndex = rows.length - 1;
+  const seen = new Set();
+  const ticks = [];
+  for (let index = 0; index < count; index += 1) {
+    const rowIndex = Math.round((index / Math.max(count - 1, 1)) * lastIndex);
+    if (seen.has(rowIndex)) continue;
+    seen.add(rowIndex);
+    ticks.push({ row: rows[rowIndex], index: rowIndex });
+  }
+  return ticks;
+}
+
+function getNumericExtent(values) {
+  const numeric = values
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (numeric.length === 0) return null;
+  return [Math.min(...numeric), Math.max(...numeric)];
+}
+
+function expandExtent(extent, paddingFraction = 0.08) {
+  if (!extent) return null;
+  const [min, max] = extent;
+  if (min === max) {
+    const delta = min === 0 ? 1 : Math.abs(min) * paddingFraction;
+    return [min - delta, max + delta];
+  }
+  const padding = (max - min) * paddingFraction;
+  return [min - padding, max + padding];
+}
+
+function scaleLinear(value, domain, range) {
+  if (!domain || !range) return range?.[0] ?? 0;
+  const [domainMin, domainMax] = domain;
+  const [rangeMin, rangeMax] = range;
+  if (domainMax === domainMin) return (rangeMin + rangeMax) / 2;
+  const ratio = (value - domainMin) / (domainMax - domainMin);
+  return rangeMin + ((rangeMax - rangeMin) * ratio);
+}
+
+function renderChartEmpty(element, title) {
+  element.innerHTML = `
+    <div class="chart-empty">
+      <strong>${escapeHtml(title)}</strong>
+      <span>No numeric rows are available for this view.</span>
+    </div>
+  `;
+}
+
+function ensureChainTooltip() {
+  if (chainTooltipElement) return chainTooltipElement;
+  chainTooltipElement = document.createElement('div');
+  chainTooltipElement.className = 'chain-tooltip';
+  chainTooltipElement.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(chainTooltipElement);
+  return chainTooltipElement;
+}
+
+function showChainTooltip(event, html) {
+  const tooltip = ensureChainTooltip();
+  tooltip.innerHTML = html;
+  tooltip.classList.add('open');
+  tooltip.setAttribute('aria-hidden', 'false');
+  const pointerX = event.clientX + 14;
+  const pointerY = event.clientY + 14;
+  const maxLeft = window.innerWidth - tooltip.offsetWidth - 12;
+  const maxTop = window.innerHeight - tooltip.offsetHeight - 12;
+  tooltip.style.left = `${Math.max(12, Math.min(pointerX, maxLeft))}px`;
+  tooltip.style.top = `${Math.max(12, Math.min(pointerY, maxTop))}px`;
+}
+
+function hideChainTooltip() {
+  if (!chainTooltipElement) return;
+  chainTooltipElement.classList.remove('open');
+  chainTooltipElement.setAttribute('aria-hidden', 'true');
+}
+
+function renderChainTooltip(row, metrics = []) {
+  if (!row) return '';
+  const primary = [
+    row.underlying_symbol,
+    row.option_type,
+    row.expiration_date,
+    row.strike !== undefined && row.strike !== null ? `strike ${formatNumber(row.strike, 2)}` : null,
+  ].filter(Boolean).join(' · ');
+  return `
+    <div class="chain-tooltip-title">${escapeHtml(primary || row.contract_symbol || 'Contract')}</div>
+    <div class="chain-tooltip-subtitle">${escapeHtml(row.contract_symbol || '—')}</div>
+    <div class="chain-tooltip-grid">
+      ${metrics.map((item) => `
+        <div class="chain-tooltip-item">
+          <span>${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function bindChainInteractions(container, metricFactory) {
+  container.querySelectorAll('[data-chain-contract]').forEach((node) => {
+    node.addEventListener('mouseenter', (event) => {
+      const row = getChainRowByContractSymbol(node.dataset.chainContract);
+      if (!row) return;
+      showChainTooltip(event, renderChainTooltip(row, metricFactory(row)));
+    });
+    node.addEventListener('mousemove', (event) => {
+      const row = getChainRowByContractSymbol(node.dataset.chainContract);
+      if (!row) return;
+      showChainTooltip(event, renderChainTooltip(row, metricFactory(row)));
+    });
+    node.addEventListener('mouseleave', hideChainTooltip);
+    node.addEventListener('click', () => {
+      const row = getChainRowByContractSymbol(node.dataset.chainContract);
+      if (row) openRowModal(row);
+    });
+    node.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      const row = getChainRowByContractSymbol(node.dataset.chainContract);
+      if (row) openRowModal(row);
+    });
+  });
+}
+
+function renderDeltaChart(rows) {
+  const xKey = state.chainView.deltaXAxis;
+  const xLabel = xKey === 'strike_vs_spot_pct' ? 'Moneyness vs spot' : 'Strike';
+  const chartRows = sampleRowsForChart(rows, 320)
+    .map((row) => ({
+      contractSymbol: row.contract_symbol,
+      optionType: row.option_type,
+      x: Number(row[xKey]),
+      delta: Number(row.delta_abs),
+      premium: Number(row.iv_adjusted_premium_per_day),
+      riskLevel: row.risk_level,
+      passesPrimaryScreen: isTruthyValue(row.passes_primary_screen),
+      strike: row.strike,
+    }))
+    .filter((row) => Number.isFinite(row.x) && Number.isFinite(row.delta));
+
+  if (chartRows.length === 0) {
+    renderChartEmpty(elements.chainDeltaChart, 'Delta chart unavailable');
+    return;
+  }
+
+  const width = 960;
+  const height = 280;
+  const margin = { top: 24, right: 68, bottom: 42, left: 56 };
+  const xDomain = expandExtent(getNumericExtent(chartRows.map((row) => row.x)), 0.05);
+  const yDomain = [0, 1];
+  const premiumDomain = expandExtent(getNumericExtent(chartRows.map((row) => row.premium)), 0.1)
+    || [0, 1];
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const linePoints = chartRows
+    .filter((row) => Number.isFinite(row.premium))
+    .sort((left, right) => left.x - right.x)
+    .map((row) => `${scaleLinear(row.x, xDomain, [margin.left, margin.left + plotWidth]).toFixed(2)},${scaleLinear(row.premium, premiumDomain, [margin.top + plotHeight, margin.top]).toFixed(2)}`);
+
+  const circles = chartRows.map((row) => {
+    const cx = scaleLinear(row.x, xDomain, [margin.left, margin.left + plotWidth]);
+    const cy = scaleLinear(row.delta, yDomain, [margin.top + plotHeight, margin.top]);
+    const radius = row.passesPrimaryScreen ? 6.5 : 4.5;
+    const labelX = xKey === 'strike_vs_spot_pct' ? formatPercentValue(row.x, 1) : formatNumber(row.x, 2);
+    return `
+      <circle class="chart-hit-target" tabindex="0" role="button" aria-label="${escapeHtml(`${row.contractSymbol || 'Contract'} details`)}" data-chain-contract="${escapeHtml(row.contractSymbol || '')}" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${radius}" fill="${getRiskColor(row.riskLevel)}" fill-opacity="0.85" stroke="rgba(15,23,42,0.28)" stroke-width="1">
+        <title>${escapeHtml(`${row.contractSymbol || 'Contract'} · ${row.optionType || 'option'} · ${xLabel} ${labelX} · delta ${formatNumber(row.delta, 3)} · risk ${row.riskLevel || '—'}`)}</title>
+      </circle>
+    `;
+  }).join('');
+
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
+  const xTicks = buildNumericTicks(xDomain, 4);
+  const premiumTop = premiumDomain[1];
+
+  elements.chainDeltaChart.innerHTML = `
+    <div class="chart-legend">
+      <span><i class="legend-dot" style="background:#10b981"></i>LOW</span>
+      <span><i class="legend-dot" style="background:#3b82f6"></i>MEDIUM</span>
+      <span><i class="legend-dot" style="background:#ef4444"></i>HIGH</span>
+      <span><i class="legend-line"></i>IV-adjusted premium/day</span>
+      <span><i class="legend-badge"></i>Primary-screen pass = larger point</span>
+    </div>
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Delta versus strike scatter chart">
+      <rect x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}" rx="10" fill="rgba(148,163,184,0.06)"></rect>
+      ${yTicks.map((tick) => {
+        const y = scaleLinear(tick, yDomain, [margin.top + plotHeight, margin.top]);
+        return `
+          <line x1="${margin.left}" y1="${y.toFixed(2)}" x2="${margin.left + plotWidth}" y2="${y.toFixed(2)}" stroke="rgba(148,163,184,0.22)" stroke-dasharray="4 6"></line>
+          <text x="${margin.left - 12}" y="${(y + 4).toFixed(2)}" text-anchor="end" class="chart-axis-label">${tick.toFixed(2)}</text>
+        `;
+      }).join('')}
+      ${xTicks.map((tick) => {
+        const x = scaleLinear(tick, xDomain, [margin.left, margin.left + plotWidth]);
+        const label = xKey === 'strike_vs_spot_pct' ? formatPercentValue(tick, 1) : formatNumber(tick, 2);
+        return `
+          <line x1="${x.toFixed(2)}" y1="${margin.top}" x2="${x.toFixed(2)}" y2="${margin.top + plotHeight}" stroke="rgba(148,163,184,0.18)"></line>
+          <text x="${x.toFixed(2)}" y="${height - 10}" text-anchor="middle" class="chart-axis-label">${escapeHtml(label)}</text>
+        `;
+      }).join('')}
+      ${linePoints.length > 1 ? `<polyline fill="none" stroke="#f59e0b" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="${linePoints.join(' ')}"></polyline>` : ''}
+      ${circles}
+      <text x="${margin.left}" y="14" class="chart-axis-title">Delta Abs</text>
+      <text x="${width - margin.right + 12}" y="14" class="chart-axis-title">IV-Adj Premium/Day</text>
+      <text x="${width / 2}" y="${height - 4}" text-anchor="middle" class="chart-axis-title">${escapeHtml(xLabel)}</text>
+      <text x="${width - margin.right + 14}" y="${margin.top + 12}" class="chart-axis-label">${escapeHtml(formatNumber(premiumTop, 2))}</text>
+      <text x="${width - margin.right + 14}" y="${margin.top + plotHeight}" class="chart-axis-label">${escapeHtml(formatNumber(premiumDomain[0], 2))}</text>
+    </svg>
+  `;
+  bindChainInteractions(elements.chainDeltaChart, (row) => [
+    { label: 'Delta Abs', value: formatNumber(row.delta_abs, 3) },
+    { label: xLabel, value: xKey === 'strike_vs_spot_pct' ? formatPercentValue(row[xKey], 1) : formatNumber(row[xKey], 2) },
+    { label: 'IV-Adj Premium/Day', value: formatNumber(row.iv_adjusted_premium_per_day, 2) },
+    { label: 'Risk', value: String(row.risk_level || '—') },
+  ]);
+}
+
+function renderPremiumChart(rows) {
+  const chartRows = sampleRowsForChart(rows, 240)
+    .map((row) => ({
+      contractSymbol: row.contract_symbol,
+      strike: Number(row.strike),
+      premium: Number(row.mark_price_mid),
+      spreadPct: Number(row.bid_ask_spread_pct_of_mid),
+      passesPrimaryScreen: isTruthyValue(row.passes_primary_screen),
+    }))
+    .filter((row) => Number.isFinite(row.strike) && Number.isFinite(row.premium));
+
+  if (chartRows.length === 0) {
+    renderChartEmpty(elements.chainPremiumChart, 'Premium chart unavailable');
+    return;
+  }
+
+  const width = 960;
+  const height = 280;
+  const margin = { top: 24, right: 68, bottom: 42, left: 56 };
+  const premiumDomain = expandExtent(getNumericExtent(chartRows.map((row) => row.premium)), 0.08) || [0, 1];
+  const spreadDomain = expandExtent(getNumericExtent(chartRows.map((row) => row.spreadPct)), 0.1) || [0, 1];
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const barWidth = Math.max(10, (plotWidth / Math.max(chartRows.length, 1)) * 0.72);
+  const spreadLinePoints = chartRows
+    .filter((row) => Number.isFinite(row.spreadPct))
+    .map((row, index) => {
+      const cx = margin.left + ((index + 0.5) * plotWidth / chartRows.length);
+      const cy = scaleLinear(row.spreadPct, spreadDomain, [margin.top + plotHeight, margin.top]);
+      return `${cx.toFixed(2)},${cy.toFixed(2)}`;
+    });
+
+  elements.chainPremiumChart.innerHTML = `
+    <div class="chart-legend">
+      <span><i class="legend-bar"></i>Mark price mid</span>
+      <span><i class="legend-line legend-line-danger"></i>Spread % of mid</span>
+      <span><i class="legend-badge"></i>Darker bar = primary-screen pass</span>
+    </div>
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Premium and spread by strike chart">
+      <rect x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}" rx="10" fill="rgba(148,163,184,0.06)"></rect>
+      ${chartRows.map((row, index) => {
+        const x = margin.left + ((index + 0.5) * plotWidth / chartRows.length) - (barWidth / 2);
+        const y = scaleLinear(row.premium, premiumDomain, [margin.top + plotHeight, margin.top]);
+        const labelY = height - 10;
+        const fill = row.passesPrimaryScreen ? '#0f766e' : '#94a3b8';
+        const spread = Number.isFinite(row.spreadPct) ? formatPercentValue(row.spreadPct, 1) : '—';
+        return `
+          <rect class="chart-hit-target" tabindex="0" role="button" aria-label="${escapeHtml(`${row.contractSymbol || 'Contract'} details`)}" data-chain-contract="${escapeHtml(row.contractSymbol || '')}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${(margin.top + plotHeight - y).toFixed(2)}" rx="6" fill="${fill}" fill-opacity="${row.passesPrimaryScreen ? '0.88' : '0.56'}">
+            <title>${escapeHtml(`${row.contractSymbol || 'Contract'} · strike ${formatNumber(row.strike, 2)} · mid ${formatNumber(row.premium, 2)} · spread ${spread}`)}</title>
+          </rect>
+        `;
+      }).join('')}
+      ${buildIndexedTicks(chartRows, 5).map(({ row, index }) => {
+        const x = margin.left + (((index + 0.5) * plotWidth) / chartRows.length);
+        return `<text x="${x.toFixed(2)}" y="${height - 10}" text-anchor="middle" class="chart-axis-label">${escapeHtml(formatNumber(row.strike, 0))}</text>`;
+      }).join('')}
+      ${spreadLinePoints.length > 1 ? `<polyline fill="none" stroke="#ef4444" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="${spreadLinePoints.join(' ')}"></polyline>` : ''}
+      <text x="${margin.left}" y="14" class="chart-axis-title">Mark Price Mid</text>
+      <text x="${width - margin.right + 12}" y="14" class="chart-axis-title">Spread % of Mid</text>
+      <text x="${width / 2}" y="${height - 4}" text-anchor="middle" class="chart-axis-title">Strike</text>
+      <text x="${margin.left - 12}" y="${margin.top + 12}" text-anchor="end" class="chart-axis-label">${escapeHtml(formatNumber(premiumDomain[1], 2))}</text>
+      <text x="${margin.left - 12}" y="${margin.top + plotHeight}" text-anchor="end" class="chart-axis-label">${escapeHtml(formatNumber(premiumDomain[0], 2))}</text>
+      <text x="${width - margin.right + 14}" y="${margin.top + 12}" class="chart-axis-label">${escapeHtml(formatPercentValue(spreadDomain[1], 1))}</text>
+      <text x="${width - margin.right + 14}" y="${margin.top + plotHeight}" class="chart-axis-label">${escapeHtml(formatPercentValue(spreadDomain[0], 1))}</text>
+    </svg>
+  `;
+  bindChainInteractions(elements.chainPremiumChart, (row) => [
+    { label: 'Mark Price Mid', value: formatNumber(row.mark_price_mid, 2) },
+    { label: 'Spread % Mid', value: formatPercentValue(row.bid_ask_spread_pct_of_mid, 1) },
+    { label: 'Volume', value: formatCompactNumber(row.volume) },
+    { label: 'Open Interest', value: formatCompactNumber(row.open_interest) },
+  ]);
+}
+
+function getIvPremiumColor(value, domain) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value)) || !domain) {
+    return '#94a3b8';
+  }
+  const [min, max] = domain;
+  const ratio = max === min ? 0.5 : Math.max(0, Math.min(1, (Number(value) - min) / (max - min)));
+  const lightness = 72 - (ratio * 34);
+  return `hsl(42 92% ${lightness.toFixed(1)}%)`;
+}
+
+function renderThetaChart(rows) {
+  const chartRows = sampleRowsForChart(rows, 320)
+    .map((row) => ({
+      contractSymbol: row.contract_symbol,
+      deltaAbs: Number(row.delta_abs),
+      thetaEfficiency: Number(row.theta_efficiency),
+      ivAdjustedPremiumPerDay: Number(row.iv_adjusted_premium_per_day),
+      riskLevel: row.risk_level,
+    }))
+    .filter((row) => Number.isFinite(row.deltaAbs) && Number.isFinite(row.thetaEfficiency));
+
+  if (chartRows.length === 0) {
+    renderChartEmpty(elements.chainThetaChart, 'Theta chart unavailable');
+    return;
+  }
+
+  const width = 960;
+  const height = 280;
+  const margin = { top: 24, right: 24, bottom: 42, left: 56 };
+  const xDomain = expandExtent(getNumericExtent(chartRows.map((row) => row.deltaAbs)), 0.08) || [0, 1];
+  const yDomain = expandExtent(getNumericExtent(chartRows.map((row) => row.thetaEfficiency)), 0.12) || [0, 1];
+  const colorDomain = getNumericExtent(chartRows.map((row) => row.ivAdjustedPremiumPerDay));
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+
+  elements.chainThetaChart.innerHTML = `
+    <div class="chart-legend">
+      <span><i class="legend-dot legend-dot-gold"></i>Higher IV-adjusted premium/day</span>
+      <span><i class="legend-dot" style="background:#94a3b8"></i>Lower IV-adjusted premium/day</span>
+    </div>
+    <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Theta efficiency versus delta chart">
+      <rect x="${margin.left}" y="${margin.top}" width="${plotWidth}" height="${plotHeight}" rx="10" fill="rgba(148,163,184,0.06)"></rect>
+      ${buildNumericTicks(xDomain, 5).map((tick) => {
+        const x = scaleLinear(tick, xDomain, [margin.left, margin.left + plotWidth]);
+        return `
+          <line x1="${x.toFixed(2)}" y1="${margin.top}" x2="${x.toFixed(2)}" y2="${margin.top + plotHeight}" stroke="rgba(148,163,184,0.18)"></line>
+          <text x="${x.toFixed(2)}" y="${height - 10}" text-anchor="middle" class="chart-axis-label">${tick.toFixed(2)}</text>
+        `;
+      }).join('')}
+      ${chartRows.map((row) => {
+        const cx = scaleLinear(row.deltaAbs, xDomain, [margin.left, margin.left + plotWidth]);
+        const cy = scaleLinear(row.thetaEfficiency, yDomain, [margin.top + plotHeight, margin.top]);
+        const fill = getIvPremiumColor(row.ivAdjustedPremiumPerDay, colorDomain);
+        return `
+          <circle class="chart-hit-target" tabindex="0" role="button" aria-label="${escapeHtml(`${row.contractSymbol || 'Contract'} details`)}" data-chain-contract="${escapeHtml(row.contractSymbol || '')}" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="6" fill="${fill}" stroke="${getRiskColor(row.riskLevel)}" stroke-width="1.4">
+            <title>${escapeHtml(`${row.contractSymbol || 'Contract'} · delta ${formatNumber(row.deltaAbs, 3)} · theta efficiency ${formatNumber(row.thetaEfficiency, 2)} · IV-adjusted premium/day ${formatNumber(row.ivAdjustedPremiumPerDay, 2)}`)}</title>
+          </circle>
+        `;
+      }).join('')}
+      <text x="${margin.left}" y="14" class="chart-axis-title">Theta Efficiency</text>
+      <text x="${width / 2}" y="${height - 4}" text-anchor="middle" class="chart-axis-title">Delta Abs</text>
+      <text x="${margin.left - 12}" y="${margin.top + 12}" text-anchor="end" class="chart-axis-label">${escapeHtml(formatNumber(yDomain[1], 2))}</text>
+      <text x="${margin.left - 12}" y="${margin.top + plotHeight}" text-anchor="end" class="chart-axis-label">${escapeHtml(formatNumber(yDomain[0], 2))}</text>
+    </svg>
+  `;
+  bindChainInteractions(elements.chainThetaChart, (row) => [
+    { label: 'Theta Efficiency', value: formatNumber(row.theta_efficiency, 2) },
+    { label: 'Delta Abs', value: formatNumber(row.delta_abs, 3) },
+    { label: 'IV-Adj Premium/Day', value: formatNumber(row.iv_adjusted_premium_per_day, 2) },
+    { label: 'Risk', value: String(row.risk_level || '—') },
+  ]);
+}
+
+function renderChainSummary(rows) {
+  if (rows.length === 0) {
+    elements.chainSummaryPanel.innerHTML = `
+      <div class="chart-empty">
+        <strong>Chain summary unavailable</strong>
+        <span>No rows match the current chain selection.</span>
+      </div>
+    `;
+    return;
+  }
+
+  const passCount = rows.filter((row) => isTruthyValue(row.passes_primary_screen)).length;
+  const riskCounts = ['LOW', 'MEDIUM', 'HIGH'].map((riskLevel) => ({
+    riskLevel,
+    count: rows.filter((row) => String(row.risk_level || '').toUpperCase() === riskLevel).length,
+  }));
+  const totalVolume = rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.volume)) ? Number(row.volume) : 0), 0);
+  const totalOpenInterest = rows.reduce((sum, row) => sum + (Number.isFinite(Number(row.open_interest)) ? Number(row.open_interest) : 0), 0);
+  const strikeLiquidity = rows
+    .map((row) => ({
+      strike: Number(row.strike),
+      volume: Number.isFinite(Number(row.volume)) ? Number(row.volume) : 0,
+      openInterest: Number.isFinite(Number(row.open_interest)) ? Number(row.open_interest) : 0,
+    }))
+    .filter((row) => Number.isFinite(row.strike))
+    .sort((left, right) => (right.openInterest + right.volume) - (left.openInterest + left.volume))
+    .slice(0, 6);
+  const maxLiquidity = Math.max(...strikeLiquidity.map((row) => Math.max(row.volume, row.openInterest)), 1);
+
+  elements.chainSummaryPanel.innerHTML = `
+    <div class="chain-summary-stats">
+      <article class="chain-stat-card">
+        <span>Contracts</span>
+        <strong>${rows.length.toLocaleString()}</strong>
+      </article>
+      <article class="chain-stat-card">
+        <span>Primary Screen Pass</span>
+        <strong>${formatPercentValue(passCount / rows.length, 1)}</strong>
+      </article>
+      <article class="chain-stat-card">
+        <span>Total Volume</span>
+        <strong>${formatCompactNumber(totalVolume)}</strong>
+      </article>
+      <article class="chain-stat-card">
+        <span>Total OI</span>
+        <strong>${formatCompactNumber(totalOpenInterest)}</strong>
+      </article>
+    </div>
+    <div class="chain-summary-section">
+      <h3>Risk Mix</h3>
+      <div class="chain-bar-list">
+        ${riskCounts.map((item) => {
+          const share = rows.length === 0 ? 0 : item.count / rows.length;
+          return `
+            <div class="chain-bar-row">
+              <span class="chain-bar-label">${escapeHtml(item.riskLevel)}</span>
+              <div class="chain-bar-track"><div class="chain-bar-fill" style="width:${(share * 100).toFixed(1)}%; background:${getRiskColor(item.riskLevel)};"></div></div>
+              <strong>${item.count.toLocaleString()} · ${formatPercentValue(share, 1)}</strong>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+    <div class="chain-summary-section">
+      <h3>Liquidity by Strike</h3>
+      <div class="chain-liquidity-list">
+        ${strikeLiquidity.map((item) => `
+          <div class="chain-liquidity-row">
+            <div class="chain-liquidity-header">
+              <span>Strike ${escapeHtml(formatNumber(item.strike, 2))}</span>
+              <strong>OI ${escapeHtml(formatCompactNumber(item.openInterest))} · Vol ${escapeHtml(formatCompactNumber(item.volume))}</strong>
+            </div>
+            <div class="chain-liquidity-bars">
+              <div class="chain-liquidity-track"><div class="chain-liquidity-fill chain-liquidity-fill-oi" style="width:${((item.openInterest / maxLiquidity) * 100).toFixed(1)}%;"></div></div>
+              <div class="chain-liquidity-track"><div class="chain-liquidity-fill chain-liquidity-fill-volume" style="width:${((item.volume / maxLiquidity) * 100).toFixed(1)}%;"></div></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderChainView() {
+  syncChainViewState();
+  const tickers = getChainTickerOptions();
+  if (tickers.length === 0 || !state.chainView.ticker || !state.chainView.expiration) {
+    elements.chainStatus.textContent = 'No option rows available for chain visualization.';
+    renderChartEmpty(elements.chainDeltaChart, 'Delta chart unavailable');
+    renderChartEmpty(elements.chainPremiumChart, 'Premium chart unavailable');
+    renderChartEmpty(elements.chainThetaChart, 'Theta chart unavailable');
+    renderChainSummary([]);
+    return;
+  }
+
+  const chainRows = getSelectedChainRows();
+  const optionTypeLabel = state.chainView.optionType === 'all'
+    ? 'calls + puts'
+    : `${state.chainView.optionType}s`;
+  elements.chainStatus.textContent = `${state.chainView.ticker} · ${state.chainView.expiration} · ${chainRows.length.toLocaleString()} ${optionTypeLabel}`;
+  renderDeltaChart(chainRows);
+  renderPremiumChart(chainRows);
+  renderThetaChart(chainRows);
+  renderChainSummary(chainRows);
+}
+
+function scheduleChainRender(force = false) {
+  syncChainViewState();
+
+  if (!force && state.activeTab !== 'chain') {
+    const tickers = getChainTickerOptions();
+    if (tickers.length === 0 || !state.chainView.ticker || !state.chainView.expiration) {
+      elements.chainStatus.textContent = 'No option rows available for chain visualization.';
+    } else {
+      elements.chainStatus.textContent = `${state.chainView.ticker} · ${state.chainView.expiration} · chain view ready`;
+    }
+    return;
+  }
+
+  const token = state.chainRenderToken + 1;
+  state.chainRenderToken = token;
+  elements.chainStatus.textContent = 'Rendering chain view...';
+
+  window.setTimeout(() => {
+    if (state.chainRenderToken !== token) return;
+    try {
+      renderChainView();
+    } catch (error) {
+      elements.chainStatus.textContent = `Chain view error: ${error.message}`;
+      renderChartEmpty(elements.chainDeltaChart, 'Delta chart unavailable');
+      renderChartEmpty(elements.chainPremiumChart, 'Premium chart unavailable');
+      renderChartEmpty(elements.chainThetaChart, 'Theta chart unavailable');
+      renderChainSummary([]);
+    }
+  }, 0);
 }
 
 function normalizeFilterValue(value) {
@@ -911,6 +1541,7 @@ async function loadData(fileName) {
     elements.summaryTickerGrid.innerHTML = '';
   }
   renderTable();
+  scheduleChainRender(false);
 }
 
 async function loadReference() {
@@ -919,12 +1550,17 @@ async function loadReference() {
 }
 
 function activateTab(tabName) {
+  state.activeTab = tabName;
   elements.tabButtons.forEach((button) => {
     button.classList.toggle('active', button.dataset.tab === tabName);
   });
   elements.summaryTab.classList.toggle('active', tabName === 'summary');
   elements.tableTab.classList.toggle('active', tabName === 'table');
+  elements.chainTab.classList.toggle('active', tabName === 'chain');
   elements.readmeTab.classList.toggle('active', tabName === 'readme');
+  if (tabName === 'chain') {
+    scheduleChainRender(true);
+  }
 }
 
 function updateThemeToggleLabel(theme) {
@@ -950,6 +1586,11 @@ async function initialize() {
     await loadData(state.files[0].name);
   } else {
     elements.tableStatus.textContent = 'No CSV files found in the output directory.';
+    elements.chainStatus.textContent = 'No CSV files found in the output directory.';
+    renderChartEmpty(elements.chainDeltaChart, 'Delta chart unavailable');
+    renderChartEmpty(elements.chainPremiumChart, 'Premium chart unavailable');
+    renderChartEmpty(elements.chainThetaChart, 'Theta chart unavailable');
+    renderChainSummary([]);
   }
 
   elements.fileSelect.addEventListener('change', async (event) => {
@@ -960,6 +1601,27 @@ async function initialize() {
     state.pageSize = event.target.value === 'all' ? 'all' : Number(event.target.value);
     state.currentPage = 1;
     renderTable();
+  });
+
+  elements.chainTickerSelect.addEventListener('change', (event) => {
+    state.chainView.ticker = event.target.value || null;
+    state.chainView.expiration = null;
+    scheduleChainRender(true);
+  });
+
+  elements.chainExpirationSelect.addEventListener('change', (event) => {
+    state.chainView.expiration = event.target.value || null;
+    scheduleChainRender(true);
+  });
+
+  elements.chainOptionTypeSelect.addEventListener('change', (event) => {
+    state.chainView.optionType = event.target.value;
+    scheduleChainRender(true);
+  });
+
+  elements.chainDeltaXAxisSelect.addEventListener('change', (event) => {
+    state.chainView.deltaXAxis = event.target.value;
+    scheduleChainRender(true);
   });
 
   elements.prevPageButton.addEventListener('click', () => {

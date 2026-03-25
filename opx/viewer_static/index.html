@@ -22,6 +22,9 @@
             <button class="tab-button" type="button" data-tab="summary">
               <span class="tab-title">Overview</span>
             </button>
+            <button class="tab-button" type="button" data-tab="chain">
+              <span class="tab-title">Chain View</span>
+            </button>
             <button class="tab-button" type="button" data-tab="readme">
               <span class="tab-title">Reference</span>
             </button>
@@ -77,6 +80,85 @@
           <div id="summaryContent" class="summary-shell">
             <div id="summaryStatus" class="summary-status">Loading summary...</div>
             <div id="summaryTickerGrid" class="summary-ticker-grid"></div>
+          </div>
+        </section>
+
+        <section id="chainTab" class="tab-panel">
+          <div class="chain-shell">
+            <div class="chain-toolbar">
+              <div class="chain-toolbar-group">
+                <label class="select-wrap compact-wrap">
+                  <span>Underlying</span>
+                  <select id="chainTickerSelect" aria-label="Chain underlying"></select>
+                </label>
+                <label class="select-wrap compact-wrap">
+                  <span>Expiration</span>
+                  <select id="chainExpirationSelect" aria-label="Chain expiration"></select>
+                </label>
+                <label class="select-wrap compact-wrap">
+                  <span>Option Type</span>
+                  <select id="chainOptionTypeSelect" aria-label="Chain option type">
+                    <option value="all">Calls + Puts</option>
+                    <option value="call">Calls</option>
+                    <option value="put">Puts</option>
+                  </select>
+                </label>
+                <label class="select-wrap compact-wrap">
+                  <span>Delta X-Axis</span>
+                  <select id="chainDeltaXAxisSelect" aria-label="Delta chart x-axis">
+                    <option value="strike">Strike</option>
+                    <option value="strike_vs_spot_pct">Moneyness</option>
+                  </select>
+                </label>
+              </div>
+              <div id="chainStatus" class="summary-status">Loading chain view...</div>
+            </div>
+
+            <div class="chain-stack">
+              <article class="chain-card">
+                <div class="chain-card-header">
+                  <div>
+                    <p class="chain-card-kicker">Shape</p>
+                    <h2>Delta vs Strike</h2>
+                  </div>
+                  <p class="chain-card-note">Point color tracks risk label, larger points pass the primary screen, and the line shows IV-adjusted premium/day.</p>
+                </div>
+                <div id="chainDeltaChart" class="chart-surface"></div>
+              </article>
+
+              <article class="chain-card">
+                <div class="chain-card-header">
+                  <div>
+                    <p class="chain-card-kicker">Liquidity</p>
+                    <h2>Premium vs Spread</h2>
+                  </div>
+                  <p class="chain-card-note">Bars show `mark_price_mid` and the line highlights spread percentage stress by strike.</p>
+                </div>
+                <div id="chainPremiumChart" class="chart-surface"></div>
+              </article>
+
+              <article class="chain-card">
+                <div class="chain-card-header">
+                  <div>
+                    <p class="chain-card-kicker">Income</p>
+                    <h2>Theta Efficiency vs Delta</h2>
+                  </div>
+                  <p class="chain-card-note">Color intensity rises with IV-adjusted premium/day to surface rich premium pockets.</p>
+                </div>
+                <div id="chainThetaChart" class="chart-surface"></div>
+              </article>
+
+              <article class="chain-card">
+                <div class="chain-card-header">
+                  <div>
+                    <p class="chain-card-kicker">Screening</p>
+                    <h2>Risk & Liquidity Summary</h2>
+                  </div>
+                  <p class="chain-card-note">Pass rate, risk mix, and strike-level OI and volume concentration.</p>
+                </div>
+                <div id="chainSummaryPanel" class="chain-summary-panel"></div>
+              </article>
+            </div>
           </div>
         </section>
 

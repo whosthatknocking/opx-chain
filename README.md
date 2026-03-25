@@ -24,7 +24,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 - Limits strikes to a configurable band around spot
 - Computes Greeks, expected move, ROM-style metrics, configurable option scoring, and volatility context
 - Writes a timestamped CSV plus an append-only run log
-- Includes a local browser for exploring the output interactively
+- Includes a local browser for exploring the output interactively, including dataset inspection, per-ticker overview cards, and chain visualizations with chart tooltips and click-through row details
 
 Generated files are standardized under:
 
