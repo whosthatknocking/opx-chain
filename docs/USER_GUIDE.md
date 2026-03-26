@@ -112,7 +112,7 @@ filters_enable = true
 risk_free_rate = 0.045
 hv_lookback_days = 30
 trading_days_per_year = 252
-stale_quote_seconds = 21600
+stale_quote_seconds = 10800
 max_expiration_weeks = 26
 
 # Shared viewer runtime
@@ -164,7 +164,7 @@ These settings apply regardless of which provider is active.
 - `RISK_FREE_RATE = 0.045`: risk-free rate used in Black-Scholes calculations.
 - `HV_LOOKBACK_DAYS = 30`: lookback window for historical volatility.
 - `TRADING_DAYS_PER_YEAR = 252`: annualization factor for volatility.
-- `STALE_QUOTE_SECONDS = 21600`: staleness threshold for option and underlying quotes.
+- `STALE_QUOTE_SECONDS = 10800`: staleness threshold for option and underlying quotes.
 - `MAX_EXPIRATION_WEEKS = 26`: caps expirations to roughly the next six months by default. Set it to any positive week count you want, or `0` to disable the expiration cap entirely.
 
 #### Shared Viewer Defaults

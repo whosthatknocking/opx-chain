@@ -104,7 +104,7 @@ Defaults:
   - `filters_max_spread_pct_of_mid = 0.25`
   - `filters_max_strike_distance_pct = 0.30`
   - `filters_enable = true`
-- current built-in freshness default is `stale_quote_seconds = 21600`
+- current built-in freshness default is `stale_quote_seconds = 10800`
 - malformed or unsupported config values fall back to code defaults
 - startup output prints the resolved config values actually applied
 - secrets are redacted in startup output

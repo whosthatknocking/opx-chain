@@ -20,6 +20,7 @@ def test_load_runtime_config_uses_defaults_when_file_is_absent(tmp_path: Path):
     assert config.marketdata_api_token is None
     assert config.marketdata_max_retries == 3
     assert config.marketdata_request_interval_seconds == 0.0
+    assert config.stale_quote_seconds == 10800
     assert config.enable_validation is True
     assert config.option_score_income_weight == 0.30
     assert config.option_score_liquidity_weight == 0.30
