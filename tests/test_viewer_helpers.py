@@ -78,6 +78,12 @@ def test_build_freshness_summary_reports_file_and_quote_ages(tmp_path: Path):
     assert len(summary["file_modified_at"]) == 19
 
 
+def test_normalize_row_value_keeps_days_to_expiration_as_integer():
+    """Viewer payload serialization should keep days_to_expiration whole."""
+    assert viewer.normalize_row_value("days_to_expiration", 14.0) == 14
+    assert viewer.normalize_row_value("time_to_expiration_years", 14.0) == 14.0
+
+
 def test_pick_profitable_opportunity_prefers_higher_final_score_when_rom_matches():
     """Summary highlights should use final score as a tie-breaker ahead of quote quality."""
     frame = pd.DataFrame(

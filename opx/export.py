@@ -109,6 +109,7 @@ UNWANTED_EXPORT_COLUMNS = {
     "fetched_at",
 }
 CANONICAL_EXPORT_COLUMNS = tuple(COLUMN_ORDER)
+INTEGER_EXPORT_COLUMNS = ("days_to_expiration",)
 
 
 def format_export_timestamps(df):
@@ -133,6 +134,15 @@ def reorder_export_columns(df):
     return df[ordered]
 
 
+def coerce_export_column_types(df):
+    """Preserve integer semantics for canonical whole-number export fields."""
+    df = df.copy()
+    for column in INTEGER_EXPORT_COLUMNS:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+    return df
+
+
 def write_options_csv(ticker_frames, output_path):
     """Combine fetched frames, format the schema, and write the final CSV."""
     output_path = Path(output_path)
@@ -141,4 +151,5 @@ def write_options_csv(ticker_frames, output_path):
     df = drop_unwanted_columns(df)
     df = format_export_timestamps(df)
     df = reorder_export_columns(df)
+    df = coerce_export_column_types(df)
     df.to_csv(output_path, index=False)

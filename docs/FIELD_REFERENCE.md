@@ -10,7 +10,7 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 - `contract_symbol`: Vendor contract identifier. Use it as the unique option contract key.
 - `option_type`: `call` or `put`. Use it to separate upside and downside contracts.
 - `expiration_date`: Contract expiration date. Use it to sort the chain by maturity.
-- `days_to_expiration`: Calendar days until expiration. Use it for short-dated screening and decay analysis. Lower means faster decay and more event risk.
+- `days_to_expiration`: Whole calendar days until expiration. Use it for short-dated screening and decay analysis. Lower means faster decay and more event risk.
 - `time_to_expiration_years`: `days_to_expiration` expressed in years. Use it as the time input for Black-Scholes calculations.
 - `strike`: Strike price of the contract. Use it to measure moneyness and break-even.
 - `contract_size`: Contract multiplier from the vendor. Yahoo often reports `REGULAR`, Massive maps the numeric `shares_per_contract` value from the snapshot payload, and Market Data currently defaults this field to `REGULAR` because the chain response does not expose a separate contract-size field. Use it to confirm contract sizing conventions.

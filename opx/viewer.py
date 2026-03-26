@@ -34,6 +34,7 @@ DATASET_CARD_COLUMNS = (
     "risk_free_rate_used",
     "data_source",
 )
+INTEGER_VIEWER_COLUMNS = frozenset({"days_to_expiration"})
 REFERENCE_MISSING_DESCRIPTION = "No reference description available for this field."
 
 
@@ -189,6 +190,14 @@ def normalize_value(value: Any) -> Any:
     if isinstance(value, (pd.Timestamp,)):
         return value.isoformat()
     return value.item() if hasattr(value, "item") else value
+
+
+def normalize_row_value(column: str, value: Any) -> Any:
+    """Normalize row values, preserving integer semantics for whole-day fields."""
+    normalized = normalize_value(value)
+    if column in INTEGER_VIEWER_COLUMNS and normalized is not None:
+        return int(normalized)
+    return normalized
 
 
 def is_truthy(value: Any) -> bool:
@@ -554,7 +563,7 @@ def load_csv_payload(csv_name: str | None = None) -> CsvPayload:
     visible_columns = [column for column in frame.columns if column not in HIDDEN_COLUMNS]
     frame = frame[visible_columns]
     rows = [
-        {column: normalize_value(value) for column, value in record.items()}
+        {column: normalize_row_value(column, value) for column, value in record.items()}
         for record in frame.to_dict(orient="records")
     ]
     columns = build_column_definitions(frame, descriptions)

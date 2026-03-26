@@ -74,6 +74,7 @@ const elements = {
 };
 
 let chainTooltipElement = null;
+const WHOLE_NUMBER_COLUMNS = new Set(['days_to_expiration']);
 
 function getTabFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -99,10 +100,13 @@ async function fetchJson(url) {
   return response.json();
 }
 
-function formatCell(value) {
+function formatCell(value, columnName = null) {
   if (value === null || value === undefined || value === '') return '—';
   const number = Number(value);
   if (Number.isFinite(number) && typeof value !== 'boolean') {
+    if (WHOLE_NUMBER_COLUMNS.has(columnName)) {
+      return String(Math.trunc(number));
+    }
     return number.toFixed(4);
   }
   return String(value);
@@ -128,7 +132,7 @@ function getLedgerPillTone(columnName, formattedValue) {
 }
 
 function appendCellValue(container, columnName, value) {
-  const formattedValue = formatCell(value);
+  const formattedValue = formatCell(value, columnName);
   const pillTone = getLedgerPillTone(columnName, formattedValue);
 
   if (pillTone) {

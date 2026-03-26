@@ -68,3 +68,4 @@ def test_write_options_csv_persists_only_canonical_columns(tmp_path: Path):
     assert set(exported.columns).issubset(set(CANONICAL_EXPORT_COLUMNS))
     assert "option_score" in exported.columns
     assert exported.loc[0, "option_score"] == 82.5
+    assert exported.loc[0, "days_to_expiration"] == 28
