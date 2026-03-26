@@ -41,6 +41,7 @@ Generated files are standardized under:
 - Field reference: [docs/FIELD_REFERENCE.md](docs/FIELD_REFERENCE.md)
 - Development guide: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 - Project spec: [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)
+- System spec: [docs/SYSTEM_SPEC.md](docs/SYSTEM_SPEC.md)
 - Design spec: [docs/DESIGN_SPEC.md](docs/DESIGN_SPEC.md)
 
 ## Important Notes
