@@ -23,6 +23,8 @@ const state = {
   },
 };
 
+const VALID_TABS = new Set(['table', 'summary', 'chain', 'readme']);
+
 const elements = {
   fileSelect: document.getElementById('fileSelect'),
   rowCount: document.getElementById('rowCount'),
@@ -72,6 +74,22 @@ const elements = {
 };
 
 let chainTooltipElement = null;
+
+function getTabFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const requestedTab = params.get('tab');
+  return VALID_TABS.has(requestedTab) ? requestedTab : 'table';
+}
+
+function syncTabUrl(tabName) {
+  const url = new URL(window.location.href);
+  if (tabName === 'table') {
+    url.searchParams.delete('tab');
+  } else {
+    url.searchParams.set('tab', tabName);
+  }
+  window.history.replaceState({}, '', url);
+}
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -1550,15 +1568,20 @@ async function loadReference() {
 }
 
 function activateTab(tabName) {
-  state.activeTab = tabName;
+  const nextTab = VALID_TABS.has(tabName) ? tabName : 'table';
+  if (state.activeTab === nextTab) {
+    syncTabUrl(nextTab);
+  }
+  state.activeTab = nextTab;
   elements.tabButtons.forEach((button) => {
-    button.classList.toggle('active', button.dataset.tab === tabName);
+    button.classList.toggle('active', button.dataset.tab === nextTab);
   });
-  elements.summaryTab.classList.toggle('active', tabName === 'summary');
-  elements.tableTab.classList.toggle('active', tabName === 'table');
-  elements.chainTab.classList.toggle('active', tabName === 'chain');
-  elements.readmeTab.classList.toggle('active', tabName === 'readme');
-  if (tabName === 'chain') {
+  elements.summaryTab.classList.toggle('active', nextTab === 'summary');
+  elements.tableTab.classList.toggle('active', nextTab === 'table');
+  elements.chainTab.classList.toggle('active', nextTab === 'chain');
+  elements.readmeTab.classList.toggle('active', nextTab === 'readme');
+  syncTabUrl(nextTab);
+  if (nextTab === 'chain') {
     scheduleChainRender(true);
   }
 }
@@ -1581,6 +1604,7 @@ function initializeTheme() {
 
 async function initialize() {
   initializeTheme();
+  activateTab(getTabFromUrl());
   await Promise.all([loadFiles(), loadReference()]);
   if (state.files.length > 0) {
     await loadData(state.files[0].name);
@@ -1693,6 +1717,10 @@ async function initialize() {
 
   elements.tabButtons.forEach((button) => {
     button.addEventListener('click', () => activateTab(button.dataset.tab));
+  });
+
+  window.addEventListener('popstate', () => {
+    activateTab(getTabFromUrl());
   });
 
   elements.themeToggle.addEventListener('click', () => {
