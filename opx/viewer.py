@@ -314,22 +314,23 @@ def normalize_opportunity(row: dict[str, Any] | None) -> OpportunitySummary | No
 def attach_opportunity_summary(frame: pd.DataFrame) -> pd.DataFrame:
     """Attach a one-line summary string used in summary highlight cards."""
     frame = frame.copy()
+    empty_metric = pd.Series(index=frame.index, dtype="float64")
     rom = (
-        coerce_number(frame["return_on_margin_annualized"])
+        coerce_number(frame.get("return_on_margin_annualized", empty_metric))
         .mul(100)
         .round(1)
         .astype("string")
         .fillna("—")
     )
     itm = (
-        coerce_number(frame["probability_itm"])
+        coerce_number(frame.get("probability_itm", empty_metric))
         .mul(100)
         .round(1)
         .astype("string")
         .fillna("—")
     )
     spread = (
-        coerce_number(frame["bid_ask_spread_pct_of_mid"])
+        coerce_number(frame.get("bid_ask_spread_pct_of_mid", empty_metric))
         .mul(100)
         .round(1)
         .astype("string")
@@ -395,11 +396,11 @@ def pick_moderate_risk_opportunity(frame: pd.DataFrame) -> OpportunitySummary | 
 
 
 def _compute_direction_alignment(day_change_pct: Any, option_type: str) -> pd.Series:
-    """Reward rows whose side matches the underlying's latest move."""
+    """Return signed alignment so opposite-direction momentum is penalized."""
     changes = coerce_number(day_change_pct).fillna(0.0)
     if option_type == "call":
-        return changes.clip(lower=0.0)
-    return (-changes).clip(lower=0.0)
+        return changes
+    return -changes
 
 
 def pick_high_conviction_opportunity(
@@ -429,6 +430,7 @@ def pick_high_conviction_opportunity(
         candidates.get("underlying_day_change_pct"),
         option_type,
     )
+    direction_alignment_weight = 300.0
     delta_target = 0.40 if option_type == "call" else 0.35
     candidates["_distance_penalty"] = candidates["_strike_distance_pct"].fillna(1.0)
     candidates["_delta_penalty"] = (candidates["_delta_abs"] - delta_target).abs().fillna(1.0)
@@ -436,7 +438,7 @@ def pick_high_conviction_opportunity(
         candidates["_final_score"]
         + (candidates["_quality"] * 2.0)
         + (candidates["_spread_score"] * 0.5)
-        + (candidates["_direction_alignment"] * 100.0)
+        + (candidates["_direction_alignment"] * direction_alignment_weight)
         - (candidates["_distance_penalty"] * 100.0)
         - (candidates["_delta_penalty"] * 40.0)
         + (candidates["_rom"] * 5.0)

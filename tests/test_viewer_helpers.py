@@ -6,6 +6,15 @@ import pandas as pd
 from opx import viewer
 
 
+def build_config(viewer_host: str, viewer_port: int):
+    """Create a lightweight runtime-config stub for viewer tests."""
+    return type(
+        "Config",
+        (),
+        {"viewer_host": viewer_host, "viewer_port": viewer_port},
+    )()
+
+
 def test_extract_field_descriptions_reads_current_user_guide_entries():
     """User-guide field descriptions should stay discoverable for the viewer."""
     descriptions = viewer.extract_field_descriptions()
@@ -255,12 +264,11 @@ def test_viewer_main_uses_runtime_config_host_and_port(monkeypatch):
     """Viewer startup should default to the resolved runtime config values."""
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr("opx.viewer.get_runtime_config", lambda: type(
-        "Config",
-        (),
-        {"viewer_host": "0.0.0.0", "viewer_port": 9001},
-    )())
-    monkeypatch.setattr("opx.viewer.serve", lambda host, port: captured.update(host=host, port=port))
+    monkeypatch.setattr(
+        "opx.viewer.get_runtime_config",
+        lambda: build_config("0.0.0.0", 9001),
+    )
+    monkeypatch.setattr("opx.viewer.serve", captured.update)
 
     monkeypatch.delenv("OPX_VIEWER_HOST", raising=False)
     monkeypatch.delenv("OPX_VIEWER_PORT", raising=False)
@@ -274,12 +282,11 @@ def test_viewer_main_env_overrides_runtime_config(monkeypatch):
     """Explicit viewer environment variables should override file config values."""
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr("opx.viewer.get_runtime_config", lambda: type(
-        "Config",
-        (),
-        {"viewer_host": "127.0.0.1", "viewer_port": 8000},
-    )())
-    monkeypatch.setattr("opx.viewer.serve", lambda host, port: captured.update(host=host, port=port))
+    monkeypatch.setattr(
+        "opx.viewer.get_runtime_config",
+        lambda: build_config("127.0.0.1", 8000),
+    )
+    monkeypatch.setattr("opx.viewer.serve", captured.update)
     monkeypatch.setenv("OPX_VIEWER_HOST", "0.0.0.0")
     monkeypatch.setenv("OPX_VIEWER_PORT", "9100")
 
