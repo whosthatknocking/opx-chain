@@ -34,11 +34,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 ## Running
 
-Fetch data from the repository root:
-
-```bash
-python fetcher.py
-```
+Fetch data from the repository root with `python fetcher.py`.
 
 Run the local viewer:
 
@@ -228,9 +224,37 @@ These settings are only used by the matching provider.
 - Raise or lower `[providers.marketdata].max_retries` when you want a different tolerance for rate-limit retries.
 - Set `[providers.marketdata].request_interval_seconds` above `0.0` only when you want additional client-side pacing on top of the provider's normal serial request flow.
 
+## Filtering
+
+The shared filters are a first-pass dataset gate that runs before ranking and overview heuristics.
+
+Objective:
+
+- The filtering layer exists to trim the downloaded chain into a more tradable, reviewable dataset.
+- Its job is to remove contracts that are clearly too stale, too illiquid, too far from spot, or too weakly quoted to be useful for practical short-premium screening.
+- It is not intended to define the strategy by itself; it is an executability and relevance gate ahead of scoring.
+
+How to interpret it:
+
+- Tightening the filters makes the dataset narrower and more execution-focused, usually at the cost of excluding speculative or thinly traded contracts.
+- Loosening the filters broadens coverage, but it also increases the chance that high-ranking rows are driven by weak quotes, sparse volume, or far-from-spot strikes.
+- `filters_enable = false` is mainly useful when you want to inspect the raw normalized rows while still computing the same metrics and quality flags.
+
 ## Scoring
 
 `option_score` is a shared derived field in the `0-100` range. It is intended for relative ranking within one run, not as an absolute trading recommendation.
+
+Objective:
+
+- The score exists to rank contracts by overall short-premium attractiveness after normalization, so the top of the dataset favors contracts that look richer, cleaner, and more executable rather than merely highest premium.
+- It is meant to compress several competing concerns into one sortable signal: income quality, liquidity and spread quality, practical time-to-expiration, and side-aware risk posture.
+- It is not meant to predict market direction, replace discretionary thesis work, or tell you whether a contract is universally "good" outside the current run and current filter set.
+
+How to interpret it:
+
+- Higher `option_score` means the row looks stronger on a combined basis, not just on one metric like raw ROM or premium.
+- A lower score does not necessarily mean the contract is unusable; it usually means some combination of spread quality, strike positioning, DTE profile, or risk efficiency is weaker than the higher-ranked alternatives in the same export.
+- `final_score` is the better summary value when you want the score after the row-level validation adjustment has been applied.
 
 Current scoring logic:
 

@@ -1,6 +1,8 @@
 # opx
 
-`opx` downloads near-term option chains, enriches them with pricing and screening metrics, writes a timestamped CSV, and serves a local browser UI for inspection.
+`opx` downloads near-term option chains, enriches them with pricing and screening metrics, writes a timestamped CSV, and serves the local Options Screener UI for inspection.
+
+Its objective is to produce a cleaner, more executable options dataset that can be reviewed directly or fed into downstream tools that make decisions from the data, such as a trading system, portfolio workflow, or other automation layer. `opx` is the data and screening layer, not the decision engine itself.
 
 ## Quick Start
 
@@ -15,7 +17,7 @@ python viewer.py
 
 Then open `http://127.0.0.1:8000` in your browser.
 
-![opx viewer](docs/images/viewer-option-chain.png)
+![Options Screener](docs/images/viewer-option-chain.png)
 
 ## What You Get
 
@@ -24,7 +26,8 @@ Then open `http://127.0.0.1:8000` in your browser.
 - Limits strikes to a configurable band around spot
 - Computes Greeks, expected move, ROM-style metrics, configurable option scoring, and volatility context
 - Writes a timestamped CSV plus an append-only run log
-- Includes a local browser for exploring the output interactively, including dataset inspection, per-ticker overview cards, and chain visualizations with chart tooltips and click-through row details
+- Includes a local browser for exploring the output interactively, including dataset inspection, per-ticker overview cards, `Most Profitable`, `Moderate Risk`, `High Conviction Call`, and `High Conviction Put` highlights, plus chain visualizations with chart tooltips and click-through row details
+- Produces normalized output that can feed other tools and systems which apply their own decision logic on top of the exported data
 
 Generated files are standardized under:
 
@@ -35,7 +38,7 @@ Generated files are standardized under:
 ## Documentation
 
 - User guide: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
-- CSV field reference: [docs/FIELD_REFERENCE.md](docs/FIELD_REFERENCE.md)
+- Field reference: [docs/FIELD_REFERENCE.md](docs/FIELD_REFERENCE.md)
 - Development guide: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 - Project spec: [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md)
 - Design spec: [docs/DESIGN_SPEC.md](docs/DESIGN_SPEC.md)

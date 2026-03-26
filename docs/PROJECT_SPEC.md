@@ -100,6 +100,7 @@ Defaults:
 - if the config file is missing, the app uses built-in defaults
 - the default provider is `yfinance`
 - shared filter config uses `settings.filters_*` keys
+- the objective of shared filtering is to gate the dataset for baseline tradability and relevance before ranking, not to act as a standalone trade thesis
 - current built-in filter defaults include:
   - `filters_max_spread_pct_of_mid = 0.25`
   - `filters_max_strike_distance_pct = 0.30`
@@ -277,10 +278,12 @@ The product includes a shared provider-agnostic `option_score` field.
 Requirements:
 
 - `option_score` is a canonical derived field in the `0-100` range
+- its objective is to rank contracts by combined short-premium attractiveness rather than by raw premium or ROM alone
 - it is computed from shared normalized fields only, not provider-specific scratch fields
 - the current score combines IV-adjusted income quality, spread execution quality, DTE execution quality, delta-only risk, and theta efficiency
 - `premium_per_day` is derived from a prompt-aligned `expected_fill_price`
 - `probability_itm` is validation-only and should not directly drive row ranking
+- it should help users surface richer, cleaner, and more executable candidates without pretending to be a standalone trade recommendation
 - score weights are configurable through runtime config so tuning does not require code changes
 - the configured weights must remain non-negative and sum to a positive total; otherwise defaults are used
 - score output is visible both in the exported CSV and in the local viewer

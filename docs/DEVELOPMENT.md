@@ -133,6 +133,44 @@ Rules to keep the provider layer stable:
 - keep debug payload dumps representative of the exact provider response shape so mapping regressions can be audited later
 - update both [FIELD_REFERENCE.md](FIELD_REFERENCE.md) and [PROJECT_SPEC.md](PROJECT_SPEC.md) when a provider mapping or dependency changes
 
+## Debugging Config
+
+The runtime exposes a small debugging config surface through `~/.config/opx/config.toml`.
+
+Objective:
+
+- The debugging config exists to make provider and normalization issues inspectable without changing code or adding ad hoc print statements.
+- Its main purpose is to answer questions like "did the provider actually send this field?" and "did the app drop or transform it later?"
+- It should help you debug missing values, stale timestamps, quote-shape regressions, and provider mapping changes while keeping the canonical CSV schema clean.
+
+Current debugging settings:
+
+- `debug_dump_provider_payload = true|false`
+  - when enabled, the app writes raw provider payloads to disk before normalization
+  - use this when a canonical field is unexpectedly blank, a provider response shape appears to have changed, or a mapping bug is suspected
+- `debug_dump_dir = "debug"`
+  - controls where raw provider payload files are written
+  - use a custom path when you want to isolate one investigation from older dumps
+- `enable_validation = true|false`
+  - controls whether shared row-level and file-level validation runs
+  - keep this enabled by default; disable it only when you need to inspect raw normalized output without validation noise
+
+Example debugging config:
+
+```toml
+[settings]
+enable_validation = true
+debug_dump_provider_payload = true
+debug_dump_dir = "debug/provider-check"
+```
+
+How to use it:
+
+- turn on `debug_dump_provider_payload` before reproducing the issue
+- run `python fetcher.py`
+- inspect the newest files under `debug_dump_dir` and compare them with the exported CSV fields
+- turn the dump back off after the investigation so normal runs do not accumulate unnecessary payload files
+
 ## Shared Metrics and Viewer Scope
 
 Shared metrics should stay provider-agnostic once data has been normalized into the canonical schema.
