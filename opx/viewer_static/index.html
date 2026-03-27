@@ -15,25 +15,27 @@
           <h1>Options Screener</h1>
         </div>
         <div class="workspace-controls">
-          <nav class="tabs rail-tabs" aria-label="Primary">
-            <button class="tab-button active" type="button" data-tab="table">
-              <span class="tab-title">Dataset</span>
-            </button>
-            <button class="tab-button" type="button" data-tab="summary">
-              <span class="tab-title">Overview</span>
-            </button>
-            <button class="tab-button" type="button" data-tab="chain">
-              <span class="tab-title">Chain View</span>
-            </button>
-            <button class="tab-button" type="button" data-tab="readme">
-              <span class="tab-title">Reference</span>
-            </button>
-          </nav>
           <label class="select-wrap header-select-wrap">
             <span>CSV File</span>
             <select id="fileSelect" aria-label="CSV File"></select>
           </label>
-          <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark and light mode">Dark Mode</button>
+          <div class="header-tab-cluster">
+            <nav class="tabs rail-tabs" aria-label="Primary">
+              <button class="tab-button active" type="button" data-tab="table">
+                <span class="tab-title">Dataset</span>
+              </button>
+              <button class="tab-button" type="button" data-tab="summary">
+                <span class="tab-title">Overview</span>
+              </button>
+              <button class="tab-button" type="button" data-tab="chain">
+                <span class="tab-title">Chain View</span>
+              </button>
+              <button class="tab-button" type="button" data-tab="readme">
+                <span class="tab-title">Reference</span>
+              </button>
+            </nav>
+            <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark and light mode">Dark Mode</button>
+          </div>
         </div>
       </header>
 

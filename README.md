@@ -6,11 +6,11 @@ Its objective is to produce a cleaner, more executable options dataset that can 
 
 ## Quick Start
 
-```bash
+```
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-python -m playwright install
+python -m pip install --upgrade pip
+python -m pip install -e .
 mkdir -p ~/.config/opx
 cp config/example.toml ~/.config/opx/config.toml
 opx-fetcher
@@ -18,6 +18,8 @@ opx-viewer
 ```
 
 Then open `http://127.0.0.1:8000` in your browser.
+
+For local development setup, including `.[dev]` extras and Playwright, use [docs/DEVELOPMENT.md](/Users/emt/Workspace/opx/docs/DEVELOPMENT.md).
 
 Runtime configuration defaults live in [config/example.toml](/Users/emt/Workspace/opx/config/example.toml). Copy it to `~/.config/opx/config.toml` and replace provider placeholders as needed.
 

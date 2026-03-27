@@ -21,13 +21,22 @@ Warning: Market Data support requires a Market Data account and API token. The p
 
 ## Quick Start
 
-```bash
+```
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-python -m playwright install
+python -m pip install --upgrade pip
+python -m pip install -e .
+mkdir -p ~/.config/opx
+cp config/example.toml ~/.config/opx/config.toml
 opx-fetcher
 opx-viewer
+```
+
+For local development tools, install the optional extras instead:
+
+```
+python -m pip install -e ".[dev]"
+python -m playwright install
 ```
 
 Then open `http://127.0.0.1:8000` in your browser.
@@ -38,7 +47,7 @@ Fetch data with `opx-fetcher`.
 
 Run the local viewer:
 
-```bash
+```
 opx-viewer
 ```
 
@@ -91,7 +100,7 @@ If individual config values are missing, malformed, or out of range, the loader 
 
 Start from the tracked example at [`config/example.toml`](/Users/emt/Workspace/opx/config/example.toml):
 
-```bash
+```
 mkdir -p ~/.config/opx
 cp config/example.toml ~/.config/opx/config.toml
 ```

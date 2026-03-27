@@ -52,10 +52,17 @@ Provider rules:
 
 Install dependencies from `pyproject.toml`:
 
-```bash
+```
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+For the full local development setup, add the optional dev extras:
+
+```
+python -m pip install -e ".[dev]"
 python -m playwright install
 ```
 
@@ -191,7 +198,7 @@ Rules:
 
 Regenerate the viewer screenshot used in the user docs with:
 
-```bash
+```
 python scripts/capture_viewer_screenshot.py
 ```
 
@@ -203,7 +210,7 @@ docs/images/viewer-option-chain.png
 
 Optional flags:
 
-```bash
+```
 python scripts/capture_viewer_screenshot.py --theme light
 python scripts/capture_viewer_screenshot.py --output docs/images/viewer-custom.png
 ```
@@ -212,13 +219,13 @@ python scripts/capture_viewer_screenshot.py --output docs/images/viewer-custom.p
 
 Run the basic test suite with:
 
-```bash
+```
 pytest
 ```
 
 Run the linter with:
 
-```bash
+```
 pylint $(git ls-files '*.py')
 ```
 
