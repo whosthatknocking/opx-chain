@@ -13,8 +13,8 @@ pip install -e ".[dev]"
 python -m playwright install
 mkdir -p ~/.config/opx
 cp config/example.toml ~/.config/opx/config.toml
-python fetcher.py
-python viewer.py
+opx-fetcher
+opx-viewer
 ```
 
 Then open `http://127.0.0.1:8000` in your browser.

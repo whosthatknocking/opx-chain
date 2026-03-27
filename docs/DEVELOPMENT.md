@@ -167,7 +167,7 @@ debug_dump_dir = "debug/provider-check"
 How to use it:
 
 - turn on `debug_dump_provider_payload` before reproducing the issue
-- run `python fetcher.py`
+- run `opx-fetcher`
 - inspect the newest files under `debug_dump_dir` and compare them with the exported CSV fields
 - turn the dump back off after the investigation so normal runs do not accumulate unnecessary payload files
 

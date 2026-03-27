@@ -26,6 +26,10 @@ dev = [
     "pytest>=8.0",
 ]
 
+[project.scripts]
+opx-fetcher = "opx.fetcher:main"
+opx-viewer = "opx.viewer:main"
+
 [tool.setuptools.packages.find]
 include = ["opx*"]
 

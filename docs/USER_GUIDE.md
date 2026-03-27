@@ -26,20 +26,20 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 python -m playwright install
-python fetcher.py
-python viewer.py
+opx-fetcher
+opx-viewer
 ```
 
 Then open `http://127.0.0.1:8000` in your browser.
 
 ## Running
 
-Fetch data from the repository root with `python fetcher.py`.
+Fetch data with `opx-fetcher`.
 
 Run the local viewer:
 
 ```bash
-python viewer.py
+opx-viewer
 ```
 
 The viewer binds to `settings.viewer_host` and `settings.viewer_port` from `~/.config/opx/config.toml` by default. `OPX_VIEWER_HOST` and `OPX_VIEWER_PORT` still override those values when you need a one-off launch target.
@@ -125,8 +125,8 @@ These settings apply regardless of which provider is active.
 
 #### Shared Viewer Defaults
 
-- `VIEWER_HOST = "127.0.0.1"`: default bind host used by `python viewer.py`.
-- `VIEWER_PORT = 8000`: default bind port used by `python viewer.py`.
+- `VIEWER_HOST = "127.0.0.1"`: default bind host used by `opx-viewer`.
+- `VIEWER_PORT = 8000`: default bind port used by `opx-viewer`.
 
 #### Shared Scoring Defaults
 
