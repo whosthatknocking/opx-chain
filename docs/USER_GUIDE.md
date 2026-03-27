@@ -89,54 +89,14 @@ Runtime configuration lives in `~/.config/opx/config.toml`. If the file is absen
 
 If individual config values are missing, malformed, or out of range, the loader applies built-in defaults for those fields and the fetcher prints the resolved values plus any fallback warnings at startup.
 
-Example config:
+Start from the tracked example at [`config/example.toml`](/Users/emt/Workspace/opx/config/example.toml):
 
-```toml
-[settings]
-tickers = ["TSLA", "NVDA", "UBER", "MSFT", "GOOGL", "ORCL", "PLTR"]
-data_provider = "yfinance"
-
-# Shared filtering
-filters_min_bid = 0.50
-filters_min_open_interest = 100
-filters_min_volume = 10
-filters_max_spread_pct_of_mid = 0.25
-filters_max_strike_distance_pct = 0.30
-filters_enable = true
-
-# Shared analytics and freshness
-risk_free_rate = 0.045
-hv_lookback_days = 30
-trading_days_per_year = 252
-stale_quote_seconds = 10800
-max_expiration_weeks = 26
-
-# Shared viewer runtime
-viewer_host = "127.0.0.1"
-viewer_port = 8000
-
-# Shared scoring
-option_score_income_weight = 0.30
-option_score_liquidity_weight = 0.30
-option_score_risk_weight = 0.25
-option_score_efficiency_weight = 0.15
-
-# Shared diagnostics
-enable_validation = true
-debug_dump_provider_payload = false
-debug_dump_dir = "debug"
-
-[providers.massive]
-api_key = "replace-me"
-snapshot_page_limit = 250
-request_interval_seconds = 12.0
-
-[providers.marketdata]
-api_token = "replace-me"
-mode = "delayed"
-max_retries = 3
-request_interval_seconds = 0.0
+```bash
+mkdir -p ~/.config/opx
+cp config/example.toml ~/.config/opx/config.toml
 ```
+
+Then update provider placeholders in `~/.config/opx/config.toml` for the provider you actually use.
 
 ### Shared Settings
 

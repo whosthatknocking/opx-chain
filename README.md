@@ -11,11 +11,15 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 python -m playwright install
+mkdir -p ~/.config/opx
+cp config/example.toml ~/.config/opx/config.toml
 python fetcher.py
 python viewer.py
 ```
 
 Then open `http://127.0.0.1:8000` in your browser.
+
+Runtime configuration defaults live in [config/example.toml](/Users/emt/Workspace/opx/config/example.toml). Copy it to `~/.config/opx/config.toml` and replace provider placeholders as needed.
 
 ![Options Screener](docs/images/viewer-option-chain.png)
 

@@ -135,7 +135,7 @@ Rules to keep the provider layer stable:
 
 ## Debugging Config
 
-The runtime exposes a small debugging config surface through `~/.config/opx/config.toml`.
+The runtime exposes a small debugging config surface through `~/.config/opx/config.toml`. Use [`config/example.toml`](/Users/emt/Workspace/opx/config/example.toml) as the starting point for local config and then override only the debugging keys you need.
 
 Objective:
 
@@ -155,7 +155,7 @@ Current debugging settings:
   - controls whether shared row-level and file-level validation runs
   - keep this enabled by default; disable it only when you need to inspect raw normalized output without validation noise
 
-Example debugging config:
+Example debugging override:
 
 ```toml
 [settings]

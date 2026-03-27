@@ -80,6 +80,7 @@ Behavior:
 The single source of truth for runtime settings is:
 
 - `~/.config/opx/config.toml`
+- `config/example.toml` is the tracked template users copy into that path
 
 The config loader is responsible for:
 
