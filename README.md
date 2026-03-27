@@ -23,7 +23,9 @@ For local development setup, including `.[dev]` extras and Playwright, use [docs
 
 Runtime configuration defaults live in [config/example.toml](config/example.toml). Copy it to `~/.config/opx/config.toml` and replace provider placeholders as needed.
 
-![Options Screener](docs/images/viewer-option-chain.png)
+The local viewer is organized around four primary tabs: `Dataset`, `Overview`, `Chain View`, and `Reference`.
+
+![Options Screener viewer](docs/images/viewer-option-chain.png)
 
 ## What You Get
 
