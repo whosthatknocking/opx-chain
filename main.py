@@ -30,7 +30,7 @@ def release_fetcher_lock(lock_handle):
     return _fetcher.release_fetcher_lock(lock_handle)
 
 
-def main():
+def main(argv=None):
     """Delegate to the packaged fetcher while honoring patched legacy globals."""
     _fetcher.OUTPUTS_DIR = OUTPUTS_DIR
     _fetcher.LOCKS_DIR = LOCKS_DIR
@@ -45,7 +45,7 @@ def main():
     _fetcher.write_options_csv = write_options_csv
     _fetcher.pd = pd
     _fetcher.datetime = datetime
-    return _fetcher.main()
+    return _fetcher.main(argv)
 
 
 if __name__ == "__main__":

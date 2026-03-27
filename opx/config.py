@@ -43,6 +43,7 @@ DEFAULT_MASSIVE_SNAPSHOT_PAGE_LIMIT = MAX_MASSIVE_SNAPSHOT_PAGE_LIMIT
 DEFAULT_MASSIVE_REQUEST_INTERVAL_SECONDS = 12.0
 DEFAULT_DEBUG_DUMP_PROVIDER_PAYLOAD = False
 DEFAULT_DEBUG_DUMP_DIR = Path("debug")
+_RUNTIME_CONFIG_OVERRIDE: RuntimeConfig | None = None
 
 
 class ConfigError(ValueError):
@@ -567,11 +568,21 @@ def validate_runtime_config(config: RuntimeConfig) -> None:
 @lru_cache(maxsize=1)
 def get_runtime_config() -> RuntimeConfig:
     """Return the cached runtime config for the current process."""
+    if _RUNTIME_CONFIG_OVERRIDE is not None:
+        return _RUNTIME_CONFIG_OVERRIDE
     return load_runtime_config()
+
+
+def set_runtime_config_override(config: RuntimeConfig | None) -> None:
+    """Override the process runtime config for one-off entrypoint behavior."""
+    global _RUNTIME_CONFIG_OVERRIDE  # pylint: disable=global-statement
+    _RUNTIME_CONFIG_OVERRIDE = config
+    get_runtime_config.cache_clear()
 
 
 def reset_runtime_config() -> None:
     """Clear the cached runtime config, primarily for tests."""
+    set_runtime_config_override(None)
     get_runtime_config.cache_clear()
 
 

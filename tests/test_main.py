@@ -8,6 +8,7 @@ import pandas as pd
 
 from conftest import make_runtime_config
 import main
+from opx.config import get_runtime_config as get_process_runtime_config
 from opx.validate import validate_option_rows
 
 
@@ -127,6 +128,100 @@ def test_main_prints_config_fallbacks(monkeypatch, capsys, tmp_path: Path):
     assert exit_code == 1
     assert "Config fallbacks:" in stdout
     assert "settings.filters_min_bid: using default 0.5." in stdout
+
+
+def test_main_can_disable_filters_via_cli(monkeypatch, capsys, tmp_path: Path):
+    """CLI flags should override the configured filter toggle for one run."""
+    captured = {}
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        main,
+        "get_runtime_config",
+        lambda: make_runtime_config(tickers=("AAA",), enable_filters=True),
+    )
+    monkeypatch.setattr(
+        main,
+        "create_run_logger",
+        lambda: (StubLogger(), Path("logs/run.log")),
+    )
+
+    def fetch_and_capture_config(
+        _ticker,
+        logger=None,
+        validation_findings=None,
+        filtered_row_counts=None,
+    ):
+        del logger
+        del validation_findings
+        del filtered_row_counts
+        captured["config"] = get_process_runtime_config()
+        return pd.DataFrame([make_export_row()])
+
+    monkeypatch.setattr(main, "fetch_ticker_option_chain", fetch_and_capture_config)
+    monkeypatch.setattr(
+        main,
+        "write_options_csv",
+        lambda ticker_frames, output_path: output_path.parent.mkdir(parents=True, exist_ok=True)
+        or output_path.write_text("ok", encoding="utf-8"),
+    )
+
+    exit_code = main.main(["--disable-filters"])
+
+    stdout = capsys.readouterr().out
+    assert exit_code == 0
+    assert captured["config"].enable_filters is False
+    assert "CLI overrides:" in stdout
+    assert "filters_enable=false" in stdout
+    assert "Applied filters_enable: False" in stdout
+
+
+def test_main_can_enable_filters_via_cli(monkeypatch, capsys, tmp_path: Path):
+    """CLI flags should also allow forcing filters on for one run."""
+    captured = {}
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        main,
+        "get_runtime_config",
+        lambda: make_runtime_config(tickers=("AAA",), enable_filters=False),
+    )
+    monkeypatch.setattr(
+        main,
+        "create_run_logger",
+        lambda: (StubLogger(), Path("logs/run.log")),
+    )
+
+    def fetch_and_capture_config(
+        _ticker,
+        logger=None,
+        validation_findings=None,
+        filtered_row_counts=None,
+    ):
+        del logger
+        del validation_findings
+        del filtered_row_counts
+        captured["config"] = get_process_runtime_config()
+        return pd.DataFrame([make_export_row()])
+
+    monkeypatch.setattr(main, "fetch_ticker_option_chain", fetch_and_capture_config)
+    monkeypatch.setattr(
+        main,
+        "write_options_csv",
+        lambda ticker_frames, output_path: output_path.parent.mkdir(parents=True, exist_ok=True)
+        or output_path.write_text("ok", encoding="utf-8"),
+    )
+
+    exit_code = main.main(["--enable-filters"])
+
+    stdout = capsys.readouterr().out
+    assert exit_code == 0
+    assert captured["config"].enable_filters is True
+    assert "CLI overrides:" in stdout
+    assert "filters_enable=true" in stdout
+    assert "Applied filters_enable: True" in stdout
 
 
 def test_main_prints_validation_summary_before_export(monkeypatch, capsys, tmp_path: Path):

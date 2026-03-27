@@ -1,12 +1,15 @@
 """CLI entrypoint for fetching option chains and writing the export CSV."""
 
+import argparse
+from dataclasses import replace
 from datetime import datetime
 import fcntl
+import os
 from pathlib import Path
 
 import pandas as pd
 
-from opx.config import describe_runtime_config, get_runtime_config
+from opx.config import describe_runtime_config, get_runtime_config, set_runtime_config_override
 from opx.export import write_options_csv
 from opx.fetch import fetch_ticker_option_chain
 from opx.runlog import create_run_logger
@@ -15,6 +18,37 @@ from opx.validate import emit_validation_report, validate_export_frame
 OUTPUTS_DIR = Path("output")
 LOCKS_DIR = Path("logs")
 FETCHER_LOCK_PATH = LOCKS_DIR / "fetcher.lock"
+
+
+def parse_args(argv=None):
+    """Parse fetcher CLI arguments."""
+    if argv is None and "PYTEST_CURRENT_TEST" in os.environ:
+        argv = []
+    parser = argparse.ArgumentParser(
+        prog="opx-fetcher",
+        description="Fetch option chains and write a consolidated CSV export.",
+    )
+    filter_group = parser.add_mutually_exclusive_group()
+    filter_group.add_argument(
+        "--enable-filters",
+        action="store_true",
+        help="Force shared post-download filters on for this run.",
+    )
+    filter_group.add_argument(
+        "--disable-filters",
+        action="store_true",
+        help="Force shared post-download filters off for this run.",
+    )
+    return parser.parse_args(argv)
+
+
+def apply_cli_overrides(config, args):
+    """Apply one-off CLI overrides on top of the resolved runtime config."""
+    if args.enable_filters:
+        return replace(config, enable_filters=True), "filters_enable=true"
+    if args.disable_filters:
+        return replace(config, enable_filters=False), "filters_enable=false"
+    return config, None
 
 
 def format_file_size(byte_count):
@@ -51,8 +85,9 @@ def release_fetcher_lock(lock_handle):
             pass
 
 
-def main():  # pylint: disable=too-many-branches,too-many-locals,too-many-statements
+def main(argv=None):  # pylint: disable=too-many-branches,too-many-locals,too-many-statements
     """Fetch configured tickers and write the consolidated CSV output."""
+    args = parse_args(argv)
     lock_handle = acquire_fetcher_lock()
     if lock_handle is None:
         print(f"Another fetcher run is already active: {FETCHER_LOCK_PATH}")
@@ -60,11 +95,15 @@ def main():  # pylint: disable=too-many-branches,too-many-locals,too-many-statem
 
     logger = None
     try:
-        config = get_runtime_config()
+        config, cli_override = apply_cli_overrides(get_runtime_config(), args)
+        set_runtime_config_override(config)
         logger, log_path = create_run_logger()
         print(f"Today: {config.today}")
         print(f"Max expiration: {config.max_expiration}")
         print(f"Log: {log_path}")
+        if cli_override:
+            print("CLI overrides:")
+            print(f"  {cli_override}")
         print("Resolved config:")
         for line in describe_runtime_config(config):
             print(f"  {line}")
@@ -79,6 +118,8 @@ def main():  # pylint: disable=too-many-branches,too-many-locals,too-many-statem
             config.data_provider,
             config.config_path,
         )
+        if cli_override:
+            logger.info("cli_override %s", cli_override)
         for line in describe_runtime_config(config):
             logger.info("config_applied %s", line)
         for warning in config.config_warnings:
@@ -134,6 +175,7 @@ def main():  # pylint: disable=too-many-branches,too-many-locals,too-many-statem
             logger.warning("run_finished interrupted=true")
         return 130
     finally:
+        set_runtime_config_override(None)
         release_fetcher_lock(lock_handle)
 
 

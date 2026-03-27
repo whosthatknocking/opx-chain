@@ -19,6 +19,8 @@ opx-viewer
 
 Then open `http://127.0.0.1:8000` in your browser.
 
+For one-off fetch runs, you can override the shared filter toggle from the CLI with `opx-fetcher --disable-filters` or `opx-fetcher --enable-filters` instead of editing `~/.config/opx/config.toml`.
+
 For local development setup, including `.[dev]` extras and Playwright, use [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 Runtime configuration defaults live in [config/example.toml](config/example.toml). Copy it to `~/.config/opx/config.toml` and replace provider placeholders as needed.

@@ -45,6 +45,15 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 Fetch data with `opx-fetcher`.
 
+You can force the shared post-download filter toggle for a single run without editing `~/.config/opx/config.toml`:
+
+```bash
+opx-fetcher --disable-filters
+opx-fetcher --enable-filters
+```
+
+These flags override `settings.filters_enable` only for that process. If neither flag is passed, the fetcher uses the configured `filters_enable` value.
+
 Run the local viewer:
 
 ```
@@ -174,6 +183,7 @@ These settings are only used by the matching provider.
 - Switch `data_provider` when you want to use a different market-data implementation.
 - Tighten or loosen the `filters_*` threshold values when you want a narrower or broader tradability filter.
 - Set `filters_enable = false` when you want to keep rows that would normally be removed by the shared post-download filters.
+- Use `opx-fetcher --disable-filters` or `opx-fetcher --enable-filters` when you want a one-off override without changing config.
 - Set `enable_validation = false` when you want to skip shared row/file validation and suppress validation summaries.
 - Turn on `debug_dump_provider_payload = true` when you need to inspect the raw provider payload and confirm whether fields such as `last_quote`, `underlying_asset`, or Yahoo chain columns were present before normalization.
 - Change `max_expiration_weeks` when you want a shorter or longer expiration window, or set it to `0` to disable the max-expiration cutoff.
@@ -205,7 +215,7 @@ How to interpret it:
 
 - Tightening the filters makes the dataset narrower and more execution-focused, usually at the cost of excluding speculative or thinly traded contracts.
 - Loosening the filters broadens coverage, but it also increases the chance that high-ranking rows are driven by weak quotes, sparse volume, or far-from-spot strikes.
-- `filters_enable = false` is mainly useful when you want to inspect the raw normalized rows while still computing the same metrics and quality flags.
+- `filters_enable = false` is mainly useful when you want to inspect the raw normalized rows while still computing the same metrics and quality flags. `opx-fetcher --disable-filters` is the one-run equivalent.
 
 ## Scoring
 
@@ -245,6 +255,7 @@ The four `option_score_*_weight` settings control how much each component contri
 ## Runtime Behavior
 
 - The fetcher prints the config path it read, whether the file exists, and the full set of resolved runtime values it will apply.
+- When `--enable-filters` or `--disable-filters` is passed, the fetcher prints a `CLI overrides:` block before the resolved config so the one-run override is explicit.
 - Secret values are redacted in that output. For example, the Massive API key and Market Data token are shown as `set` or `not set`, never in plaintext.
 - When a config value is invalid and a code default is used instead, the fetcher prints a `Config fallbacks:` block so the override is visible.
 - When validation is enabled, the fetcher prints a validation summary after combining ticker frames and before writing the CSV.
