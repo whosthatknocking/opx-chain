@@ -60,6 +60,12 @@ Run the local viewer:
 opx-viewer
 ```
 
+Open the viewer and launch the page in your default browser:
+
+```bash
+opx-viewer --open
+```
+
 The viewer binds to `settings.viewer_host` and `settings.viewer_port` from `~/.config/opx/config.toml` by default. `OPX_VIEWER_HOST` and `OPX_VIEWER_PORT` still override those values when you need a one-off launch target.
 
 The viewer includes:

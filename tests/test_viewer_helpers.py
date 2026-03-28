@@ -293,3 +293,57 @@ def test_viewer_main_env_overrides_runtime_config(monkeypatch):
     viewer.main()
 
     assert captured == {"host": "0.0.0.0", "port": 9100}
+
+
+def test_viewer_main_can_open_browser(monkeypatch):
+    """The --open flag should launch the resolved viewer URL in a browser."""
+    captured: dict[str, object] = {}
+
+    class ImmediateTimer:  # pylint: disable=too-few-public-methods
+        """Run the scheduled browser open immediately during tests."""
+
+        def __init__(self, _delay, callback, args=None, kwargs=None):
+            self._callback = callback
+            self._args = args or ()
+            self._kwargs = kwargs or {}
+
+        def start(self):
+            """Execute the scheduled callback immediately."""
+            self._callback(*self._args, **self._kwargs)
+
+    monkeypatch.setattr(
+        "opx.viewer.get_runtime_config",
+        lambda: build_config("127.0.0.1", 8000),
+    )
+    monkeypatch.setattr("opx.viewer.serve", lambda **kwargs: captured.update({"serve": kwargs}))
+    monkeypatch.setattr(
+        "opx.viewer.open_viewer_in_browser",
+        lambda host, port: captured.update({"open": (host, port)}),
+    )
+    monkeypatch.setattr("opx.viewer.threading.Timer", ImmediateTimer)
+
+    viewer.main(["--open"])
+
+    assert captured == {
+        "open": ("127.0.0.1", 8000),
+        "serve": {"host": "127.0.0.1", "port": 8000},
+    }
+
+
+def test_viewer_main_does_not_open_browser_without_flag(monkeypatch):
+    """Browser launch should remain opt-in."""
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "opx.viewer.get_runtime_config",
+        lambda: build_config("127.0.0.1", 8000),
+    )
+    monkeypatch.setattr("opx.viewer.serve", lambda **kwargs: captured.update({"serve": kwargs}))
+    monkeypatch.setattr(
+        "opx.viewer.open_viewer_in_browser",
+        lambda host, port: captured.update({"open": (host, port)}),
+    )
+
+    viewer.main([])
+
+    assert captured == {"serve": {"host": "127.0.0.1", "port": 8000}}

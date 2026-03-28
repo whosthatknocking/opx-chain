@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
+import threading
 import time
+import webbrowser
 from datetime import datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -735,11 +738,35 @@ def serve(host: str = "127.0.0.1", port: int = 8000) -> None:
         server.server_close()
 
 
-def main() -> None:
+def parse_args(argv=None):
+    """Parse viewer CLI arguments."""
+    if argv is None and "PYTEST_CURRENT_TEST" in os.environ:
+        argv = []
+    parser = argparse.ArgumentParser(
+        prog="opx-viewer",
+        description="Serve the local Options Screener UI.",
+    )
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        help="Open the viewer URL in the default browser after startup.",
+    )
+    return parser.parse_args(argv)
+
+
+def open_viewer_in_browser(host: str, port: int) -> None:
+    """Open the viewer URL in the default browser."""
+    webbrowser.open(f"http://{host}:{port}", new=2)
+
+
+def main(argv=None) -> None:
     """Start the local viewer using runtime config with optional env overrides."""
+    args = parse_args(argv)
     config = get_runtime_config()
     host = os.environ.get("OPX_VIEWER_HOST", config.viewer_host)
     port = int(os.environ.get("OPX_VIEWER_PORT", str(config.viewer_port)))
+    if args.open:
+        threading.Timer(0.2, open_viewer_in_browser, args=(host, port)).start()
     serve(host=host, port=port)
 
 

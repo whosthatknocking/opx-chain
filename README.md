@@ -19,6 +19,8 @@ opx-viewer
 
 Then open `http://127.0.0.1:8000` in your browser.
 
+If you want the viewer to launch the page automatically, run `opx-viewer --open`.
+
 For one-off fetch runs, you can override the shared filter toggle from the CLI with `opx-fetcher --disable-filters` or `opx-fetcher --enable-filters` instead of editing `~/.config/opx/config.toml`.
 
 For local development setup, including `.[dev]` extras and Playwright, use [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
