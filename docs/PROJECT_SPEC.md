@@ -224,10 +224,9 @@ Field-mapping rules already implemented for Market Data include:
 
 - `optionSymbol -> contract_symbol`
 - `underlying -> underlying_symbol`
-- `underlyingPrice -> underlying_price`
+- `stocks/quotes/{symbol}/ last -> underlying_price`, with `updated` and `changepct` from the same quote row supplying `underlying_price_time` and `underlying_day_change_pct`
 - `last -> last_trade_price` for the option contract itself; `underlyingPrice` is not used for `last_trade_price`
-- `updated -> option_quote_time`, with the latest non-null chain update also used as the best-available `underlying_price_time`
-- `underlying_day_change_pct` is currently left blank because the one-call chain payload does not expose a reliable underlying day-change field
+- `updated -> option_quote_time` for option rows; if stock quotes are unavailable, the latest chain row with a usable `underlyingPrice` is used as a fallback for `underlying_price` and `underlying_price_time`
 - `bid`, `ask`, `last`, `openInterest`, `volume`, `iv`, and greeks map directly into canonical fields
 - future `stocks/earnings/{symbol}/ reportDate` values are exposed with `next_earnings_date_is_estimated = true` because Market Data documents upcoming earnings dates as estimates rather than confirmed announcements
 

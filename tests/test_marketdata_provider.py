@@ -72,6 +72,13 @@ class FakeMarketDataClient:  # pylint: disable=too-few-public-methods,too-many-i
         self.last_chain_kwargs = None
         self.options.chain = self._options_chain
         self._dividend_payload = {"s": "ok", "exDate": [], "amount": []}
+        self._quote_payload = {
+            "s": "ok",
+            "symbol": ["TSLA"],
+            "last": [103.0],
+            "changepct": [0.025],
+            "updated": [1710942020],
+        }
         self.stocks = type("StocksResource", (), {"earnings": self._stocks_earnings})()
 
     def _stocks_earnings(self, _symbol, **_kwargs):
@@ -81,6 +88,8 @@ class FakeMarketDataClient:  # pylint: disable=too-few-public-methods,too-many-i
     def _make_request(self, _method, url, *_args, **_kwargs):
         if "stocks/dividends/" in url:
             return FakeResponse(200, self._dividend_payload)
+        if "stocks/quotes/" in url:
+            return FakeResponse(200, self._quote_payload)
         if "options/chain/" in url:
             expiration_values = []
             for value in self._chain_result.expiration:
@@ -88,6 +97,12 @@ class FakeMarketDataClient:  # pylint: disable=too-few-public-methods,too-many-i
                     expiration_values.append(int(value.timestamp()))
                 else:
                     expiration_values.append(value)
+            updated_values = []
+            for value in self._chain_result.updated:
+                if hasattr(value, "timestamp"):
+                    updated_values.append(int(value.timestamp()))
+                else:
+                    updated_values.append(value)
             payload = {
                 "s": "ok",
                 "optionSymbol": self._chain_result.optionSymbol,
@@ -95,7 +110,7 @@ class FakeMarketDataClient:  # pylint: disable=too-few-public-methods,too-many-i
                 "expiration": expiration_values,
                 "side": self._chain_result.side,
                 "strike": self._chain_result.strike,
-                "updated": [int(value.timestamp()) for value in self._chain_result.updated],
+                "updated": updated_values,
                 "bid": self._chain_result.bid,
                 "ask": self._chain_result.ask,
                 "last": self._chain_result.last,
@@ -152,9 +167,9 @@ def test_marketdata_provider_builds_snapshot_and_option_chain(monkeypatch):
         ticker="TSLA",
     )
 
-    assert snapshot["underlying_price"] == 102.5
-    assert pd.isna(snapshot["underlying_day_change_pct"])
-    assert str(snapshot["underlying_price_time"]) == "2024-03-20 13:40:10+00:00"
+    assert snapshot["underlying_price"] == 103.0
+    assert snapshot["underlying_day_change_pct"] == pytest.approx(0.025)
+    assert str(snapshot["underlying_price_time"]) == "2024-03-20 13:40:20+00:00"
     assert expirations == ["2026-04-17"]
     assert len(chain.calls) == 1
     assert len(chain.puts) == 1
@@ -168,6 +183,22 @@ def test_marketdata_provider_builds_snapshot_and_option_chain(monkeypatch):
     assert normalized.iloc[0]["implied_volatility"] == 0.31
     assert normalized.iloc[0]["data_source"] == "marketdata"
     assert fake_client(provider).last_chain_kwargs["mode"] is None  # pylint: disable=no-member
+
+
+def test_marketdata_provider_snapshot_falls_back_to_latest_chain_row(monkeypatch):
+    """Chain fallback should keep underlying price paired with the same row timestamp."""
+    patch_marketdata_client(monkeypatch)
+    provider = MarketDataProvider()
+    client = fake_client(provider)
+    client._quote_payload = {"s": "ok", "symbol": [], "last": [], "changepct": [], "updated": []}  # pylint: disable=protected-access,no-member
+    client._chain_result.underlyingPrice = [101.0, 102.5]  # pylint: disable=protected-access,no-member
+    client._chain_result.updated = [1710942000, 1710942010]  # pylint: disable=protected-access,no-member
+
+    snapshot = provider.load_underlying_snapshot("TSLA")
+
+    assert snapshot["underlying_price"] == 102.5
+    assert pd.isna(snapshot["underlying_day_change_pct"])
+    assert str(snapshot["underlying_price_time"]) == "2024-03-20 13:40:10+00:00"
 
 
 def test_marketdata_provider_normalizes_string_expiration_values(monkeypatch):
@@ -267,6 +298,11 @@ def test_marketdata_provider_invalid_credentials_fail_clearly(monkeypatch):
 
     class FailingClient(FakeMarketDataClient):  # pylint: disable=too-few-public-methods
         """Fake SDK client that turns chain requests into auth failures."""
+
+        def _make_request(self, _method, url, *_args, **_kwargs):
+            if "stocks/quotes/" in url:
+                return FakeResponse(401, {"s": "error"})
+            return super()._make_request(_method, url, *_args, **_kwargs)
 
         def _options_chain(self, _symbol, **_kwargs):
             return MarketDataClientErrorResult(BaseMarketdataException("Unauthorized token"))

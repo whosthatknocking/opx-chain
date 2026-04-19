@@ -220,6 +220,8 @@ class MarketDataProvider(DataProvider):
         """Reduce SDK URL paths to a stable progress label."""
         if "options/chain/" in url:
             return "options_chain"
+        if "stocks/quotes/" in url:
+            return "stocks_quotes"
         if "stocks/earnings/" in url:
             return "stocks_earnings"
         if "stocks/dividends/" in url:
@@ -276,24 +278,116 @@ class MarketDataProvider(DataProvider):
 
     def load_underlying_snapshot(self, ticker: str) -> dict:
         """Load the underlying snapshot from the cached Market Data chain payload."""
+        quote_snapshot = self._fetch_stock_quote_snapshot(ticker)
+        if quote_snapshot is not None:
+            return quote_snapshot
+
         chain_frame = self._chain_frame(ticker)
-        underlying_price = coerce_float(
-            chain_frame["underlyingPrice"].dropna().iloc[0]
-            if "underlyingPrice" in chain_frame.columns and not chain_frame.empty
-            else np.nan
-        )
-        option_quote_time = normalize_timestamp(
-            chain_frame["updated"].dropna().max()
-            if "updated" in chain_frame.columns and not chain_frame["updated"].dropna().empty
-            else None
-        )
+        return self._snapshot_from_chain_frame(chain_frame)
+
+    @staticmethod
+    def _snapshot_from_chain_frame(chain_frame: pd.DataFrame) -> dict:
+        """Build a consistent underlying snapshot from one chain row."""
+        if chain_frame.empty or "underlyingPrice" not in chain_frame.columns:
+            return {
+                "underlying_price": np.nan,
+                "underlying_price_time": pd.NaT,
+                "underlying_day_change_pct": np.nan,
+                "historical_volatility": np.nan,
+            }
+
+        candidates = chain_frame.loc[chain_frame["underlyingPrice"].notna()].copy()
+        if candidates.empty:
+            return {
+                "underlying_price": np.nan,
+                "underlying_price_time": pd.NaT,
+                "underlying_day_change_pct": np.nan,
+                "historical_volatility": np.nan,
+            }
+
+        if "updated" in candidates.columns:
+            candidates["_updated_ts"] = candidates["updated"].map(normalize_timestamp)
+            candidates = candidates.sort_values(
+                by="_updated_ts",
+                ascending=False,
+                na_position="last",
+            )
+        best_row = candidates.iloc[0]
+        option_quote_time = normalize_timestamp(best_row.get("updated"))
 
         return {
-            "underlying_price": underlying_price,
+            "underlying_price": coerce_float(best_row.get("underlyingPrice")),
             "underlying_price_time": option_quote_time,
             "underlying_day_change_pct": np.nan,
             "historical_volatility": np.nan,
         }
+
+    @lru_cache(maxsize=32)
+    def _fetch_stock_quote_snapshot(self, ticker: str) -> dict | None:
+        """Load a stock quote snapshot so spot price and change stay internally consistent."""
+        self._active_debug_ticker = ticker.upper()
+        try:
+            response = self._client()._make_request(  # pylint: disable=protected-access
+                method="GET",
+                url=f"stocks/quotes/{ticker.upper()}/",
+            )
+            if getattr(response, "status_code", 200) >= 400:
+                return None
+            quote_data = self._decode_response_json(response)
+            if not isinstance(quote_data, dict):
+                return None
+            best_quote = self._select_best_quote_row(quote_data)
+            if best_quote is None:
+                return None
+            return {
+                "underlying_price": best_quote["underlying_price"],
+                "underlying_price_time": best_quote["underlying_price_time"],
+                "underlying_day_change_pct": best_quote["underlying_day_change_pct"],
+                "historical_volatility": np.nan,
+            }
+        except Exception:  # pylint: disable=broad-exception-caught
+            return None
+        finally:
+            self._active_debug_ticker = None
+
+    @staticmethod
+    def _select_best_quote_row(quote_data: dict[str, Any]) -> dict[str, Any] | None:
+        """Pick the most recent usable stock-quote row and keep its fields paired."""
+        row_count = max(
+            (
+                len(values)
+                for values in quote_data.values()
+                if isinstance(values, list)
+            ),
+            default=0,
+        )
+        best_quote = None
+        for index in range(row_count):
+            last_values = quote_data.get("last") or []
+            price = coerce_float(last_values[index] if index < len(last_values) else None)
+            if pd.isna(price):
+                continue
+            updated_values = quote_data.get("updated") or []
+            change_pct_values = quote_data.get("changepct") or []
+            quote_time = normalize_timestamp(
+                updated_values[index] if index < len(updated_values) else None
+            )
+            quote_row = {
+                "underlying_price": price,
+                "underlying_price_time": quote_time,
+                "underlying_day_change_pct": coerce_float(
+                    change_pct_values[index] if index < len(change_pct_values) else np.nan
+                ),
+            }
+            if best_quote is None:
+                best_quote = quote_row
+                continue
+            best_time = best_quote["underlying_price_time"]
+            if pd.isna(best_time) and not pd.isna(quote_time):
+                best_quote = quote_row
+            elif not pd.isna(quote_time) and quote_time > best_time:
+                best_quote = quote_row
+        return best_quote
 
     def _fetch_next_earnings_date(self, ticker: str, today: date) -> str | None:
         """Return the next upcoming earnings date as an ISO string, or None."""

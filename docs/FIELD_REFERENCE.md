@@ -169,7 +169,7 @@ Legend:
 | Field | yfinance | massive | marketdata |
 | --- | --- | --- | --- |
 | `underlying_price` | Transformed: `fast_info.lastPrice`, fallback `info.regularMarketPrice` / `info.previousClose` | Transformed: `underlying_asset.price`, fallback `underlying_asset.value` | Transformed: first chain `underlyingPrice` |
-| `underlying_day_change_pct` | Derived from provider values: `(last_price - previous_close) / previous_close` | Derived from provider values: `(underlying_price - day.previous_close) / previous_close` | Blank: one-call chain payload does not expose a reliable underlying day-change field |
+| `underlying_day_change_pct` | Derived from provider values: `(last_price - previous_close) / previous_close` | Derived from provider values: `(underlying_price - day.previous_close) / previous_close` | Direct: `changepct` from `stocks/quotes/{symbol}/`, matched to the same stock quote that supplies `underlying_price_time` |
 | `historical_volatility` | Derived from provider history: trailing daily log returns | Blank: not currently supplied or derived for Massive | Blank: not currently supplied or derived for Market Data |
 | `underlying_price_time` | Transformed: `info.regularMarketTime` normalized to UTC timestamp | Transformed: `underlying_asset.last_updated`, fallback day/trade/quote timestamps | Transformed: first chain `updated` normalized to UTC as the best-available underlying timestamp |
 | `underlying_price_age_seconds` | Derived: fetch time minus `underlying_price_time` | Derived: fetch time minus `underlying_price_time` | Derived: fetch time minus `underlying_price_time` |
