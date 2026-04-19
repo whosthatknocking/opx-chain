@@ -37,6 +37,7 @@ TIMESTAMP_FIELDS = (
 )
 BOOLEAN_FIELDS = (
     "is_in_the_money",
+    "next_earnings_date_is_estimated",
     *QUALITY_FLAG_FIELDS,
     "near_expiry_near_money_flag",
     "passes_primary_screen",

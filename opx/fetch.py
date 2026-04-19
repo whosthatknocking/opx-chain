@@ -48,6 +48,7 @@ def append_underlying_snapshot_fields(df, snapshot, fetched_at, stale_quote_seco
 def append_ticker_event_fields(df, events, today):
     """Broadcast per-ticker corporate event data to all option rows."""
     df["next_earnings_date"] = events.get("next_earnings_date")
+    df["next_earnings_date_is_estimated"] = events.get("next_earnings_date_is_estimated")
     df["next_ex_div_date"] = events.get("next_ex_div_date")
     df["dividend_amount"] = events.get("dividend_amount", np.nan)
 

@@ -265,11 +265,12 @@ The fetcher fetches upcoming corporate event data once per ticker and broadcasts
 
 What is fetched:
 
-- Next upcoming earnings report date and how many days away it is
+- Next upcoming earnings report date, whether that date is estimated, and how many days away it is
 - Next upcoming ex-dividend date, how many days away it is, and the associated per-share dividend amount
 
 Derived flags:
 
+- `next_earnings_date_is_estimated`: True when the provider documents the next earnings date as estimated rather than confirmed
 - `earnings_within_5d`: True when an earnings report falls within 5 calendar days and before the contract expires
 - `earnings_within_10d`: True when an earnings report falls within 10 calendar days and before the contract expires
 - `ex_div_within_3d`: True when an ex-dividend date falls within 3 calendar days and before the contract expires
@@ -278,6 +279,7 @@ Derived flags:
 Provider availability:
 
 - `marketdata`: earnings and dividend event data are fetched for every ticker
+  - `next_earnings_date_is_estimated` is currently `True` whenever Market Data returns a future earnings date, because the upstream endpoint documents future `reportDate` values as estimates
 - `yfinance`, `massive`: all event fields are blank for these providers
 
 How to use it:

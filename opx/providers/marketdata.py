@@ -349,6 +349,7 @@ class MarketDataProvider(DataProvider):
         next_ex_div_date, dividend_amount = self._fetch_next_dividend(ticker, today)
         return {
             "next_earnings_date": next_earnings_date,
+            "next_earnings_date_is_estimated": True if next_earnings_date else None,
             "next_ex_div_date": next_ex_div_date,
             "dividend_amount": dividend_amount,
         }

@@ -94,6 +94,31 @@ def test_normalize_row_value_keeps_days_to_expiration_as_integer():
     assert viewer.normalize_row_value("time_to_expiration_years", 14.0) == 14.0
 
 
+def test_build_ticker_summary_marks_estimated_marketdata_earnings_dates():
+    """Summary payload should preserve whether the next earnings date is estimated."""
+    frame = pd.DataFrame(
+        [
+            {
+                "underlying_price": 100.0,
+                "underlying_day_change_pct": 0.01,
+                "implied_volatility": 0.25,
+                "historical_volatility": 0.20,
+                "option_type": "call",
+                "expiration_date": "2026-04-17",
+                "next_earnings_date": "2026-04-30",
+                "next_earnings_date_is_estimated": "True",
+                "event_risk_score": 60.0,
+            }
+        ]
+    )
+
+    summary = viewer.build_ticker_summary("TSLA", frame)
+
+    assert summary["next_earnings_date"] == "2026-04-30"
+    assert summary["next_earnings_date_is_estimated"] is True
+    assert summary["event_risk_score"] == 60.0
+
+
 def test_pick_profitable_opportunity_prefers_higher_final_score_when_rom_matches():
     """Summary highlights should use final score as a tie-breaker ahead of quote quality."""
     frame = pd.DataFrame(

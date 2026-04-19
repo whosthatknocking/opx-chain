@@ -36,7 +36,7 @@ The project currently supports:
 - provider-aware field reference documentation
 - a local viewer for exported CSV files
 - provider debug payload dumps for raw-response inspection
-- per-ticker corporate event data (earnings dates and ex-dividend dates) fetched from the `marketdata` provider via `stocks/earnings/{symbol}/` (SDK) and `stocks/dividends/{symbol}/` (direct HTTP), broadcast to all option rows as event risk flags and a composite `event_risk_score`
+- per-ticker corporate event data (earnings dates and ex-dividend dates) fetched from the `marketdata` provider via `stocks/earnings/{symbol}/` (SDK) and `stocks/dividends/{symbol}/` (direct HTTP), including an explicit earnings-date estimate flag, then broadcast to all option rows as event risk flags and a composite `event_risk_score`
 
 The project does not currently aim to:
 
@@ -229,6 +229,7 @@ Field-mapping rules already implemented for Market Data include:
 - `updated -> option_quote_time`, with the latest non-null chain update also used as the best-available `underlying_price_time`
 - `underlying_day_change_pct` is currently left blank because the one-call chain payload does not expose a reliable underlying day-change field
 - `bid`, `ask`, `last`, `openInterest`, `volume`, `iv`, and greeks map directly into canonical fields
+- future `stocks/earnings/{symbol}/ reportDate` values are exposed with `next_earnings_date_is_estimated = true` because Market Data documents upcoming earnings dates as estimates rather than confirmed announcements
 
 ## 6. Output Contract
 

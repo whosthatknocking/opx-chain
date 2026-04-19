@@ -326,6 +326,7 @@ def test_append_ticker_event_fields_broadcasts_day_counts_to_all_rows():
     today = date(2026, 4, 16)
     events = {
         "next_earnings_date": "2026-04-23",
+        "next_earnings_date_is_estimated": True,
         "next_ex_div_date": "2026-04-18",
         "dividend_amount": 0.75,
     }
@@ -334,6 +335,7 @@ def test_append_ticker_event_fields_broadcasts_day_counts_to_all_rows():
     result = append_ticker_event_fields(frame.copy(), events, today)
 
     assert (result["next_earnings_date"] == "2026-04-23").all()
+    assert result["next_earnings_date_is_estimated"].tolist() == [True, True, True]
     assert (result["next_ex_div_date"] == "2026-04-18").all()
     assert result["dividend_amount"].tolist() == pytest.approx([0.75, 0.75, 0.75])
     assert (result["days_to_earnings"] == 7).all()
@@ -345,6 +347,7 @@ def test_append_ticker_event_fields_handles_blank_events():
     today = date(2026, 4, 16)
     events = {
         "next_earnings_date": None,
+        "next_earnings_date_is_estimated": None,
         "next_ex_div_date": None,
         "dividend_amount": np.nan,
     }
@@ -353,6 +356,7 @@ def test_append_ticker_event_fields_handles_blank_events():
     result = append_ticker_event_fields(frame.copy(), events, today)
 
     assert result.loc[0, "next_earnings_date"] is None
+    assert result.loc[0, "next_earnings_date_is_estimated"] is None
     assert result.loc[0, "next_ex_div_date"] is None
     assert pd.isna(result.loc[0, "days_to_earnings"])
     assert pd.isna(result.loc[0, "days_to_ex_div"])

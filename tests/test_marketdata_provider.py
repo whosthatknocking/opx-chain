@@ -337,6 +337,7 @@ def test_marketdata_provider_load_ticker_events_parses_earnings_and_dividends(mo
     events = provider.load_ticker_events("TSLA")
 
     assert events["next_earnings_date"] == "2026-04-30"
+    assert events["next_earnings_date_is_estimated"] is True
     assert events["next_ex_div_date"] == "2026-04-18"
     assert events["dividend_amount"] == pytest.approx(0.88)
 
@@ -359,6 +360,7 @@ def test_marketdata_provider_load_ticker_events_returns_blanks_on_api_failure(mo
     events = provider.load_ticker_events("TSLA")
 
     assert events["next_earnings_date"] is None
+    assert events["next_earnings_date_is_estimated"] is None
     assert events["next_ex_div_date"] is None
     assert pd.isna(events["dividend_amount"])
 
@@ -390,5 +392,6 @@ def test_base_provider_load_ticker_events_returns_blank_defaults():
     events = provider.load_ticker_events("AAPL")
 
     assert events["next_earnings_date"] is None
+    assert events["next_earnings_date_is_estimated"] is None
     assert events["next_ex_div_date"] is None
     assert pd.isna(events["dividend_amount"])

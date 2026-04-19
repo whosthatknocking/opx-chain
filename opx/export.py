@@ -22,6 +22,7 @@ COLUMN_ORDER = [
     "underlying_price_age_seconds",
     "is_stale_underlying_price",
     "next_earnings_date",
+    "next_earnings_date_is_estimated",
     "days_to_earnings",
     "earnings_within_5d",
     "earnings_within_10d",

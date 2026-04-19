@@ -42,6 +42,7 @@ The exported CSV contains both provider-supplied and app-derived fields. Some va
 These fields are fetched once per ticker and broadcast to every option row for that underlying. They capture upcoming earnings and dividend events that elevate option risk and can distort standard pricing signals.
 
 - `next_earnings_date`: Next upcoming earnings report date in `YYYY-MM-DD` format. Use it to identify when the underlying is most likely to make a large move. Blank when no future earnings date is available or the provider does not support event data.
+- `next_earnings_date_is_estimated`: True when the active provider marks `next_earnings_date` as an estimate rather than a confirmed company-announced date. Use it to avoid treating provisional earnings-calendar data as settled fact. Blank when no future earnings date is available or the provider does not expose estimate status.
 - `days_to_earnings`: Whole calendar days until `next_earnings_date`. Use it to filter or down-rank option positions that span an earnings announcement. Lower values mean more immediate event exposure.
 - `earnings_within_5d`: True when an earnings report falls within the next 5 calendar days and before the contract expires. Use it as a hard exclusion filter for strategies that cannot tolerate binary earnings risk.
 - `earnings_within_10d`: True when an earnings report falls within the next 10 calendar days and before the contract expires. Use it to flag positions that enter an earnings window before expiration.
@@ -288,6 +289,7 @@ Legend:
 | Field | yfinance | massive | marketdata |
 | --- | --- | --- | --- |
 | `next_earnings_date` | Blank: event fetching not implemented for this provider | Blank: event fetching not implemented for this provider | Transformed: minimum upcoming `reportDate` from `stocks/earnings/{symbol}/` via SDK |
+| `next_earnings_date_is_estimated` | Blank | Blank | Direct/Derived: `True` when Market Data supplies a future `reportDate`, because upstream documents upcoming earnings dates as estimates |
 | `days_to_earnings` | Blank | Blank | Derived: `next_earnings_date` minus runtime `today` |
 | `earnings_within_5d` | Blank | Blank | Derived: `days_to_earnings <= 5` and event occurs before expiration |
 | `earnings_within_10d` | Blank | Blank | Derived: `days_to_earnings <= 10` and event occurs before expiration |

@@ -111,6 +111,7 @@ class TickerSummary(TypedDict):
     historical_volatility_pct: float | None
     iv_hv_ratio: float | None
     next_earnings_date: str | None
+    next_earnings_date_is_estimated: bool | None
     event_risk_score: float | None
     latest_status: str
     market_context: str
@@ -366,11 +367,14 @@ def pick_profitable_opportunity(frame: pd.DataFrame) -> OpportunitySummary | Non
         return None
     candidates = screen_primary_candidates(frame)
     candidates = attach_opportunity_summary(candidates)
-    candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized"))
-    candidates["_score"] = coerce_number(candidates.get("option_score")).fillna(0)
+    empty_metric = pd.Series(index=candidates.index, dtype="float64")
+    candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized", empty_metric))
+    candidates["_score"] = coerce_number(candidates.get("option_score", empty_metric)).fillna(0)
     candidates["_final_score"] = coerce_number(candidates.get("final_score", candidates["_score"]))
     candidates["_final_score"] = candidates["_final_score"].fillna(candidates["_score"])
-    candidates["_quality"] = coerce_number(candidates.get("quote_quality_score")).fillna(0)
+    candidates["_quality"] = coerce_number(
+        candidates.get("quote_quality_score", empty_metric)
+    ).fillna(0)
     candidates = candidates.sort_values(
         by=["_rom", "_final_score", "_quality"],
         ascending=[False, False, False],
@@ -385,12 +389,15 @@ def pick_moderate_risk_opportunity(frame: pd.DataFrame) -> OpportunitySummary | 
         return None
     config = get_runtime_config()
     candidates = screen_primary_candidates(frame)
-    candidates["_delta"] = coerce_number(candidates.get("delta_abs"))
-    candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized"))
-    candidates["_score"] = coerce_number(candidates.get("option_score")).fillna(0)
+    empty_metric = pd.Series(index=candidates.index, dtype="float64")
+    candidates["_delta"] = coerce_number(candidates.get("delta_abs", empty_metric))
+    candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized", empty_metric))
+    candidates["_score"] = coerce_number(candidates.get("option_score", empty_metric)).fillna(0)
     candidates["_final_score"] = coerce_number(candidates.get("final_score", candidates["_score"]))
     candidates["_final_score"] = candidates["_final_score"].fillna(candidates["_score"])
-    candidates["_spread"] = coerce_number(candidates.get("bid_ask_spread_pct_of_mid"))
+    candidates["_spread"] = coerce_number(
+        candidates.get("bid_ask_spread_pct_of_mid", empty_metric)
+    )
     moderate = candidates[
         (candidates["_delta"].notna()) & (candidates["_delta"] <= 0.40)
         & (candidates["_spread"].notna())
@@ -430,14 +437,23 @@ def pick_high_conviction_opportunity(
         return None
 
     candidates = attach_opportunity_summary(candidates)
-    candidates["_rom"] = coerce_number(candidates.get("return_on_margin_annualized")).fillna(0.0)
-    candidates["_final_score"] = coerce_number(
-        candidates.get("final_score", candidates.get("option_score"))
+    empty_metric = pd.Series(index=candidates.index, dtype="float64")
+    candidates["_rom"] = coerce_number(
+        candidates.get("return_on_margin_annualized", empty_metric)
     ).fillna(0.0)
-    candidates["_quality"] = coerce_number(candidates.get("quote_quality_score")).fillna(0.0)
-    candidates["_spread_score"] = coerce_number(candidates.get("spread_score")).fillna(0.0)
-    candidates["_strike_distance_pct"] = coerce_number(candidates.get("strike_distance_pct"))
-    candidates["_delta_abs"] = coerce_number(candidates.get("delta_abs"))
+    candidates["_final_score"] = coerce_number(
+        candidates.get("final_score", candidates.get("option_score", empty_metric))
+    ).fillna(0.0)
+    candidates["_quality"] = coerce_number(
+        candidates.get("quote_quality_score", empty_metric)
+    ).fillna(0.0)
+    candidates["_spread_score"] = coerce_number(
+        candidates.get("spread_score", empty_metric)
+    ).fillna(0.0)
+    candidates["_strike_distance_pct"] = coerce_number(
+        candidates.get("strike_distance_pct", empty_metric)
+    )
+    candidates["_delta_abs"] = coerce_number(candidates.get("delta_abs", empty_metric))
     candidates["_direction_alignment"] = _compute_direction_alignment(
         candidates.get("underlying_day_change_pct"),
         option_type,
@@ -527,17 +543,27 @@ def build_latest_status(
     return " · ".join(status_parts) if status_parts else "Snapshot available"
 
 
-def extract_ticker_event_fields(frame: pd.DataFrame) -> tuple[str | None, float | None]:
-    """Pull the per-ticker next-earnings date and event risk score from a ticker frame."""
+def extract_ticker_event_fields(
+    frame: pd.DataFrame,
+) -> tuple[str | None, float | None, bool | None]:
+    """Pull the per-ticker event summary fields from a ticker frame."""
     earnings_dates = (
         frame["next_earnings_date"].dropna().astype(str).unique().tolist()
         if "next_earnings_date" in frame.columns
         else []
     )
     next_earnings_date_value = earnings_dates[0] if earnings_dates else None
+    earnings_estimated_values = (
+        frame["next_earnings_date_is_estimated"].dropna().tolist()
+        if "next_earnings_date_is_estimated" in frame.columns
+        else []
+    )
+    next_earnings_date_is_estimated = (
+        is_truthy(earnings_estimated_values[0]) if earnings_estimated_values else None
+    )
     event_risk_nums = coerce_number(frame.get("event_risk_score")).dropna()
     event_risk_value = None if event_risk_nums.empty else float(event_risk_nums.iloc[0])
-    return next_earnings_date_value, event_risk_value
+    return next_earnings_date_value, event_risk_value, next_earnings_date_is_estimated
 
 
 def build_ticker_summary(  # pylint: disable=too-many-locals
@@ -558,7 +584,11 @@ def build_ticker_summary(  # pylint: disable=too-many-locals
         None if implied_volatility.empty else round(float(implied_volatility.median()) * 100, 1)
     )
     hv_value = None if hv.empty else round(float(hv.iloc[0]) * 100, 1)
-    next_earnings_date_value, event_risk_value = extract_ticker_event_fields(frame)
+    (
+        next_earnings_date_value,
+        event_risk_value,
+        next_earnings_date_is_estimated,
+    ) = extract_ticker_event_fields(frame)
     return {
         "ticker": ticker,
         "row_count": int(len(frame.index)),
@@ -575,6 +605,7 @@ def build_ticker_summary(  # pylint: disable=too-many-locals
             else round(median_iv_value / hv_value, 2)
         ),
         "next_earnings_date": next_earnings_date_value,
+        "next_earnings_date_is_estimated": next_earnings_date_is_estimated,
         "event_risk_score": event_risk_value,
         "latest_status": build_latest_status(day_change_value, median_iv_value, hv_value),
         "market_context": build_market_context(ticker, underlying_price_value, day_change_value),

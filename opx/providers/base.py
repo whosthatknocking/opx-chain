@@ -93,6 +93,7 @@ class DataProvider(ABC):
         """Return corporate event data for a ticker. Override for providers that support it."""
         return {
             "next_earnings_date": None,
+            "next_earnings_date_is_estimated": None,
             "next_ex_div_date": None,
             "dividend_amount": np.nan,
         }

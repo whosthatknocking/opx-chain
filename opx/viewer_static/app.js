@@ -360,7 +360,7 @@ function renderSummaryTickerGrid(tickers) {
         </div>
         <div class="ticker-summary-stat">
           ${renderFieldLabel('Next Earnings')}
-          <strong>${escapeHtml(item.next_earnings_date || '—')}</strong>
+          <strong>${escapeHtml(item.next_earnings_date ? `${item.next_earnings_date}${item.next_earnings_date_is_estimated ? ' (est)' : ''}` : '—')}</strong>
         </div>
         <div class="ticker-summary-stat">
           ${renderFieldLabel('Event Risk Score')}
