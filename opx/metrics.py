@@ -372,24 +372,28 @@ def add_event_risk_flags(df):
     blank = pd.Series(np.nan, index=df.index)
     dte = df["days_to_earnings"] if "days_to_earnings" in df.columns else blank
     dtd = df["days_to_ex_div"] if "days_to_ex_div" in df.columns else blank
+    row_dte = df["days_to_expiration"] if "days_to_expiration" in df.columns else blank
 
-    df["earnings_within_5d"] = np.where(dte.notna(), dte <= 5, None)
-    df["earnings_within_10d"] = np.where(dte.notna(), dte <= 10, None)
-    df["ex_div_within_3d"] = np.where(dtd.notna(), dtd <= 3, None)
+    spans_earnings = dte.notna() & ((row_dte.isna()) | ((dte >= 0) & (dte <= row_dte)))
+    spans_ex_div = dtd.notna() & ((row_dte.isna()) | ((dtd >= 0) & (dtd <= row_dte)))
+
+    df["earnings_within_5d"] = np.where(spans_earnings, dte <= 5, None)
+    df["earnings_within_10d"] = np.where(spans_earnings, dte <= 10, None)
+    df["ex_div_within_3d"] = np.where(spans_ex_div, dtd <= 3, None)
 
     earnings_pts = np.where(
-        dte.notna(),
+        spans_earnings,
         np.select([dte <= 5, dte <= 10], [60.0, 30.0], default=0.0),
         np.nan,
     )
     div_pts = np.where(
-        dtd.notna(),
+        spans_ex_div,
         np.select([dtd <= 3, dtd <= 7], [40.0, 20.0], default=0.0),
         np.nan,
     )
-    has_either = dte.notna() | dtd.notna()
-    e_contrib = np.where(dte.notna(), earnings_pts, 0.0)
-    d_contrib = np.where(dtd.notna(), div_pts, 0.0)
+    has_either = spans_earnings | spans_ex_div
+    e_contrib = np.where(spans_earnings, earnings_pts, 0.0)
+    d_contrib = np.where(spans_ex_div, div_pts, 0.0)
     df["event_risk_score"] = np.where(
         has_either,
         np.minimum(e_contrib + d_contrib, 100.0),

@@ -455,11 +455,11 @@ def test_add_event_risk_flags_scores_earnings_and_dividend_tiers():
     """Event risk score should follow the defined point tiers and cap at 100."""
     frame = pd.DataFrame(
         [
-            {"days_to_earnings": 3.0, "days_to_ex_div": 2.0},   # 60 + 40 = 100
-            {"days_to_earnings": 8.0, "days_to_ex_div": 5.0},   # 30 + 20 = 50
-            {"days_to_earnings": 15.0, "days_to_ex_div": 10.0}, # 0 + 0 = 0
-            {"days_to_earnings": 3.0, "days_to_ex_div": float("nan")},  # 60 + 0 = 60
-            {"days_to_earnings": float("nan"), "days_to_ex_div": 2.0},  # 0 + 40 = 40
+            {"days_to_expiration": 10.0, "days_to_earnings": 3.0, "days_to_ex_div": 2.0},   # 60 + 40 = 100
+            {"days_to_expiration": 10.0, "days_to_earnings": 8.0, "days_to_ex_div": 5.0},   # 30 + 20 = 50
+            {"days_to_expiration": 20.0, "days_to_earnings": 15.0, "days_to_ex_div": 10.0}, # 0 + 0 = 0
+            {"days_to_expiration": 10.0, "days_to_earnings": 3.0, "days_to_ex_div": float("nan")},  # 60 + 0 = 60
+            {"days_to_expiration": 10.0, "days_to_earnings": float("nan"), "days_to_ex_div": 2.0},  # 0 + 40 = 40
             {"days_to_earnings": float("nan"), "days_to_ex_div": float("nan")},  # NaN
         ]
     )
@@ -474,12 +474,34 @@ def test_add_event_risk_flags_scores_earnings_and_dividend_tiers():
     assert pd.isna(result.loc[5, "event_risk_score"])
 
 
+def test_add_event_risk_flags_require_contract_to_span_the_event():
+    """Rows should not be flagged for events that occur after the contract expires."""
+    frame = pd.DataFrame(
+        [
+            {"days_to_expiration": 2.0, "days_to_earnings": 5.0, "days_to_ex_div": 4.0},
+            {"days_to_expiration": 6.0, "days_to_earnings": 5.0, "days_to_ex_div": 4.0},
+        ]
+    )
+
+    result = add_event_risk_flags(frame.copy())
+
+    assert result.loc[0, "earnings_within_5d"] is None
+    assert result.loc[0, "earnings_within_10d"] is None
+    assert result.loc[0, "ex_div_within_3d"] is None
+    assert pd.isna(result.loc[0, "event_risk_score"])
+
+    assert result.loc[1, "earnings_within_5d"] is True
+    assert result.loc[1, "earnings_within_10d"] is True
+    assert result.loc[1, "ex_div_within_3d"] is False
+    assert result.loc[1, "event_risk_score"] == pytest.approx(80.0)
+
+
 def test_add_event_risk_flags_boolean_flags_use_object_dtype_not_float():
     """Proximity flags should be object dtype with True/False so they export as bool strings."""
     frame = pd.DataFrame(
         [
-            {"days_to_earnings": 3.0, "days_to_ex_div": 2.0},
-            {"days_to_earnings": 15.0, "days_to_ex_div": float("nan")},
+            {"days_to_expiration": 10.0, "days_to_earnings": 3.0, "days_to_ex_div": 2.0},
+            {"days_to_expiration": 10.0, "days_to_earnings": 15.0, "days_to_ex_div": float("nan")},
             {"days_to_earnings": float("nan"), "days_to_ex_div": float("nan")},
         ]
     )
@@ -490,7 +512,7 @@ def test_add_event_risk_flags_boolean_flags_use_object_dtype_not_float():
     assert result["earnings_within_10d"].dtype == object
     assert result["ex_div_within_3d"].dtype == object
     assert result.loc[0, "earnings_within_5d"] is True
-    assert result.loc[1, "earnings_within_5d"] is False
+    assert result.loc[1, "earnings_within_5d"] is None
     assert result.loc[2, "earnings_within_5d"] is None
 
 

@@ -43,13 +43,13 @@ These fields are fetched once per ticker and broadcast to every option row for t
 
 - `next_earnings_date`: Next upcoming earnings report date in `YYYY-MM-DD` format. Use it to identify when the underlying is most likely to make a large move. Blank when no future earnings date is available or the provider does not support event data.
 - `days_to_earnings`: Whole calendar days until `next_earnings_date`. Use it to filter or down-rank option positions that span an earnings announcement. Lower values mean more immediate event exposure.
-- `earnings_within_5d`: True when an earnings report falls within the next 5 calendar days. Use it as a hard exclusion filter for strategies that cannot tolerate binary earnings risk.
-- `earnings_within_10d`: True when an earnings report falls within the next 10 calendar days. Use it to flag positions that enter an earnings window before expiration.
+- `earnings_within_5d`: True when an earnings report falls within the next 5 calendar days and before the contract expires. Use it as a hard exclusion filter for strategies that cannot tolerate binary earnings risk.
+- `earnings_within_10d`: True when an earnings report falls within the next 10 calendar days and before the contract expires. Use it to flag positions that enter an earnings window before expiration.
 - `next_ex_div_date`: Next upcoming ex-dividend date in `YYYY-MM-DD` format. Use it to detect contracts that will experience dividend-related price adjustments before expiration.
 - `days_to_ex_div`: Whole calendar days until `next_ex_div_date`. Use it to find contracts at risk of early assignment on dividend-paying underlyings. Lower values mean the ex-dividend date is approaching.
-- `ex_div_within_3d`: True when an ex-dividend date falls within the next 3 calendar days. Use it as a short-dated warning flag for early-assignment or price-gap risk on dividend underlyings.
+- `ex_div_within_3d`: True when an ex-dividend date falls within the next 3 calendar days and before the contract expires. Use it as a short-dated warning flag for early-assignment or price-gap risk on dividend underlyings.
 - `dividend_amount`: Per-share cash dividend amount associated with `next_ex_div_date`. Use it to assess the scale of the expected price adjustment at ex-date.
-- `event_risk_score`: Composite 0–100 event risk score derived from earnings and dividend proximity. Earnings within 5 days contributes 60 points; within 10 days contributes 30 points. Ex-dividend within 3 days contributes 40 points; within 7 days contributes 20 points. The total is capped at 100. Blank when neither earnings nor dividend data is available. Use it to rank and filter contracts by combined near-term catalyst exposure.
+- `event_risk_score`: Composite 0–100 event risk score derived from earnings and dividend proximity for events that occur before expiration. Earnings within 5 days contributes 60 points; within 10 days contributes 30 points. Ex-dividend within 3 days contributes 40 points; within 7 days contributes 20 points. The total is capped at 100. Blank when neither earnings nor dividend data is available before expiration. Use it to rank and filter contracts by combined near-term catalyst exposure.
 
 ## Quote Quality and Liquidity Fields
 
@@ -289,13 +289,13 @@ Legend:
 | --- | --- | --- | --- |
 | `next_earnings_date` | Blank: event fetching not implemented for this provider | Blank: event fetching not implemented for this provider | Transformed: minimum upcoming `reportDate` from `stocks/earnings/{symbol}/` via SDK |
 | `days_to_earnings` | Blank | Blank | Derived: `next_earnings_date` minus runtime `today` |
-| `earnings_within_5d` | Blank | Blank | Derived: `days_to_earnings <= 5` |
-| `earnings_within_10d` | Blank | Blank | Derived: `days_to_earnings <= 10` |
+| `earnings_within_5d` | Blank | Blank | Derived: `days_to_earnings <= 5` and event occurs before expiration |
+| `earnings_within_10d` | Blank | Blank | Derived: `days_to_earnings <= 10` and event occurs before expiration |
 | `next_ex_div_date` | Blank: event fetching not implemented for this provider | Blank: event fetching not implemented for this provider | Transformed: minimum upcoming `exDate` from `stocks/dividends/{symbol}/` via direct HTTP request |
 | `days_to_ex_div` | Blank | Blank | Derived: `next_ex_div_date` minus runtime `today` |
-| `ex_div_within_3d` | Blank | Blank | Derived: `days_to_ex_div <= 3` |
+| `ex_div_within_3d` | Blank | Blank | Derived: `days_to_ex_div <= 3` and event occurs before expiration |
 | `dividend_amount` | Blank | Blank | Transformed: `amount` corresponding to `next_ex_div_date` from dividend payload |
-| `event_risk_score` | Blank | Blank | Derived: composite score from earnings and dividend proximity |
+| `event_risk_score` | Blank | Blank | Derived: composite score from earnings and dividend proximity for events before expiration |
 
 ### Run Metadata Mapping
 

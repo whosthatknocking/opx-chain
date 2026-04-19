@@ -270,10 +270,10 @@ What is fetched:
 
 Derived flags:
 
-- `earnings_within_5d`: True when an earnings report falls within 5 calendar days
-- `earnings_within_10d`: True when an earnings report falls within 10 calendar days
-- `ex_div_within_3d`: True when an ex-dividend date falls within 3 calendar days
-- `event_risk_score`: Composite 0–100 score combining earnings and dividend proximity. Earnings within 5 days contributes 60 points, within 10 days contributes 30 points. Ex-dividend within 3 days adds 40 points, within 7 days adds 20 points. The total is capped at 100.
+- `earnings_within_5d`: True when an earnings report falls within 5 calendar days and before the contract expires
+- `earnings_within_10d`: True when an earnings report falls within 10 calendar days and before the contract expires
+- `ex_div_within_3d`: True when an ex-dividend date falls within 3 calendar days and before the contract expires
+- `event_risk_score`: Composite 0–100 score combining earnings and dividend proximity for events that occur before expiration. Earnings within 5 days contributes 60 points, within 10 days contributes 30 points. Ex-dividend within 3 days adds 40 points, within 7 days adds 20 points. The total is capped at 100.
 
 Provider availability:
 
