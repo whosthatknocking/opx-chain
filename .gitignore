@@ -14,4 +14,4 @@ logs/
 debug/
 
 # Portfolio data — never commit personal positions
-filter/
+data/positions.csv

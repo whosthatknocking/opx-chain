@@ -30,6 +30,7 @@ The project currently supports:
 
 - config-driven provider selection
 - config-driven runtime thresholds and fetch behavior
+- a user-supplied portfolio positions input file at `data/positions.csv` for ticker expansion and position-aware filter bypass
 - provider-backed fetches through `yfinance` or `massive`
 - provider-backed fetches through `marketdata`
 - canonical CSV export with shared derived metrics
@@ -96,6 +97,7 @@ The config loader is responsible for:
 - Market Data credentials
 - debug-dump settings
 - Massive request pacing and page-size settings
+- using the default portfolio positions input path at `data/positions.csv`
 
 Defaults:
 
@@ -327,7 +329,19 @@ Current behavior:
 - Massive dumps are written per HTTP response page and include page numbers
 - yfinance dumps cover underlying snapshots, expiration lists, and option-chain payloads
 
-### 7.3 Shared Validation
+### 7.3 Portfolio Positions Input
+
+The fetcher can consume a user-supplied portfolio positions file.
+
+Current behavior:
+
+- the default input path is `data/positions.csv`
+- the file is treated as user-managed input, not generated output
+- stock tickers found in the file are added to the effective fetch list for the run
+- matching option contracts bypass post-download quality filters when filters are enabled
+- if the file is absent or cannot be parsed, the run continues without position-aware behavior
+
+### 7.4 Shared Validation
 
 Shared validation is configurable and provider-agnostic.
 
@@ -460,7 +474,27 @@ Completed:
 - added provider mapping matrix
 - aligned viewer reference content with the field-reference document
 
-### 10.7 Corporate Event Risk Fields
+### 10.6 Position-Aware Filtering
+
+Completed:
+
+- added support for a user-supplied portfolio positions file at `data/positions.csv`
+- added stock ticker expansion from held positions
+- added option-filter bypass for held contracts
+- added the `opx-check` CLI for position coverage against the latest output
+
+### 10.7 Validation and Runtime UX
+
+Completed:
+
+- expanded automated tests
+- added clear exit-status behavior
+- added graceful interrupt handling
+- added fetch progress output
+- added raw provider debug dumps
+- added single-run locking
+
+### 10.8 Corporate Event Risk Fields
 
 Completed:
 
@@ -471,17 +505,6 @@ Completed:
 - added 9 new canonical event fields to the export column order
 - updated `FIELD_REFERENCE.md` with field descriptions and provider mapping
 - updated viewer summary tab and opportunity cards to surface event risk data
-
-### 10.6 Validation and Runtime UX
-
-Completed:
-
-- expanded automated tests
-- added clear exit-status behavior
-- added graceful interrupt handling
-- added fetch progress output
-- added raw provider debug dumps
-- added single-run locking
 
 ## 11. Current Change Rules
 

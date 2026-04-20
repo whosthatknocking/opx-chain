@@ -1,6 +1,4 @@
 """CLI tool to verify that every option position appears in the latest output CSV."""
-
-import sys
 from pathlib import Path
 
 import pandas as pd
@@ -34,7 +32,10 @@ def check_positions(positions_path: Path | None = None, output_path: Path | None
     df = pd.read_csv(resolved_output, low_memory=False)
 
     found, missing = [], []
-    for key in sorted(position_set.option_keys, key=lambda k: (k.ticker, k.expiration_date, k.option_type)):
+    for key in sorted(
+        position_set.option_keys,
+        key=lambda k: (k.ticker, k.expiration_date, k.option_type),
+    ):
         mask = (
             (df["underlying_symbol"] == key.ticker)
             & (df["expiration_date"] == key.expiration_date)
@@ -54,10 +55,18 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(
         prog="opx-check",
-        description="Check that every option position in positions.csv appears in the latest output.",
+        description=(
+            "Check that every option position in the portfolio positions CSV "
+            "appears in the latest output."
+        ),
     )
     parser.add_argument("--positions", type=Path, default=None, help="Path to positions CSV.")
-    parser.add_argument("--output", type=Path, default=None, help="Path to output CSV (default: latest).")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Path to output CSV (default: latest).",
+    )
     args = parser.parse_args(argv)
 
     positions_path = (args.positions or DEFAULT_POSITIONS_PATH).expanduser()
@@ -98,7 +107,10 @@ def main(argv=None):
         )
 
     print()
-    print(f"Result: {len(found)}/{total} positions found" + (f"  ({len(missing)} missing)" if missing else ""))
+    print(
+        f"Result: {len(found)}/{total} positions found"
+        + (f"  ({len(missing)} missing)" if missing else "")
+    )
 
     return 1 if missing else 0
 

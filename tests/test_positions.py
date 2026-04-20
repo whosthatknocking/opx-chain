@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from opx.positions import (
+    DEFAULT_POSITIONS_PATH,
     EMPTY_POSITION_SET,
     OptionPositionKey,
     load_positions,
@@ -22,6 +23,10 @@ def write_positions_csv(tmp_path: Path, content: str) -> Path:
 def test_load_positions_returns_empty_when_file_missing(tmp_path):
     result = load_positions(tmp_path / "nonexistent.csv")
     assert result == EMPTY_POSITION_SET
+
+
+def test_default_positions_path_points_to_repo_data_directory():
+    assert DEFAULT_POSITIONS_PATH == Path("data/positions.csv")
 
 
 def test_load_positions_parses_stock_tickers(tmp_path):

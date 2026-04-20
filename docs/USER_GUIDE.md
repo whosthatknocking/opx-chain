@@ -54,7 +54,7 @@ opx-fetcher --enable-filters
 
 These flags override `settings.filters_enable` only for that process. If neither flag is passed, the fetcher uses the configured `filters_enable` value.
 
-Check that every option position in `filter/positions.csv` appears in the latest output CSV:
+Check that every option position in `data/positions.csv` appears in the latest output CSV:
 
 ```bash
 opx-check
@@ -197,16 +197,16 @@ These settings are only used by the matching provider.
 - `providers.marketdata.max_retries = 3`: retry count for Market Data rate-limit responses (`429`). The provider uses exponential backoff and honors `Retry-After` when the upstream response supplies it.
 - `providers.marketdata.request_interval_seconds = 0.0`: optional minimum spacing between Market Data HTTP requests. Leave it at `0.0` unless you want extra pacing for low-credit or low-throughput plans.
 
-### Portfolio Positions (`filter/positions.csv`)
+### Portfolio Positions (`data/positions.csv`)
 
-At the start of every run, `opx-fetcher` reads `filter/positions.csv` (Fidelity export format) to drive two behaviors:
+At the start of every run, `opx-fetcher` reads `data/positions.csv` (Fidelity export format) to drive two behaviors:
 
 - **Stock ticker expansion** _(always active)_: all stock tickers found in the file are added to the effective fetch list for the run, even if they are not listed in `settings.tickers`. Today's expiration is also kept for these tickers so that options expiring on the current date are available for position matching.
 - **Option filter bypass** _(active only when filters are enabled)_: any option contract that matches a row in the file (by ticker, expiration date, option type, and strike) bypasses all post-download quality filters. These rows are always included in the output regardless of bid, spread, or strike-distance settings. When `filters_enable = false` or `--disable-filters` is used, all rows are already kept unconditionally so the bypass has no effect.
 
 The file is re-read on every run. If the file does not exist or cannot be parsed, the run continues with normal behavior.
 
-`filter/positions.csv` is excluded from version control — place your own export there without risk of committing personal data. The expected format is a standard Fidelity brokerage export. Stock rows use a plain ticker in the Symbol column; option rows use a leading dash followed by the OCC-style symbol:
+`data/positions.csv` is excluded from version control — place your own export there without risk of committing personal data. The expected format is a standard Fidelity brokerage export. Stock rows use a plain ticker in the Symbol column; option rows use a leading dash followed by the OCC-style symbol:
 
 ```
 Account Number,Account Name,Symbol,Description,...,Type

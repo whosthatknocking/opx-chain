@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_POSITIONS_PATH = Path("filter/positions.csv")
+DEFAULT_POSITIONS_PATH = Path("data/positions.csv")
 
 _OPTION_RE = re.compile(r"^-?([A-Z.]+)(\d{2})(\d{2})(\d{2})([CP])(\d+\.?\d*)$")
 _VALID_TICKER_RE = re.compile(r"^[A-Z.]{1,10}$")
@@ -34,6 +34,7 @@ class PositionSet:
 
     @property
     def empty(self) -> bool:
+        """Return True when the parsed positions set contains no stock or option entries."""
         return not self.stock_tickers and not self.option_keys
 
 
@@ -56,7 +57,7 @@ def _parse_option_symbol(raw: str) -> OptionPositionKey | None:
 
 
 def load_positions(path: Path | None = None) -> PositionSet:
-    """Load positions.csv and return parsed stock tickers and option keys.
+    """Load the portfolio positions CSV and return parsed stock tickers and option keys.
 
     Returns an empty PositionSet when the file does not exist or cannot be parsed.
     """

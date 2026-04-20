@@ -2,6 +2,10 @@
 tickers = ["TSLA", "NVDA", "UBER", "MSFT", "GOOGL", "ORCL", "PLTR"]
 data_provider = "yfinance"
 
+# Optional portfolio positions input:
+# Place a Fidelity-format export at data/positions.csv when you want
+# position-aware ticker expansion and post-download filter bypass.
+
 # Shared filtering
 filters_min_bid = 0.50
 filters_min_open_interest = 100
