@@ -192,6 +192,16 @@ At the start of every run, `opx-fetcher` reads `filter/positions.csv` (Fidelity 
 
 The file is re-read on every run. If the file does not exist or cannot be parsed, the run continues with normal behavior.
 
+`filter/positions.csv` is excluded from version control — place your own export there without risk of committing personal data. The expected format is a standard Fidelity brokerage export. Stock rows use a plain ticker in the Symbol column; option rows use a leading dash followed by the OCC-style symbol:
+
+```
+Account Number,Account Name,Symbol,Description,...,Type
+XXXXXXXXX,SAMPLE ACCOUNT,AAPL,APPLE INC,,,,,,,,,,,,Margin,
+XXXXXXXXX,SAMPLE ACCOUNT,MSFT,MICROSOFT CORP,,,,,,,,,,,,Margin,
+XXXXXXXXX,SAMPLE ACCOUNT, -AAPL261016C230,AAPL OCT 16 2026 $230 CALL,,,,,,,,,,,,Margin,
+XXXXXXXXX,SAMPLE ACCOUNT, -MSFT260918P380,MSFT SEP 18 2026 $380 PUT,,,,,,,,,,,,Margin,
+```
+
 ### Common Configuration Tasks
 
 - Change `tickers` when you want a different watchlist.
