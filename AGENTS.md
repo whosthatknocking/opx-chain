@@ -176,3 +176,10 @@ Common files to update:
 - exposing secrets or raw credentials in config examples, logs, or dumps
 - bypassing the provider contract from fetch orchestration
 - changing viewer or export behavior without updating docs and tests
+
+## Commit conventions
+
+- Do not add `Co-Authored-By` trailers to commit messages.
+- Do not include assistant/tool attribution in commit messages, PR bodies, or other artifacts.
+- Commit subject line: ≤72 characters, imperative mood.
+- Commit body: explain what changed and the motivation. Do not describe the task or reference issue numbers.
