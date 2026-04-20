@@ -74,6 +74,17 @@ const elements = {
 };
 
 let chainTooltipElement = null;
+const filterPopoverAvailable = Boolean(
+  elements.filterPopover
+  && elements.filterPopoverTitle
+  && elements.filterSearchWrap
+  && elements.filterValueSearch
+  && elements.filterRangeWrap
+  && elements.filterMinValue
+  && elements.filterMaxValue
+  && elements.filterOptionList
+  && elements.clearFilterButton
+);
 const WHOLE_NUMBER_COLUMNS = new Set([
   'days_to_expiration',
   'days_to_earnings',
@@ -1073,11 +1084,13 @@ function getFilteredRows() {
 function closeFilterPopover() {
   state.activeFilterColumn = null;
   state.filterSearchTerm = '';
+  if (!elements.filterPopover) return;
   elements.filterPopover.classList.remove('open');
   elements.filterPopover.setAttribute('aria-hidden', 'true');
 }
 
 function renderFilterOptions() {
+  if (!filterPopoverAvailable) return;
   if (!state.activeFilterColumn) return;
   if (isRangeFilter(state.activeFilterColumn)) {
     elements.filterOptionList.innerHTML = '';
@@ -1130,6 +1143,7 @@ function renderFilterOptions() {
 }
 
 function openFilterPopover(columnName, anchor) {
+  if (!filterPopoverAvailable) return;
   state.activeFilterColumn = columnName;
   state.filterSearchTerm = '';
   elements.filterPopoverTitle.textContent = `${columnName} filter`;
@@ -1266,12 +1280,17 @@ function renderTable() {
       } else {
         filterCount.textContent = String(state.columnFilters[column.name].values.size);
       }
-      filterButton.appendChild(filterCount);
-    }
+    filterButton.appendChild(filterCount);
+  }
+    filterButton.disabled = !filterPopoverAvailable;
     filterButton.addEventListener('click', (event) => {
       event.stopPropagation();
       event.preventDefault();
-      if (state.activeFilterColumn === column.name && elements.filterPopover.classList.contains('open')) {
+      if (
+        filterPopoverAvailable
+        && state.activeFilterColumn === column.name
+        && elements.filterPopover.classList.contains('open')
+      ) {
         closeFilterPopover();
       } else {
         openFilterPopover(column.name, filterButton);
@@ -1621,6 +1640,7 @@ function activateTab(tabName) {
 }
 
 function updateThemeToggleLabel(theme) {
+  if (!elements.themeToggle) return;
   elements.themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
 }
 
@@ -1694,10 +1714,12 @@ async function initialize() {
     renderTable();
   });
 
-  elements.filterValueSearch.addEventListener('input', (event) => {
-    state.filterSearchTerm = event.target.value;
-    renderFilterOptions();
-  });
+  if (elements.filterValueSearch) {
+    elements.filterValueSearch.addEventListener('input', (event) => {
+      state.filterSearchTerm = event.target.value;
+      renderFilterOptions();
+    });
+  }
 
   const applyRangeFilter = () => {
     if (!state.activeFilterColumn || !isRangeFilter(state.activeFilterColumn)) return;
@@ -1712,22 +1734,32 @@ async function initialize() {
     renderTable();
   };
 
-  elements.filterMinValue.addEventListener('input', applyRangeFilter);
-  elements.filterMaxValue.addEventListener('input', applyRangeFilter);
+  if (elements.filterMinValue) {
+    elements.filterMinValue.addEventListener('input', applyRangeFilter);
+  }
+  if (elements.filterMaxValue) {
+    elements.filterMaxValue.addEventListener('input', applyRangeFilter);
+  }
 
-  elements.clearFilterButton.addEventListener('click', () => {
-    if (state.activeFilterColumn) {
-      delete state.columnFilters[state.activeFilterColumn];
-      elements.filterMinValue.value = '';
-      elements.filterMaxValue.value = '';
-      state.currentPage = 1;
-      renderTable();
-      renderFilterOptions();
-    }
-  });
+  if (elements.clearFilterButton) {
+    elements.clearFilterButton.addEventListener('click', () => {
+      if (state.activeFilterColumn) {
+        delete state.columnFilters[state.activeFilterColumn];
+        elements.filterMinValue.value = '';
+        elements.filterMaxValue.value = '';
+        state.currentPage = 1;
+        renderTable();
+        renderFilterOptions();
+      }
+    });
+  }
 
   document.addEventListener('click', (event) => {
-    if (elements.filterPopover.classList.contains('open') && !elements.filterPopover.contains(event.target)) {
+    if (
+      elements.filterPopover
+      && elements.filterPopover.classList.contains('open')
+      && !elements.filterPopover.contains(event.target)
+    ) {
       closeFilterPopover();
     }
   });
@@ -1757,9 +1789,11 @@ async function initialize() {
     activateTab(getTabFromUrl());
   });
 
-  elements.themeToggle.addEventListener('click', () => {
-    setTheme(document.body.dataset.theme === 'dark' ? 'light' : 'dark');
-  });
+  if (elements.themeToggle) {
+    elements.themeToggle.addEventListener('click', () => {
+      setTheme(document.body.dataset.theme === 'dark' ? 'light' : 'dark');
+    });
+  }
 }
 
 initialize().catch((error) => {
