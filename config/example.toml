@@ -19,7 +19,7 @@ risk_free_rate = 0.045
 hv_lookback_days = 30
 trading_days_per_year = 252
 stale_quote_seconds = 10800
-max_expiration_weeks = 26
+max_expiration_weeks = 34
 
 # Shared viewer runtime
 viewer_host = "127.0.0.1"

@@ -229,6 +229,30 @@ Run the linter with:
 pylint $(git ls-files '*.py')
 ```
 
+## Local Git Hooks
+
+This repo includes a tracked pre-commit hook at `.githooks/pre-commit` that runs the same baseline quality checks before every commit:
+
+```bash
+pytest -q
+pylint $(git ls-files '*.py')
+```
+
+Enable it in your local clone with:
+
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/pre-commit scripts/run_local_quality_checks.sh
+```
+
+Once enabled, `git commit` will stop before creating the commit if either check fails.
+
+Notes:
+
+- the hook prefers `.venv/bin/python` when present and otherwise falls back to `python3`
+- set `OPX_SKIP_PRE_COMMIT_CHECKS=1` only when you intentionally need to bypass the local hook for a one-off commit
+- set `OPX_PRE_COMMIT_PYTHON=/path/to/python` if you need the hook to use a specific interpreter
+
 ## Notes
 
 - Market data is routed through a configurable provider layer.

@@ -35,7 +35,7 @@ def test_load_runtime_config_uses_defaults_when_file_is_absent(tmp_path: Path):
     assert config.viewer_port == 8000
     assert config.enable_filters is True
     assert config.max_spread_pct_of_mid == 0.25
-    assert config.max_expiration_weeks == 26
+    assert config.max_expiration_weeks == 34
     assert config.max_expiration is not None
     assert config.tickers
     assert config.config_path == tmp_path / "missing.toml"

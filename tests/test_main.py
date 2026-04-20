@@ -69,8 +69,8 @@ def test_main_prints_rows_written_after_saved(monkeypatch, capsys, tmp_path: Pat
         main,
         "fetch_ticker_option_chain",
         (
-            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
-            frames[ticker]
+            lambda ticker, logger=None, validation_findings=None,
+            filtered_row_counts=None, position_set=None: frames[ticker]
         ),
     )
 
@@ -117,8 +117,8 @@ def test_main_prints_config_fallbacks(monkeypatch, capsys, tmp_path: Path):
         main,
         "fetch_ticker_option_chain",
         (
-            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
-            pd.DataFrame()
+            lambda ticker, logger=None, validation_findings=None,
+            filtered_row_counts=None, position_set=None: pd.DataFrame()
         ),
     )
 
@@ -152,10 +152,12 @@ def test_main_can_disable_filters_via_cli(monkeypatch, capsys, tmp_path: Path):
         logger=None,
         validation_findings=None,
         filtered_row_counts=None,
+        position_set=None,
     ):
         del logger
         del validation_findings
         del filtered_row_counts
+        del position_set
         captured["config"] = get_process_runtime_config()
         return pd.DataFrame([make_export_row()])
 
@@ -199,10 +201,12 @@ def test_main_can_enable_filters_via_cli(monkeypatch, capsys, tmp_path: Path):
         logger=None,
         validation_findings=None,
         filtered_row_counts=None,
+        position_set=None,
     ):
         del logger
         del validation_findings
         del filtered_row_counts
+        del position_set
         captured["config"] = get_process_runtime_config()
         return pd.DataFrame([make_export_row()])
 
@@ -245,9 +249,11 @@ def test_main_prints_validation_summary_before_export(monkeypatch, capsys, tmp_p
         logger=None,
         validation_findings=None,
         filtered_row_counts=None,
+        position_set=None,
     ):
         del logger
         del filtered_row_counts
+        del position_set
         if validation_findings is not None:
             validation_findings.extend(
                 validate_option_rows(
@@ -301,8 +307,8 @@ def test_main_can_disable_validation_summary(monkeypatch, capsys, tmp_path: Path
         main,
         "fetch_ticker_option_chain",
         (
-            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
-            pd.DataFrame([make_export_row()])
+            lambda ticker, logger=None, validation_findings=None,
+            filtered_row_counts=None, position_set=None: pd.DataFrame([make_export_row()])
         ),
     )
     monkeypatch.setattr(
@@ -340,8 +346,8 @@ def test_main_returns_failure_when_no_data_is_fetched(monkeypatch, tmp_path: Pat
         main,
         "fetch_ticker_option_chain",
         (
-            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
-            pd.DataFrame()
+            lambda ticker, logger=None, validation_findings=None,
+            filtered_row_counts=None, position_set=None: pd.DataFrame()
         ),
     )
 
@@ -387,8 +393,8 @@ def test_main_removes_lock_file_after_success(monkeypatch, tmp_path: Path):
         main,
         "fetch_ticker_option_chain",
         (
-            lambda ticker, logger=None, validation_findings=None, filtered_row_counts=None:
-            pd.DataFrame([make_export_row()])
+            lambda ticker, logger=None, validation_findings=None,
+            filtered_row_counts=None, position_set=None: pd.DataFrame([make_export_row()])
         ),
     )
     monkeypatch.setattr(
@@ -423,10 +429,12 @@ def test_main_handles_ctrl_c_gracefully(monkeypatch, capsys, tmp_path: Path):
         logger=None,
         validation_findings=None,
         filtered_row_counts=None,
+        position_set=None,
     ):
         del logger
         del validation_findings
         del filtered_row_counts
+        del position_set
         raise KeyboardInterrupt
 
     monkeypatch.setattr(main, "fetch_ticker_option_chain", interrupting_fetch)

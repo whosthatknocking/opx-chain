@@ -444,7 +444,7 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
             default=DEFAULT_MAX_EXPIRATION_WEEKS,
             coercer=_coerce_int,
             warnings=warnings,
-            validator=lambda value: value is None or value > 0,
+            validator=lambda value: value is None or value >= 0,
         ),
         max_expiration=None,
         today=today,
@@ -490,7 +490,7 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
         "max_expiration",
         (
             None
-            if config.max_expiration_weeks is None
+            if config.max_expiration_weeks in {None, 0}
             else _default_max_expiration(today, config.max_expiration_weeks)
         ),
     )
