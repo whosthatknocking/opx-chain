@@ -133,11 +133,11 @@ These settings apply regardless of which provider is active.
 
 #### Shared Filtering Defaults
 
-- `FILTERS_MIN_BID = 0.50`: excludes very low-premium contracts, in addition to the hard `bid == 0` filter.
+- `FILTERS_MIN_BID = disabled`: bid minimum filter is disabled by default (previously `0.50`). Set it to a positive value to exclude contracts below that premium threshold.
 - `FILTERS_MIN_OPEN_INTEREST = 100`: baseline open-interest threshold used by the screening metrics.
 - `FILTERS_MIN_VOLUME = 10`: baseline daily volume threshold used by the screening metrics.
 - `FILTERS_MAX_SPREAD_PCT_OF_MID = 0.25`: excludes contracts with spreads wider than 25% of midpoint.
-- `FILTERS_MAX_STRIKE_DISTANCE_PCT = 0.30`: keeps only strikes within +/-30% of the latest underlying price.
+- `FILTERS_MAX_STRIKE_DISTANCE_PCT = 0.35`: keeps only strikes within +/-35% of the latest underlying price.
 
 #### Shared Analytics and Freshness Defaults
 
@@ -145,7 +145,7 @@ These settings apply regardless of which provider is active.
 - `HV_LOOKBACK_DAYS = 30`: lookback window for historical volatility.
 - `TRADING_DAYS_PER_YEAR = 252`: annualization factor for volatility.
 - `STALE_QUOTE_SECONDS = 10800`: staleness threshold for option and underlying quotes.
-- `MAX_EXPIRATION_WEEKS = 26`: caps expirations to roughly the next six months by default. Set it to any positive week count you want, or `0` to disable the expiration cap entirely.
+- `MAX_EXPIRATION_WEEKS = 34`: caps expirations to roughly the next eight months by default. Set it to any positive week count you want, or omit it (set to `null`) to disable the expiration cap entirely.
 
 #### Shared Viewer Defaults
 
@@ -183,6 +183,15 @@ These settings are only used by the matching provider.
 - `providers.marketdata.max_retries = 3`: retry count for Market Data rate-limit responses (`429`). The provider uses exponential backoff and honors `Retry-After` when the upstream response supplies it.
 - `providers.marketdata.request_interval_seconds = 0.0`: optional minimum spacing between Market Data HTTP requests. Leave it at `0.0` unless you want extra pacing for low-credit or low-throughput plans.
 
+### Portfolio Positions (`filter/positions.csv`)
+
+At the start of every run, `opx-fetcher` reads `filter/positions.csv` (Fidelity export format) to drive two behaviors:
+
+- **Stock ticker expansion** _(always active)_: all stock tickers found in the file are added to the effective fetch list for the run, even if they are not listed in `settings.tickers`. Today's expiration is also kept for these tickers so that options expiring on the current date are available for position matching.
+- **Option filter bypass** _(active only when filters are enabled)_: any option contract that matches a row in the file (by ticker, expiration date, option type, and strike) bypasses all post-download quality filters. These rows are always included in the output regardless of bid, spread, or strike-distance settings. When `filters_enable = false` or `--disable-filters` is used, all rows are already kept unconditionally so the bypass has no effect.
+
+The file is re-read on every run. If the file does not exist or cannot be parsed, the run continues with normal behavior.
+
 ### Common Configuration Tasks
 
 - Change `tickers` when you want a different watchlist.
@@ -192,7 +201,7 @@ These settings are only used by the matching provider.
 - Use `opx-fetcher --disable-filters` or `opx-fetcher --enable-filters` when you want a one-off override without changing config.
 - Set `enable_validation = false` when you want to skip shared row/file validation and suppress validation summaries.
 - Turn on `debug_dump_provider_payload = true` when you need to inspect the raw provider payload and confirm whether fields such as `last_quote`, `underlying_asset`, or Yahoo chain columns were present before normalization.
-- Change `max_expiration_weeks` when you want a shorter or longer expiration window, or set it to `0` to disable the max-expiration cutoff.
+- Change `max_expiration_weeks` when you want a shorter or longer expiration window, or set it to `null` to disable the max-expiration cutoff entirely.
 - Change `viewer_host` or `viewer_port` when you want the local viewer to bind to a different interface or port by default.
 - Change the shared analytics or freshness settings only if you want different modeling assumptions.
 - Change the `option_score_*_weight` values when you want to tune the shared score without changing code. The weights must stay non-negative and their total must stay positive or the loader falls back to defaults.

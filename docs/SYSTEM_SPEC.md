@@ -394,11 +394,11 @@ Rules:
 
 Role:
 
-- prevents the system from pursuing trivial premium
+- prevents the system from pursuing trivial premium when enabled
 
 Rule:
 
-- `bid >= 0.50`
+- `bid >= filters_min_bid` when `filters_min_bid` is set; disabled by default (previously `0.50`)
 
 ### 12.6 Composite Quality Metrics
 

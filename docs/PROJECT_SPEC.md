@@ -105,7 +105,8 @@ Defaults:
 - the objective of shared filtering is to gate the dataset for baseline tradability and relevance before ranking, not to act as a standalone trade thesis
 - current built-in filter defaults include:
   - `filters_max_spread_pct_of_mid = 0.25`
-  - `filters_max_strike_distance_pct = 0.30`
+  - `filters_max_strike_distance_pct = 0.35`
+  - `filters_min_bid = disabled` (set to a positive value to activate)
   - `filters_enable = true`
 - current built-in freshness default is `stale_quote_seconds = 10800`
 - malformed or unsupported config values fall back to code defaults

@@ -12,6 +12,7 @@ import pandas as pd
 from opx.config import describe_runtime_config, get_runtime_config, set_runtime_config_override
 from opx.export import write_options_csv
 from opx.fetch import fetch_ticker_option_chain
+from opx.positions import load_positions
 from opx.runlog import create_run_logger
 from opx.validate import emit_validation_report, validate_export_frame
 
@@ -125,16 +126,35 @@ def main(argv=None):  # pylint: disable=too-many-branches,too-many-locals,too-ma
         for warning in config.config_warnings:
             logger.warning("config_fallback %s", warning)
 
+        position_set = load_positions()
+        extra_tickers = tuple(
+            t for t in sorted(position_set.stock_tickers) if t not in set(config.tickers)
+        )
+        effective_tickers = config.tickers + extra_tickers
+        print(
+            f"Positions: {len(position_set.stock_tickers)} stocks, "
+            f"{len(position_set.option_keys)} options"
+        )
+        if extra_tickers:
+            print(f"  Added from positions: {', '.join(extra_tickers)}")
+        logger.info(
+            "positions stocks=%s options=%s extra_tickers=%s",
+            len(position_set.stock_tickers),
+            len(position_set.option_keys),
+            len(extra_tickers),
+        )
+
         ticker_frames = []
         validation_findings = []
         filtered_row_counts = []
-        for ticker in config.tickers:
+        for ticker in effective_tickers:
             print(f"Loading {ticker}")
             ticker_df = fetch_ticker_option_chain(
                 ticker,
                 logger=logger,
                 validation_findings=validation_findings,
                 filtered_row_counts=filtered_row_counts,
+                position_set=position_set,
             )
             if not ticker_df.empty:
                 ticker_frames.append(ticker_df)

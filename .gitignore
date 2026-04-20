@@ -9,6 +9,7 @@ __pycache__/
 
 # Generated outputs
 *.csv
+!filter/positions.csv
 output/
 logs/
 debug/

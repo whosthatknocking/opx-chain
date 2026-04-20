@@ -20,7 +20,7 @@ SCRIPT_VERSION = __version__
 DEFAULT_CONFIG_PATH = Path("~/.config/opx/config.toml").expanduser()
 DEFAULT_TICKERS = ("TSLA", "NVDA", "UBER", "MSFT", "GOOGL", "ORCL", "PLTR")
 DEFAULT_DATA_PROVIDER = "yfinance"
-DEFAULT_MIN_BID = 0.50
+DEFAULT_MIN_BID = None  # disabled by default; previously 0.50
 DEFAULT_MIN_OPEN_INTEREST = 100
 DEFAULT_MIN_VOLUME = 10
 DEFAULT_MAX_SPREAD_PCT_OF_MID = 0.25
@@ -34,8 +34,8 @@ DEFAULT_OPTION_SCORE_INCOME_WEIGHT = 0.30
 DEFAULT_OPTION_SCORE_LIQUIDITY_WEIGHT = 0.30
 DEFAULT_OPTION_SCORE_RISK_WEIGHT = 0.25
 DEFAULT_OPTION_SCORE_EFFICIENCY_WEIGHT = 0.15
-DEFAULT_MAX_STRIKE_DISTANCE_PCT = 0.30
-DEFAULT_MAX_EXPIRATION_WEEKS = 26
+DEFAULT_MAX_STRIKE_DISTANCE_PCT = 0.35
+DEFAULT_MAX_EXPIRATION_WEEKS = 34
 SUPPORTED_MARKETDATA_MODES = frozenset({"live", "cached", "delayed"})
 DEFAULT_MARKETDATA_MAX_RETRIES = 3
 DEFAULT_MARKETDATA_REQUEST_INTERVAL_SECONDS = 0.0
@@ -60,7 +60,7 @@ class RuntimeConfig:
     """Resolved runtime settings used by the application."""
 
     tickers: tuple[str, ...]
-    min_bid: float
+    min_bid: float | None
     min_open_interest: int
     min_volume: int
     max_spread_pct_of_mid: float
@@ -76,7 +76,7 @@ class RuntimeConfig:
     enable_filters: bool
     enable_validation: bool
     max_strike_distance_pct: float
-    max_expiration_weeks: int
+    max_expiration_weeks: int | None
     max_expiration: str | None
     today: date
     massive_api_key: str | None
@@ -444,7 +444,7 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
             default=DEFAULT_MAX_EXPIRATION_WEEKS,
             coercer=_coerce_int,
             warnings=warnings,
-            validator=lambda value: value >= 0,
+            validator=lambda value: value is None or value > 0,
         ),
         max_expiration=None,
         today=today,
@@ -490,7 +490,7 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
         "max_expiration",
         (
             None
-            if config.max_expiration_weeks == 0
+            if config.max_expiration_weeks is None
             else _default_max_expiration(today, config.max_expiration_weeks)
         ),
     )
@@ -619,7 +619,7 @@ def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
         f"Config file exists: {config.config_path.exists()}",
         f"Applied provider: {config.data_provider}",
         f"Applied tickers: {', '.join(config.tickers)}",
-        f"Applied filters_min_bid: {config.min_bid}",
+        f"Applied filters_min_bid: {config.min_bid if config.min_bid is not None else 'disabled'}",
         f"Applied filters_min_open_interest: {config.min_open_interest}",
         f"Applied filters_min_volume: {config.min_volume}",
         f"Applied filters_max_spread_pct_of_mid: {config.max_spread_pct_of_mid}",
@@ -638,7 +638,7 @@ def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
         f"Applied debug_dump_dir: {config.debug_dump_dir}",
         f"Applied viewer_host: {config.viewer_host}",
         f"Applied viewer_port: {config.viewer_port}",
-        f"Applied max_expiration_weeks: {config.max_expiration_weeks}",
+        f"Applied max_expiration_weeks: {config.max_expiration_weeks if config.max_expiration_weeks is not None else 'disabled'}",
         f"Applied max_expiration: {config.max_expiration or 'disabled'}",
         f"Applied providers.massive.api_key: {masked_massive_key}",
         f"Applied providers.marketdata.api_token: {masked_marketdata_token}",

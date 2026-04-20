@@ -99,12 +99,44 @@ def enrich_option_frame(df, underlying_price, fetched_at):
     return df
 
 
-def apply_post_download_filters(df, underlying_price):
+def _matches_any_position(df, option_keys):
+    """Return a boolean mask for rows matching any portfolio option position."""
+    mask = pd.Series(False, index=df.index)
+    if not option_keys:
+        return mask
+    required = {"underlying_symbol", "expiration_date", "option_type", "strike"}
+    if not required.issubset(df.columns):
+        return mask
+    for key in option_keys:
+        row_mask = (
+            (df["underlying_symbol"] == key.ticker)
+            & (df["expiration_date"] == key.expiration_date)
+            & (df["option_type"] == key.option_type)
+            & ((df["strike"] - key.strike).abs() < 0.005)
+        )
+        mask |= row_mask
+    return mask
+
+
+def apply_post_download_filters(df, underlying_price, position_keys=None):
     """Apply the shared post-download filters after validation has run."""
     config = get_runtime_config()
     if not config.enable_filters:
         return df
-    filtered = filter_zero_bid_quotes(df)
+
+    # Portfolio position rows bypass all quality filters.
+    if position_keys:
+        position_mask = _matches_any_position(df, position_keys)
+        position_rows = df[position_mask]
+        to_filter = df[~position_mask]
+    else:
+        position_rows = pd.DataFrame()
+        to_filter = df
+
+    filtered = filter_zero_bid_quotes(to_filter)
     filtered = filter_strikes_near_spot(filtered, underlying_price)
     filtered = filter_wide_spread_quotes(filtered)
-    return filtered
+
+    if position_rows.empty:
+        return filtered
+    return pd.concat([filtered, position_rows], ignore_index=True)

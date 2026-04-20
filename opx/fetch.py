@@ -8,6 +8,7 @@ import pandas as pd
 from opx.config import get_runtime_config
 from opx.metrics import add_expected_move_by_expiration
 from opx.normalize import apply_post_download_filters, enrich_option_frame
+from opx.positions import EMPTY_POSITION_SET, PositionSet
 from opx.providers.base import ProviderAuthenticationError
 from opx.providers import get_data_provider
 from opx.validate import validate_option_rows
@@ -80,6 +81,7 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
     logger=None,
     validation_findings=None,
     filtered_row_counts=None,
+    position_set: PositionSet | None = None,
 ):
     """Fetch and normalize all near-term option chains for one ticker."""
     provider = None
@@ -123,7 +125,11 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
                 continue
 
             exp_date = datetime.strptime(expiration_date, "%Y-%m-%d").date()
-            if (exp_date - config.today).days <= 0:
+            days_until = (exp_date - config.today).days
+            # Keep today's expiration for portfolio stock tickers (days == 0); drop past.
+            positions = position_set or EMPTY_POSITION_SET
+            min_days = 0 if ticker in positions.stock_tickers else 1
+            if days_until < min_days:
                 skipped_for_past_expiration += 1
                 continue
             usable_expirations.append(expiration_date)
@@ -198,6 +204,8 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
                     put_trade_count,
                 )
             for option_type, option_frame in [("call", chain.calls), ("put", chain.puts)]:
+                if option_frame.empty:
+                    continue
                 vendor_normalized = provider.normalize_option_frame(
                     df=option_frame,
                     underlying_price=underlying_price,
@@ -221,7 +229,10 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-locals,too-many-branc
                 )
                 if config.enable_validation and validation_findings is not None:
                     validation_findings.extend(validate_option_rows(normalized))
-                filtered = apply_post_download_filters(normalized, underlying_price)
+                filtered = apply_post_download_filters(
+                    normalized, underlying_price,
+                    position_keys=(position_set or EMPTY_POSITION_SET).option_keys,
+                )
                 dropped_rows = len(vendor_normalized) - len(filtered)
                 if filtered_row_counts is not None:
                     filtered_row_counts.append(dropped_rows)
