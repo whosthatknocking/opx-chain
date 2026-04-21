@@ -40,6 +40,12 @@ def parse_args(argv=None):
         action="store_true",
         help="Force shared post-download filters off for this run.",
     )
+    parser.add_argument(
+        "--positions",
+        type=Path,
+        default=None,
+        help="Path to positions CSV. Defaults to data/positions.csv.",
+    )
     return parser.parse_args(argv)
 
 
@@ -123,7 +129,8 @@ def main(argv=None):  # pylint: disable=too-many-branches,too-many-locals,too-ma
         for warning in config.config_warnings:
             logger.warning("config_fallback %s", warning)
 
-        positions_path = DEFAULT_POSITIONS_PATH.expanduser()
+        positions_path = (args.positions or DEFAULT_POSITIONS_PATH).expanduser()
+        logger.info("positions path: %s", positions_path)
         position_set = load_positions(positions_path)
         extra_tickers = tuple(
             t for t in sorted(position_set.stock_tickers) if t not in set(config.tickers)

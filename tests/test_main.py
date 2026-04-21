@@ -28,6 +28,24 @@ class StubLogger:
         return None
 
 
+class CapturingLogger(StubLogger):
+    """Logger stub that stores formatted info messages for assertions."""
+
+    def __init__(self):
+        self.info_messages = []
+
+    def info(self, *args, **_kwargs):
+        """Store formatted info messages emitted by the fetcher."""
+        if not args:
+            return None
+        message = args[0]
+        fmt_args = args[1:]
+        if fmt_args:
+            message = message % fmt_args
+        self.info_messages.append(message)
+        return None
+
+
 def make_export_row(**overrides):
     """Build one minimal exported row for main-entrypoint tests."""
     row = {
@@ -439,3 +457,72 @@ def test_main_handles_ctrl_c_gracefully(monkeypatch, capsys, tmp_path: Path):
     assert exit_code == 130
     assert "Interrupted." in stdout
     assert not (tmp_path / "fetcher.lock").exists()
+
+
+def test_main_can_override_positions_path_via_cli(monkeypatch, capsys, tmp_path: Path):
+    """The --positions flag should load a non-default positions file for one run."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(main, "FETCHER_LOCK_PATH", tmp_path / "fetcher.lock")
+    monkeypatch.setattr(main, "LOCKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        main,
+        "get_runtime_config",
+        lambda: make_runtime_config(tickers=("AAA",)),
+    )
+    logger = CapturingLogger()
+    monkeypatch.setattr(
+        main,
+        "create_run_logger",
+        lambda: (logger, Path("logs/run.log")),
+    )
+    positions_path = tmp_path / "data" / "runs" / "run-123" / "positions.csv"
+    positions_path.parent.mkdir(parents=True, exist_ok=True)
+    positions_path.write_text(
+        "\n".join([
+            "Account Number,Account Name,Symbol,Description,Type",
+            "1,Sample,AAA,AAA INC,Margin",
+            "1,Sample,MSFT,MICROSOFT CORP,Margin",
+        ]),
+        encoding="utf-8",
+    )
+
+    captured = {}
+
+    def fetch_and_capture_positions(
+        ticker,
+        logger=None,
+        validation_findings=None,
+        filtered_row_counts=None,
+        position_set=None,
+    ):
+        del logger
+        del validation_findings
+        del filtered_row_counts
+        captured.setdefault("tickers", []).append(ticker)
+        captured["position_set"] = position_set
+        return pd.DataFrame([
+            make_export_row(
+                underlying_symbol=ticker,
+                contract_symbol=f"{ticker}260417C00100000",
+            )
+        ])
+
+    monkeypatch.setattr(main, "fetch_ticker_option_chain", fetch_and_capture_positions)
+    monkeypatch.setattr(
+        main,
+        "write_options_csv",
+        lambda ticker_frames, output_path: output_path.parent.mkdir(parents=True, exist_ok=True)
+        or output_path.write_text("ok", encoding="utf-8"),
+    )
+
+    exit_code = main.main(["--positions", str(positions_path)])
+
+    stdout = capsys.readouterr().out
+    assert exit_code == 0
+    assert f"Positions ({positions_path}): 2 stocks, 0 options" in stdout
+    assert captured["tickers"] == ["AAA", "MSFT"]
+    assert captured["position_set"].stock_tickers == frozenset({"AAA", "MSFT"})
+    assert any(
+        message == f"positions path: {positions_path}"
+        for message in logger.info_messages
+    )
