@@ -23,7 +23,17 @@ If you want the viewer to launch the page automatically, run `opx-viewer --open`
 
 For one-off fetch runs, you can override the shared filter toggle from the CLI with `opx-fetcher --disable-filters` or `opx-fetcher --enable-filters` instead of editing `~/.config/opx/config.toml`.
 
-`opx-fetcher` also accepts `--positions /path/to/positions.csv` when you want one run to use a non-default Fidelity positions file instead of `data/positions.csv`.
+`opx-fetcher` also accepts `--positions /path/to/positions.csv` when you want one run to use a non-default positions file instead of `data/positions.csv`.
+
+After a fetch run, `opx-check` verifies that every option contract in `data/positions.csv` appears in the latest output CSV and reports coverage gaps:
+
+```
+opx-check
+opx-check --freshness        # also recompute current quote age from saved timestamps
+opx-check --positions /path/to/positions.csv --output /path/to/output.csv
+```
+
+`opx-check` exits `0` when all positions are covered and `1` when any are missing.
 
 For local development setup, including `.[dev]` extras and Playwright, use [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
