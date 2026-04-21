@@ -488,6 +488,11 @@ api_token = "market-token"
     assert all("market-token" not in line for line in lines)
     assert any("debug_dump_provider_payload" in line for line in lines)
     assert not any("providers.marketdata" in line for line in lines)
+    assert "General:" in lines
+    assert "Filters:" in lines
+    assert "Diagnostics:" in lines
+    assert "Provider:" in lines
+    assert "" not in lines
 
 
 def test_provider_registry_exposes_supported_providers():

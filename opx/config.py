@@ -617,26 +617,27 @@ def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
     max_exp_label = max_exp_weeks if max_exp_weeks is not None else "disabled"
     config_exists = "exists" if config.config_path.exists() else "missing"
     lines: list[str] = [
+        "General:",
         f"config: {config.config_path} ({config_exists})",
         f"provider: {config.data_provider}",
         f"tickers: {', '.join(config.tickers)}",
         f"max_expiration_weeks: {max_exp_label}"
         f"  max_expiration: {config.max_expiration or 'disabled'}",
-        "",
+        "Filters:",
         f"filters_enable: {config.enable_filters}",
         f"filters_min_bid: {min_bid_label}",
         f"filters_min_open_interest: {config.min_open_interest}",
         f"filters_min_volume: {config.min_volume}",
         f"filters_max_spread_pct_of_mid: {config.max_spread_pct_of_mid}",
         f"filters_max_strike_distance_pct: {config.max_strike_distance_pct}",
-        "",
+        "Diagnostics:",
         f"enable_validation: {config.enable_validation}",
         f"debug_dump_provider_payload: {config.debug_dump_provider_payload}",
     ]
     if config.data_provider == "marketdata":
         token_label = "set" if config.marketdata_api_token else "not set"
         lines += [
-            "",
+            "Provider:",
             f"providers.marketdata.api_token: {token_label}",
             f"providers.marketdata.mode: {config.marketdata_mode or 'default'}",
             f"providers.marketdata.max_retries: {config.marketdata_max_retries}",
@@ -644,7 +645,7 @@ def describe_runtime_config(config: RuntimeConfig) -> tuple[str, ...]:
     elif config.data_provider == "massive":
         key_label = "set" if config.massive_api_key else "not set"
         lines += [
-            "",
+            "Provider:",
             f"providers.massive.api_key: {key_label}",
             f"providers.massive.snapshot_page_limit: {config.massive_snapshot_page_limit}",
             f"providers.massive.request_interval_seconds: "
