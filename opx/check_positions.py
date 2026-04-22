@@ -11,6 +11,13 @@ from opx.storage.factory import get_storage_backend
 OUTPUTS_DIR = Path("output")
 
 
+def _read_dataset(path: Path) -> pd.DataFrame:
+    """Read a dataset file; supports .parquet and .csv extensions."""
+    if path.suffix == ".parquet":
+        return pd.read_parquet(path)
+    return pd.read_csv(path, low_memory=False)
+
+
 def find_latest_output(outputs_dir: Path = OUTPUTS_DIR) -> Path | None:
     """Return the most recently modified CSV in the outputs directory."""
     csvs = sorted(outputs_dir.glob("options_engine_output_*.csv"), key=lambda p: p.stat().st_mtime)
@@ -37,7 +44,7 @@ def check_positions(positions_path: Path | None = None, output_path: Path | None
     if resolved_output is None or not resolved_output.exists():
         return [], list(position_set.option_keys)
 
-    df = pd.read_csv(resolved_output, low_memory=False)
+    df = _read_dataset(resolved_output)
 
     found, missing = [], []
     for key in sorted(

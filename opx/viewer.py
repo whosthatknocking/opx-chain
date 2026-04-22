@@ -1,4 +1,5 @@
 """Local HTTP viewer for browsing exported options CSV snapshots."""
+# pylint: disable=too-many-lines
 
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ from pandas.api.types import is_bool_dtype, is_numeric_dtype
 from opx.config import get_runtime_config
 from opx.export import UNWANTED_EXPORT_COLUMNS
 from opx.positions import DEFAULT_POSITIONS_PATH
+from opx.storage.factory import get_storage_backend
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -31,6 +33,8 @@ FIELD_REFERENCE_PATH = REPO_ROOT / "docs" / "FIELD_REFERENCE.md"
 OUTPUTS_DIR = REPO_ROOT / "output"
 POSITIONS_PATH = REPO_ROOT / DEFAULT_POSITIONS_PATH
 CSV_PATTERN = "options_engine_output_*.csv"
+_DATA_DIR_OVERRIDE: Path | None = None
+VIEWER_PREFS_PATH = Path("~/.config/opx/viewer_prefs.json").expanduser()
 HIDDEN_COLUMNS = {
     "roll_from_days_to_expiration",
     *UNWANTED_EXPORT_COLUMNS,
@@ -177,8 +181,30 @@ class SummaryPayload(TypedDict):
     highlights: SummaryHighlights
 
 
-def discover_csv_files() -> list[Path]:
-    """Return exported CSV files ordered by most recently modified first."""
+def read_dataset_file(path: Path) -> pd.DataFrame:
+    """Read a dataset artifact from disk, selecting csv or parquet reader by extension."""
+    if path.suffix == ".parquet":
+        return pd.read_parquet(path)
+    return pd.read_csv(path, low_memory=False)
+
+
+def discover_dataset_paths() -> list[Path]:
+    """Return dataset paths ordered by most recently modified first.
+
+    When --data-dir was supplied on the CLI, scans that directory for .csv and
+    .parquet files. Otherwise uses the StorageBackend when enabled, then falls
+    back to a glob of the default output directory.
+    """
+    if _DATA_DIR_OVERRIDE is not None:
+        candidates = [
+            *_DATA_DIR_OVERRIDE.glob("*.csv"),
+            *_DATA_DIR_OVERRIDE.glob("*.parquet"),
+        ]
+        return sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)
+    storage = get_storage_backend()
+    if storage is not None:
+        records = storage.list_datasets(limit=200)
+        return [Path(r.location) for r in records if Path(r.location).exists()]
     return sorted(
         OUTPUTS_DIR.glob(CSV_PATTERN),
         key=lambda path: path.stat().st_mtime,
@@ -187,23 +213,24 @@ def discover_csv_files() -> list[Path]:
 
 
 def resolve_csv_path(csv_name: str | None = None) -> Path:
-    """Resolve the requested CSV filename or fall back to the newest export."""
-    files = discover_csv_files()
+    """Resolve the requested dataset filename or fall back to the newest export."""
+    files = discover_dataset_paths()
     if not files:
-        raise FileNotFoundError("No CSV files were found in the output directory.")
+        raise FileNotFoundError("No dataset files were found in the output directory.")
 
     if not csv_name:
         return files[0]
 
-    candidate = OUTPUTS_DIR / csv_name
-    if (
-        candidate.exists()
-        and candidate.is_file()
-        and candidate.name.startswith("options_engine_output_")
-    ):
+    for candidate in files:
+        if candidate.name == csv_name:
+            return candidate
+
+    search_dir = _DATA_DIR_OVERRIDE if _DATA_DIR_OVERRIDE is not None else OUTPUTS_DIR
+    candidate = search_dir / csv_name
+    if candidate.exists() and candidate.is_file():
         return candidate
 
-    raise FileNotFoundError(f"CSV file not found: {csv_name}")
+    raise FileNotFoundError(f"Dataset file not found: {csv_name}")
 
 
 def resolve_positions_path(path: Path | None = None) -> Path:
@@ -672,7 +699,7 @@ def sort_ticker_candidates(
 def build_summary_payload(csv_name: str | None = None) -> SummaryPayload:
     """Build the compact per-ticker summary payload used by the Summary tab."""
     csv_path = resolve_csv_path(csv_name)
-    frame = pd.read_csv(csv_path)
+    frame = read_dataset_file(csv_path)
     visible_columns = [column for column in frame.columns if column not in HIDDEN_COLUMNS]
     frame = frame[visible_columns]
     tickers = sorted(frame["underlying_symbol"].dropna().astype(str).unique())
@@ -755,9 +782,9 @@ def read_positions_rows(path: Path | None = None) -> tuple[Path, pd.DataFrame]:
 
 
 def load_csv_payload(csv_name: str | None = None) -> CsvPayload:
-    """Load the current CSV and serialize the table payload consumed by the browser."""
+    """Load the current dataset and serialize the table payload consumed by the browser."""
     csv_path = resolve_csv_path(csv_name)
-    frame = pd.read_csv(csv_path)
+    frame = read_dataset_file(csv_path)
     freshness_summary = build_freshness_summary(frame, csv_path)
     descriptions = extract_field_descriptions()
     dataset_cards = build_dataset_cards(frame, descriptions)
@@ -803,8 +830,8 @@ def load_positions_payload(path: Path | None = None) -> TablePayload:
 
 
 def make_file_listing() -> list[dict[str, Any]]:
-    """Return available export files with size and modified timestamps."""
-    files = discover_csv_files()
+    """Return available dataset files with size and modified timestamps."""
+    files = discover_dataset_paths()
     return [
         {
             "name": path.name,
@@ -813,6 +840,20 @@ def make_file_listing() -> list[dict[str, Any]]:
         }
         for path in files
     ]
+
+
+def load_viewer_prefs() -> dict[str, Any]:
+    """Load viewer preferences from disk, returning empty dict when absent."""
+    try:
+        return json.loads(VIEWER_PREFS_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_viewer_prefs(prefs: dict[str, Any]) -> None:
+    """Persist viewer preferences to disk."""
+    VIEWER_PREFS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    VIEWER_PREFS_PATH.write_text(json.dumps(prefs, indent=2), encoding="utf-8")
 
 
 class ViewerRequestHandler(SimpleHTTPRequestHandler):
@@ -862,9 +903,28 @@ class ViewerRequestHandler(SimpleHTTPRequestHandler):
             csv_name = query.get("file", [None])[0]
             self._respond_payload(build_summary_payload, csv_name)
             return
+        if parsed.path == "/api/prefs":
+            self.respond_json(load_viewer_prefs())
+            return
         if parsed.path == "/":
             self.path = "/index.html"  # pylint: disable=attribute-defined-outside-init
         super().do_GET()
+
+    def do_POST(self) -> None:  # pylint: disable=invalid-name
+        """Handle POST requests — currently only /api/prefs."""
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/prefs":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                prefs = json.loads(body)
+            except json.JSONDecodeError:
+                self.respond_json({"error": "invalid JSON"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            save_viewer_prefs(prefs)
+            self.respond_json({"ok": True})
+            return
+        self.respond_json({"error": "not found"}, status=HTTPStatus.NOT_FOUND)
 
     def respond_json(self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
         """Serialize and send a JSON response for one of the API endpoints."""
@@ -907,6 +967,16 @@ def parse_args(argv=None):
         action="store_true",
         help="Open the viewer URL in the default browser after startup.",
     )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help=(
+            "Directory to scan for dataset files (.csv, .parquet). "
+            "Overrides the storage backend and the default output/ directory."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -917,7 +987,10 @@ def open_viewer_in_browser(host: str, port: int) -> None:
 
 def main(argv=None) -> None:
     """Start the local viewer using runtime config with optional env overrides."""
+    global _DATA_DIR_OVERRIDE  # pylint: disable=global-statement
     args = parse_args(argv)
+    if args.data_dir is not None:
+        _DATA_DIR_OVERRIDE = args.data_dir.expanduser().resolve()
     config = get_runtime_config()
     host = os.environ.get("OPX_VIEWER_HOST", config.viewer_host)
     port = int(os.environ.get("OPX_VIEWER_PORT", str(config.viewer_port)))
