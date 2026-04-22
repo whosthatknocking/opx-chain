@@ -2,7 +2,7 @@
 
 import argparse
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
@@ -234,7 +234,7 @@ def main(argv=None):  # pylint: disable=too-many-branches,too-many-locals,too-ma
                 storage.fail_run(run_id, "no data fetched")
             return 1
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
         combined = pd.concat(ticker_frames, ignore_index=True)
         if config.enable_validation:
