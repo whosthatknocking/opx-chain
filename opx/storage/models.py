@@ -53,6 +53,19 @@ class DatasetHandle:
     created_at: datetime
 
 
+def record_to_handle(record: DatasetRecord) -> DatasetHandle:
+    """Convert a DatasetRecord to a DatasetHandle."""
+    return DatasetHandle(
+        dataset_id=record.dataset_id,
+        location=record.location,
+        schema_version=record.schema_version,
+        row_count=record.row_count,
+        format=record.format,
+        content_hash=record.content_hash,
+        created_at=record.created_at,
+    )
+
+
 @dataclass
 # pylint: disable=too-many-instance-attributes
 class TickerRunRecord:

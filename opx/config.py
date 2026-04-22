@@ -91,6 +91,9 @@ class RuntimeConfig:
     viewer_host: str
     viewer_port: int
     config_path: Path
+    storage_enabled: bool = False
+    storage_backend: str = "filesystem"
+    storage_max_runs_retained: int = 0
     config_warnings: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -258,6 +261,9 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
     )
     massive_warnings = warnings if data_provider == "massive" else []
     marketdata_warnings = warnings if data_provider == "marketdata" else []
+    storage_settings = _resolve_table(
+        data.get("storage", {}), field_name="storage", warnings=warnings
+    )
     massive_api_key = _resolve_config_value(
         massive_settings.get("api_key"),
         field_name="providers.massive.api_key",
@@ -483,6 +489,29 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
             validator=lambda value: value >= 0,
         ),
         config_path=resolved_path,
+        storage_enabled=_resolve_config_value(
+            storage_settings.get("enable"),
+            field_name="storage.enable",
+            default=False,
+            coercer=_coerce_bool,
+            warnings=warnings,
+        ),
+        storage_backend=_resolve_config_value(
+            storage_settings.get("backend"),
+            field_name="storage.backend",
+            default="filesystem",
+            coercer=_coerce_str,
+            warnings=warnings,
+            validator=lambda v: v in {"filesystem", "sqlite"},
+        ),
+        storage_max_runs_retained=_resolve_config_value(
+            storage_settings.get("max_runs_retained"),
+            field_name="storage.max_runs_retained",
+            default=0,
+            coercer=_coerce_int,
+            warnings=warnings,
+            validator=lambda v: v >= 0,
+        ),
         config_warnings=tuple(warnings),
     )
     object.__setattr__(

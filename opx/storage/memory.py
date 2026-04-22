@@ -18,6 +18,7 @@ from opx.storage.models import (
     RunSummary,
     TickerFetchResult,
     TickerRunRecord,
+    record_to_handle,
 )
 
 
@@ -127,15 +128,7 @@ class MemoryBackend:
         """Return a DatasetHandle for the given dataset_id."""
         for record in self._datasets:
             if record.dataset_id == dataset_id:
-                return DatasetHandle(
-                    dataset_id=record.dataset_id,
-                    location=record.location,
-                    schema_version=record.schema_version,
-                    row_count=record.row_count,
-                    format=record.format,
-                    content_hash=record.content_hash,
-                    created_at=record.created_at,
-                )
+                return record_to_handle(record)
         raise KeyError(f"dataset not found: {dataset_id}")
 
     def finalize_run(self, run_id: str, summary: RunSummary) -> None:

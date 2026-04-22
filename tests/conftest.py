@@ -48,6 +48,9 @@ def make_runtime_config(**overrides):
         "massive_snapshot_page_limit": 250,
         "massive_request_interval_seconds": 12.0,
         "config_path": Path("/tmp/opx.toml"),
+        "storage_enabled": False,
+        "storage_backend": "filesystem",
+        "storage_max_runs_retained": 0,
     }
     defaults.update(overrides)
     return RuntimeConfig(**defaults)
