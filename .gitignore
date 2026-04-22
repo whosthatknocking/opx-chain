@@ -20,4 +20,6 @@ debug/
 
 # Portfolio data — never commit personal positions
 data/positions.csv
-data/*.db
+
+# SQLite databases
+*.db
