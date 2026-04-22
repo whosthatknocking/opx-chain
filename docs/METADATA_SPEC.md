@@ -135,7 +135,8 @@ Not part of the downstream consumer's external interface.
 ## 6. `ArtifactRecord`
 
 One record per auxiliary artifact. Written by `write_artifact` for debug
-payloads, run logs, and optional sidecars.
+payloads, run logs, and optional sidecars. Sidecars may live under the owning
+run directory instead of the debug artifact directory.
 
 | Field | Type | Nullable | Step | Purpose |
 |---|---|---|---|---|

@@ -174,6 +174,8 @@ Responsibilities:
 - write debug payload dumps
 - write run logs or log references
 - write optional serialized summaries or sidecars
+- keep sidecars storage-managed and associated with the owning run rather than
+  treating them as ad hoc files
 
 ### 5.4 Provider Cache
 
@@ -514,7 +516,9 @@ Behavior:
 - `max_runs_retained = 0` (the default) disables pruning; all datasets are kept
 - a positive value causes `write_dataset` to prune the oldest datasets beyond
   the limit after each successful write
-- pruning removes both the artifact file and the metadata record
+- pruning removes both the dataset artifact file and the metadata record
+- pruning also removes storage-managed sidecar artifacts associated with the
+  pruned run
 - run records are retained independently of dataset pruning; they are small
 - malformed or negative values fall back to `0` (no pruning) with a warning
 

@@ -43,7 +43,8 @@ class FilesystemBackend:
     Run metadata lands in runs_dir/{run_id}/run.json.
     Dataset artifacts land in runs_dir/{run_id}/output/ as {dataset_id}.csv (or .parquet).
     Dataset metadata lands alongside as {dataset_id}.meta.json.
-    Artifact files land in debug_dir as {artifact_id}/{filename}.
+    Debug artifacts land in debug_dir as {artifact_id}/{filename}; sidecars may
+    live directly under runs_dir/{run_id}/.
     """
 
     def __init__(
