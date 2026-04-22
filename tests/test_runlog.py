@@ -7,9 +7,8 @@ from conftest import make_runtime_config
 from opx_chain.runlog import create_run_logger
 
 
-def test_create_run_logger_routes_yfinance_errors_to_run_log(tmp_path, monkeypatch):
+def test_create_run_logger_routes_yfinance_errors_to_run_log(monkeypatch):
     """yfinance errors should be written into the shared run log file."""
-    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         "opx_chain.runlog.get_runtime_config",
         lambda: make_runtime_config(
