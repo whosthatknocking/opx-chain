@@ -19,7 +19,7 @@ stable public surface exposed to downstream consumers.
 
 One record per fetch run. Created by `create_run`, updated by
 `finalize_run` and `fail_run`. Persisted by both the filesystem backend
-(as a JSON sidecar in `logs/`) and the SQLite backend (`runs` table).
+(as a JSON sidecar at `runs/{run_id}/run.json`) and the SQLite backend (`runs` table).
 
 | Field | Type | Nullable | Step | Purpose |
 |---|---|---|---|---|

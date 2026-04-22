@@ -117,7 +117,7 @@ Behavior:
   package interface becomes available to downstream consumers
 - `backend` is only read when `enable = true`; it is ignored otherwise
 - `also_write_csv = false` suppresses the timestamped CSV; only the
-  storage-managed artifact (e.g. `~/.local/share/opx-chain/output/<uuid>.parquet`)
+  storage-managed artifact (e.g. `~/.local/share/opx-chain/runs/<run-id>/output/<uuid>.parquet`)
   is written; the viewer discovers it automatically via the storage backend; only
   meaningful when `enable = true`
 - startup output always prints the resolved `Storage:` section; when disabled,
@@ -398,7 +398,7 @@ from day one.
 
 ## 9. Concurrency and Run Lifecycle
 
-The current fetcher lock (`logs/fetcher.lock`) prevents concurrent runs. Under
+The current fetcher lock (`fetcher.lock`) prevents concurrent runs. Under
 the storage model, `create_run` does not replace the lock — both coexist.
 
 Rationale:

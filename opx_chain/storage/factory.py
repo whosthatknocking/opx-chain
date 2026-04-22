@@ -37,8 +37,7 @@ def get_storage_backend(config=None):
 
     base = config.storage_dir if config.storage_dir else _default_data_dir()
     kwargs = {
-        "output_dir": base / "output",
-        "logs_dir": base / "logs",
+        "runs_dir": base / "runs",
         "debug_dir": config.debug_dump_dir,
         "max_runs_retained": config.storage_max_runs_retained,
         "dataset_format": config.storage_dataset_format,

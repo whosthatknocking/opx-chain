@@ -35,7 +35,7 @@ def _fetcher_patches(tmp_path: Path, config, backend, ticker_df=None):
     (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
 
     return [
-        patch.object(fetcher, "OUTPUTS_DIR", tmp_path / "output"),
+        patch.object(fetcher, "RUNS_DIR", tmp_path / "output"),
         patch.object(fetcher, "LOCKS_DIR", tmp_path / "logs"),
         patch.object(fetcher, "FETCHER_LOCK_PATH", tmp_path / "logs" / "fetcher.lock"),
         patch.object(fetcher, "acquire_fetcher_lock", return_value=MagicMock()),

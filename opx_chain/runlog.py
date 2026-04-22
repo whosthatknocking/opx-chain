@@ -24,9 +24,9 @@ def create_run_logger():
     """Create the append-only run logger and return it with its file path."""
     config = get_runtime_config()
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-    logs_dir = get_data_dir() / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    log_path = logs_dir / "opx_runs.log"
+    runs_dir = get_data_dir() / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = runs_dir / "opx_runs.log"
 
     logger = logging.getLogger("opx.run")
     logger.setLevel(logging.INFO)

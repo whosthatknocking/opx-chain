@@ -2,7 +2,7 @@
 
 from opx_chain import fetcher as _fetcher
 
-OUTPUTS_DIR = _fetcher.OUTPUTS_DIR
+RUNS_DIR = _fetcher.RUNS_DIR
 LOCKS_DIR = _fetcher.LOCKS_DIR
 FETCHER_LOCK_PATH = _fetcher.FETCHER_LOCK_PATH
 format_file_size = _fetcher.format_file_size
@@ -32,7 +32,7 @@ def release_fetcher_lock(lock_handle):
 
 
 _DELEGATED = (
-    "OUTPUTS_DIR", "LOCKS_DIR", "FETCHER_LOCK_PATH",
+    "RUNS_DIR", "LOCKS_DIR", "FETCHER_LOCK_PATH",
     "format_file_size", "get_runtime_config", "describe_runtime_config",
     "create_run_logger", "fetch_ticker_option_chain", "validate_export_frame",
     "emit_validation_report", "write_options_csv", "get_storage_backend",

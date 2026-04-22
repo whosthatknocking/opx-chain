@@ -31,7 +31,7 @@ _PKG_ROOT = Path(__file__).resolve().parent
 STATIC_ROOT = _PKG_ROOT / "viewer_static"
 USER_GUIDE_PATH = _PKG_ROOT.parent / "docs" / "USER_GUIDE.md"
 FIELD_REFERENCE_PATH = _PKG_ROOT.parent / "docs" / "FIELD_REFERENCE.md"
-OUTPUTS_DIR = get_data_dir() / "output"
+RUNS_DIR = get_data_dir() / "runs"
 POSITIONS_PATH = DEFAULT_POSITIONS_PATH
 CSV_PATTERN = "options_engine_output_*.csv"
 _DATA_DIR_OVERRIDE: Path | None = None
@@ -207,11 +207,11 @@ def discover_dataset_paths() -> list[Path]:
             if paths:
                 return paths
 
-    return sorted(
-        OUTPUTS_DIR.glob(CSV_PATTERN),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )
+    candidates = [
+        *RUNS_DIR.glob(f"*/output/{CSV_PATTERN}"),
+        *RUNS_DIR.glob(CSV_PATTERN),
+    ]
+    return sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)
 
 
 def resolve_csv_path(csv_name: str | None = None) -> Path:

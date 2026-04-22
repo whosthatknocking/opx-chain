@@ -29,8 +29,7 @@ def _make_backend(
     dataset_format: str = "csv",
 ) -> FilesystemBackend:
     return FilesystemBackend(
-        output_dir=tmp_path / "output",
-        logs_dir=tmp_path / "logs",
+        runs_dir=tmp_path / "runs",
         debug_dir=tmp_path / "debug",
         max_runs_retained=max_runs_retained,
         dataset_format=dataset_format,
@@ -74,11 +73,11 @@ def test_filesystem_backend_satisfies_protocol(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 def test_create_run_writes_sidecar(tmp_path: Path):
-    """create_run must write a JSON sidecar to logs_dir."""
+    """create_run must write a JSON sidecar to runs_dir/{run_id}/run.json."""
     backend = _make_backend(tmp_path)
     run_id = backend.create_run(_make_context())
 
-    assert (tmp_path / "logs" / f"run_{run_id}.json").exists()
+    assert (tmp_path / "runs" / run_id / "run.json").exists()
 
 
 def test_create_run_initial_status_is_running(tmp_path: Path):
@@ -146,7 +145,7 @@ def test_write_dataset_creates_csv_and_meta(tmp_path: Path):
     record = _write(backend, run_id)
 
     assert Path(record.location).exists()
-    assert (tmp_path / "output" / f"{record.dataset_id}.meta.json").exists()
+    assert (tmp_path / "runs" / run_id / "output" / f"{record.dataset_id}.meta.json").exists()
 
 
 def test_write_dataset_returns_correct_record(tmp_path: Path):
@@ -233,8 +232,8 @@ def test_list_datasets_filter_provider(tmp_path: Path):
     assert results[0].provider == "yfinance"
 
 
-def test_list_datasets_empty_when_no_output_dir(tmp_path: Path):
-    """list_datasets must return empty list when output_dir does not exist."""
+def test_list_datasets_empty_when_no_runs_dir(tmp_path: Path):
+    """list_datasets must return empty list when runs_dir does not exist."""
     backend = _make_backend(tmp_path)
     assert not backend.list_datasets()
 
@@ -426,7 +425,9 @@ def test_prune_tolerates_corrupt_meta_file(tmp_path: Path):
     run_id = backend.create_run(_make_context())
     _write(backend, run_id)
 
-    corrupt_meta = tmp_path / "output" / "corrupt.meta.json"
+    corrupt_dir = tmp_path / "runs" / "fake-run-id" / "output"
+    corrupt_dir.mkdir(parents=True, exist_ok=True)
+    corrupt_meta = corrupt_dir / "corrupt.meta.json"
     corrupt_meta.write_text("not-valid-json", encoding="utf-8")
 
     _write(backend, run_id)

@@ -71,7 +71,7 @@ opx-check
 The output line shows the path and when the file was fetched:
 
 ```
-Output:    ~/.local/share/opx-chain/output/<uuid>.parquet  (fetched 2026-04-22 07:07)
+Output:    ~/.local/share/opx-chain/runs/<run-id>/output/<uuid>.parquet  (fetched 2026-04-22 07:07)
 ```
 
 Pass `--positions` or `--output` to override the defaults:
@@ -125,19 +125,28 @@ The viewer includes:
 `$XDG_DATA_HOME/opx-chain/` (defaulting to `~/.local/share/opx-chain/`) is the
 standard data directory used by all three tools.
 
-When storage is enabled (`[storage] enable = true`), each run writes a dataset artifact
-to the output directory. The exact filename depends on the configured format:
+When storage is enabled (`[storage] enable = true`), each run gets its own
+subdirectory under `runs/`:
 
 ```text
-~/.local/share/opx-chain/output/<uuid>.parquet   # dataset_format = "parquet" (default)
-~/.local/share/opx-chain/output/<uuid>.csv       # dataset_format = "csv"
+~/.local/share/opx-chain/runs/<run-id>/run.json           # run metadata
+~/.local/share/opx-chain/runs/<run-id>/output/<uuid>.parquet   # dataset_format = "parquet" (default)
+~/.local/share/opx-chain/runs/<run-id>/output/<uuid>.csv       # dataset_format = "csv"
 ```
 
 When `also_write_csv = true` (the default), a timestamped CSV is also written
-alongside the storage artifact:
+inside the run's output directory alongside a `_latest` copy:
 
 ```text
-~/.local/share/opx-chain/output/options_engine_output_YYYYMMDD_HHMMSS.csv
+~/.local/share/opx-chain/runs/<run-id>/output/options_engine_output_YYYYMMDD_HHMMSS.csv
+~/.local/share/opx-chain/runs/options_engine_output_latest.csv
+```
+
+When storage is disabled, the timestamped CSV and latest copy land directly in `runs/`:
+
+```text
+~/.local/share/opx-chain/runs/options_engine_output_YYYYMMDD_HHMMSS.csv
+~/.local/share/opx-chain/runs/options_engine_output_latest.csv
 ```
 
 All three tools (`opx-fetch`, `opx-check`, `opx-view`) discover artifacts through the
@@ -146,7 +155,7 @@ storage backend automatically — no `--data-dir` flag is needed.
 Operational details that are not row-specific are written to:
 
 ```text
-~/.local/share/opx-chain/logs/opx_runs.log
+~/.local/share/opx-chain/runs/opx_runs.log
 ```
 
 The run log records:

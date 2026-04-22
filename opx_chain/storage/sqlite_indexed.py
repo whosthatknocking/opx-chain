@@ -112,16 +112,14 @@ class SqliteIndexedBackend:
     def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         db_path: Path,
-        output_dir: Path,
-        logs_dir: Path,
+        runs_dir: Path,
         debug_dir: Path,
         max_runs_retained: int = 0,
         dataset_format: str = "csv",
     ) -> None:
-        """Initialise with the SQLite db path, artifact directories, and retention limit."""
+        """Initialise with the SQLite db path, runs directory, and retention limit."""
         self._db_path = Path(db_path)
-        self._output_dir = Path(output_dir)
-        self._logs_dir = Path(logs_dir)
+        self._runs_dir = Path(runs_dir)
         self._debug_dir = Path(debug_dir)
         self._max_runs_retained = max_runs_retained
         self._dataset_format = dataset_format
@@ -224,9 +222,10 @@ class SqliteIndexedBackend:
 
     def write_dataset(self, run_id: str, dataset: DatasetWrite) -> DatasetRecord:
         """Serialize the DataFrame, store metadata in SQLite, and return a DatasetRecord."""
-        self._output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = self._runs_dir / run_id / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
         dataset_id, artifact_path, content_hash = write_dataset_artifact(
-            dataset.data, self._output_dir, self._dataset_format, self._serializer
+            dataset.data, output_dir, self._dataset_format, self._serializer
         )
         now = _now()
         record = DatasetRecord(

@@ -11,13 +11,19 @@ from opx_chain.storage.factory import get_data_dir, get_storage_backend
 from opx_chain.storage.models import DatasetRecord
 from opx_chain.utils import read_dataset_file
 
-OUTPUTS_DIR = get_data_dir() / "output"
+RUNS_DIR = get_data_dir() / "runs"
 
 
-def find_latest_output(outputs_dir: Path = OUTPUTS_DIR) -> Path | None:
-    """Return the most recently modified CSV in the outputs directory."""
-    csvs = sorted(outputs_dir.glob("options_engine_output_*.csv"), key=lambda p: p.stat().st_mtime)
-    return csvs[-1] if csvs else None
+def find_latest_output(runs_dir: Path = RUNS_DIR) -> Path | None:
+    """Return the latest output CSV, checking the latest symlink then globbing run dirs."""
+    latest = runs_dir / "options_engine_output_latest.csv"
+    if latest.exists():
+        return latest
+    csvs = [
+        *runs_dir.glob("*/output/options_engine_output_*.csv"),
+        *runs_dir.glob("options_engine_output_*.csv"),
+    ]
+    return max(csvs, key=lambda p: p.stat().st_mtime) if csvs else None
 
 
 def _utc_now() -> pd.Timestamp:
@@ -408,7 +414,7 @@ def main(argv=None):
         else:
             resolved_output = find_latest_output()
     if resolved_output is None:
-        print(f"No output CSV found in {OUTPUTS_DIR}/")
+        print(f"No output CSV found in {RUNS_DIR}/")
         return 1
 
     print(f"Positions: {positions_path}")

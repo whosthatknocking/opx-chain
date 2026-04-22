@@ -39,23 +39,21 @@ def _str_to_dt(value: str | None) -> datetime | None:
 class FilesystemBackend:
     """StorageBackend that writes metadata as JSON sidecars and artifacts as files.
 
-    Dataset artifacts land in output_dir as {dataset_id}.csv (or .parquet).
+    Run metadata lands in runs_dir/{run_id}/run.json.
+    Dataset artifacts land in runs_dir/{run_id}/output/ as {dataset_id}.csv (or .parquet).
     Dataset metadata lands alongside as {dataset_id}.meta.json.
-    Run records land in logs_dir as run_{run_id}.json.
     Artifact files land in debug_dir as {artifact_id}/{filename}.
     """
 
-    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def __init__(
         self,
-        output_dir: Path,
-        logs_dir: Path,
+        runs_dir: Path,
         debug_dir: Path,
         max_runs_retained: int = 0,
         dataset_format: str = "csv",
     ) -> None:
-        """Initialise with the three storage directories and optional retention limit."""
-        self._output_dir = output_dir
-        self._logs_dir = logs_dir
+        """Initialise with the runs directory, debug directory, and optional retention limit."""
+        self._runs_dir = runs_dir
         self._debug_dir = debug_dir
         self._max_runs_retained = max_runs_retained
         self._dataset_format = dataset_format
@@ -65,11 +63,14 @@ class FilesystemBackend:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _run_path(self, run_id: str) -> Path:
-        return self._logs_dir / f"run_{run_id}.json"
+    def _run_output_dir(self, run_id: str) -> Path:
+        return self._runs_dir / run_id / "output"
 
-    def _meta_path(self, dataset_id: str) -> Path:
-        return self._output_dir / f"{dataset_id}.meta.json"
+    def _run_path(self, run_id: str) -> Path:
+        return self._runs_dir / run_id / "run.json"
+
+    def _meta_path(self, dataset_id: str, run_id: str) -> Path:
+        return self._run_output_dir(run_id) / f"{dataset_id}.meta.json"
 
     def _artifact_path(self, artifact_id: str, filename: str) -> Path:
         return self._debug_dir / artifact_id / filename
@@ -84,8 +85,15 @@ class FilesystemBackend:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-    def _read_meta(self, dataset_id: str) -> dict:
-        with self._meta_path(dataset_id).open() as fh:
+    def _find_meta_path(self, dataset_id: str) -> Path:
+        """Scan all run dirs to locate a dataset meta file by dataset_id."""
+        matches = list(self._runs_dir.glob(f"*/output/{dataset_id}.meta.json"))
+        if not matches:
+            raise KeyError(f"dataset not found: {dataset_id}")
+        return matches[0]
+
+    def _read_meta(self, dataset_id: str, run_id: str) -> dict:
+        with self._meta_path(dataset_id, run_id).open() as fh:
             return json.load(fh)
 
     def _write_meta(self, record: DatasetRecord) -> None:
@@ -100,7 +108,7 @@ class FilesystemBackend:
             "location": record.location,
             "content_hash": record.content_hash,
         }
-        path = self._meta_path(record.dataset_id)
+        path = self._meta_path(record.dataset_id, record.run_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
@@ -122,14 +130,14 @@ class FilesystemBackend:
         if self._max_runs_retained <= 0:
             return
         meta_files = sorted(
-            self._output_dir.glob("*.meta.json"),
+            self._runs_dir.glob("*/output/*.meta.json"),
             key=lambda p: p.stat().st_mtime,
         )
         excess = len(meta_files) - self._max_runs_retained
         for meta_path in meta_files[:excess]:
             try:
                 data = json.loads(meta_path.read_text(encoding="utf-8"))
-                artifact = self._output_dir / Path(data["location"]).name
+                artifact = meta_path.parent / Path(data["location"]).name
                 if artifact.exists():
                     artifact.unlink()
             except (OSError, KeyError, json.JSONDecodeError):
@@ -175,8 +183,10 @@ class FilesystemBackend:
 
     def write_dataset(self, run_id: str, dataset: DatasetWrite) -> DatasetRecord:
         """Serialize the DataFrame, compute its hash, and write metadata."""
+        output_dir = self._run_output_dir(run_id)
+        output_dir.mkdir(parents=True, exist_ok=True)
         dataset_id, artifact_path, content_hash = write_dataset_artifact(
-            dataset.data, self._output_dir, self._dataset_format, self._serializer
+            dataset.data, output_dir, self._dataset_format, self._serializer
         )
         record = DatasetRecord(
             dataset_id=dataset_id,
@@ -218,10 +228,10 @@ class FilesystemBackend:
         ticker: str | None = None,  # pylint: disable=unused-argument
     ) -> list[DatasetRecord]:
         """Return dataset records from meta files, newest first."""
-        if not self._output_dir.exists():
+        if not self._runs_dir.exists():
             return []
         meta_files = sorted(
-            self._output_dir.glob("*.meta.json"),
+            self._runs_dir.glob("*/output/*.meta.json"),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
@@ -246,9 +256,7 @@ class FilesystemBackend:
 
     def get_dataset(self, dataset_id: str) -> DatasetHandle:
         """Return a DatasetHandle by loading the dataset's meta file."""
-        meta_path = self._meta_path(dataset_id)
-        if not meta_path.exists():
-            raise KeyError(f"dataset not found: {dataset_id}")
+        meta_path = self._find_meta_path(dataset_id)
         data = json.loads(meta_path.read_text(encoding="utf-8"))
         return record_to_handle(self._meta_to_record(data))
 
@@ -290,9 +298,9 @@ class FilesystemBackend:
         midnight_et = now_et.replace(hour=0, minute=0, second=0, microsecond=0)
         since_utc = midnight_et.astimezone(timezone.utc)
         count = 0
-        if not self._logs_dir.exists():
+        if not self._runs_dir.exists():
             return count
-        for run_path in self._logs_dir.glob("run_*.json"):
+        for run_path in self._runs_dir.glob("*/run.json"):
             try:
                 data = json.loads(run_path.read_text(encoding="utf-8"))
                 if data.get("provider") != provider:

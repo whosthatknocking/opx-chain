@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 
 import pandas as pd
 
@@ -23,7 +24,7 @@ from opx_chain.storage.factory import get_data_dir, get_storage_backend
 from opx_chain.storage.models import DatasetWrite, RunContext, RunSummary, TickerFetchResult
 from opx_chain.validate import emit_validation_report, validate_export_frame
 
-OUTPUTS_DIR = get_data_dir() / "output"
+RUNS_DIR = get_data_dir() / "runs"
 LOCKS_DIR = get_data_dir()
 FETCHER_LOCK_PATH = LOCKS_DIR / "fetcher.lock"
 
@@ -290,10 +291,17 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-branches,too-many-loca
 
         write_csv = storage is None or config.storage_also_write_csv
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
+        if storage is not None and run_id is not None:
+            csv_output_dir = RUNS_DIR / run_id / "output"
+        else:
+            csv_output_dir = RUNS_DIR
+        csv_output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = csv_output_dir / f"options_engine_output_{timestamp}.csv"
         if write_csv:
             export_df = write_options_csv([combined], output_path=output_path)
             file_size_bytes = output_path.stat().st_size
+            latest_path = RUNS_DIR / "options_engine_output_latest.csv"
+            shutil.copy2(output_path, latest_path)
         else:
             export_df = prepare_export_frame([combined])
             file_size_bytes = 0

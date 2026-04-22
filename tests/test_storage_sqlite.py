@@ -28,8 +28,7 @@ from opx_chain.storage.sqlite_indexed import SqliteIndexedBackend
 def _make_backend(tmp_path: Path, max_runs_retained: int = 0) -> SqliteIndexedBackend:
     return SqliteIndexedBackend(
         db_path=tmp_path / "opx-chain.db",
-        output_dir=tmp_path / "output",
-        logs_dir=tmp_path / "logs",
+        runs_dir=tmp_path / "runs",
         debug_dir=tmp_path / "debug",
         max_runs_retained=max_runs_retained,
     )

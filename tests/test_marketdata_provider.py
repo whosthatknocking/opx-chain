@@ -586,8 +586,7 @@ def test_marketdata_to_storage_pipeline_trace(monkeypatch, tmp_path):  # pylint:
 
     # ── Stage 3: write to storage ───────────────────────────────────────────
     backend = FilesystemBackend(
-        output_dir=tmp_path / "output",
-        logs_dir=tmp_path / "logs",
+        runs_dir=tmp_path / "runs",
         debug_dir=tmp_path / "debug",
     )
     run_id = backend.create_run(RunContext(
@@ -609,7 +608,8 @@ def test_marketdata_to_storage_pipeline_trace(monkeypatch, tmp_path):  # pylint:
     assert record.format == "csv"
     assert len(record.content_hash) == 64         # SHA-256 hex
     assert record.content_hash.isalnum()
-    assert (tmp_path / "output").joinpath(record.dataset_id + ".csv").exists()
+    import os  # pylint: disable=import-outside-toplevel
+    assert os.path.exists(record.location)
 
     # ── Stage 5: round-trip through the storage API ─────────────────────────
     records = backend.list_datasets(limit=1)
