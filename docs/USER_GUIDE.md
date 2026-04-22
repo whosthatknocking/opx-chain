@@ -155,7 +155,7 @@ storage backend automatically — no `--data-dir` flag is needed.
 Operational details that are not row-specific are written to:
 
 ```text
-~/.local/share/opx-chain/runs/opx_runs.log
+~/.local/share/opx-chain/logs/opx_runs.log
 ```
 
 The run log records:
