@@ -141,9 +141,15 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-branches,too-many-loca
         print(f"Today: {config.today}  Log: {log_path}")
         if cli_override:
             print(f"CLI override: {cli_override}")
+        runs_today = storage.count_runs_today(config.data_provider) if storage else 0
         print("Config:")
         for line in describe_runtime_config(config):
             print(f"  {line}")
+        if runs_today > 0:
+            print(
+                f"  Runs today ({config.data_provider}): {runs_today}"
+                f"  (this will be run {runs_today + 1})"
+            )
         if config.config_warnings:
             print("Config fallbacks:")
             for warning in config.config_warnings:

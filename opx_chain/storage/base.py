@@ -38,6 +38,7 @@ class StorageBackend(Protocol):  # pylint: disable=too-few-public-methods
     def get_run(self, run_id: str) -> RunRecord: ...  # pylint: disable=missing-function-docstring
     def finalize_run(self, run_id: str, summary: RunSummary) -> None: ...  # pylint: disable=missing-function-docstring
     def fail_run(self, run_id: str, error: str) -> None: ...  # pylint: disable=missing-function-docstring
+    def count_runs_today(self, provider: str) -> int: ...  # pylint: disable=missing-function-docstring
 
 
 class ProviderCache(Protocol):  # pylint: disable=too-few-public-methods

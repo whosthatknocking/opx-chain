@@ -321,3 +321,24 @@ def test_list_datasets_until_includes_records_at_boundary():
 
     assert len(results) == 1
     assert results[0].dataset_id == record.dataset_id
+
+
+# ---------------------------------------------------------------------------
+# count_runs_today
+# ---------------------------------------------------------------------------
+
+def test_count_runs_today_counts_same_provider_only():
+    """count_runs_today must count runs for the given provider, not others."""
+    backend = MemoryBackend()
+    backend.create_run(_make_context(provider="marketdata"))
+    backend.create_run(_make_context(provider="marketdata"))
+    backend.create_run(_make_context(provider="yfinance"))
+
+    assert backend.count_runs_today("marketdata") == 2
+    assert backend.count_runs_today("yfinance") == 1
+
+
+def test_count_runs_today_returns_zero_when_no_runs():
+    """count_runs_today must return 0 when no runs exist for that provider."""
+    backend = MemoryBackend()
+    assert backend.count_runs_today("marketdata") == 0

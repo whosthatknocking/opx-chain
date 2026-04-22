@@ -152,3 +152,13 @@ class MemoryBackend:
             run.status = "failed"
             run.finished_at = datetime.now(tz=timezone.utc)
             run.error_summary = error
+
+    def count_runs_today(self, provider: str) -> int:
+        """Return the number of runs started today (UTC) for the given provider."""
+        today_start = datetime.now(tz=timezone.utc).date().isoformat()
+        return sum(
+            1
+            for run in self._runs.values()
+            if run.provider == provider
+            and run.started_at.isoformat()[:10] >= today_start
+        )

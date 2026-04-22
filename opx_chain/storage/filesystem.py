@@ -283,6 +283,24 @@ class FilesystemBackend:
             error_summary=data.get("error_summary"),
         )
 
+    def count_runs_today(self, provider: str) -> int:
+        """Return the number of run sidecars started today (UTC) for the given provider."""
+        today_start = _now().date().isoformat()
+        count = 0
+        if not self._logs_dir.exists():
+            return count
+        for run_path in self._logs_dir.glob("run_*.json"):
+            try:
+                data = json.loads(run_path.read_text(encoding="utf-8"))
+                if data.get("provider") != provider:
+                    continue
+                started_at = data.get("started_at", "")
+                if started_at[:10] >= today_start:
+                    count += 1
+            except (OSError, json.JSONDecodeError):
+                continue
+        return count
+
     def get_ticker_results(self, run_id: str) -> list[TickerRunRecord]:
         """Return per-ticker results stored in the run sidecar."""
         data = self._read_run(run_id)

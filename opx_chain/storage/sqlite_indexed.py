@@ -365,6 +365,16 @@ class SqliteIndexedBackend:
             error_summary=row["error_summary"],
         )
 
+    def count_runs_today(self, provider: str) -> int:
+        """Return the number of runs started today (UTC) for the given provider."""
+        today_start = datetime.now(tz=timezone.utc).date().isoformat()
+        with self._open_connection() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM runs WHERE provider = ? AND started_at >= ?",
+                (provider, today_start),
+            ).fetchone()
+        return row[0] if row else 0
+
     def get_ticker_results(self, run_id: str) -> list[TickerRunRecord]:
         """Return per-ticker results for a run."""
         with self._open_connection() as conn:
