@@ -288,7 +288,7 @@ class FilesystemBackend:
         from opx_chain.config import US_MARKET_TIMEZONE  # pylint: disable=import-outside-toplevel
         now_et = datetime.now(tz=US_MARKET_TIMEZONE)
         midnight_et = now_et.replace(hour=0, minute=0, second=0, microsecond=0)
-        since_utc = _dt_to_str(midnight_et.astimezone(timezone.utc))
+        since_utc = midnight_et.astimezone(timezone.utc)
         count = 0
         if not self._logs_dir.exists():
             return count
@@ -297,9 +297,13 @@ class FilesystemBackend:
                 data = json.loads(run_path.read_text(encoding="utf-8"))
                 if data.get("provider") != provider:
                     continue
-                if data.get("started_at", "") >= since_utc:
+                started_at_str = data.get("started_at", "")
+                if not started_at_str:
+                    continue
+                started_at = datetime.fromisoformat(started_at_str)
+                if started_at >= since_utc:
                     count += 1
-            except (OSError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError, ValueError):
                 continue
         return count
 

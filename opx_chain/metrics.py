@@ -409,7 +409,7 @@ def add_screening_and_freshness_flags(df, fetched_at):
     df["is_stale_quote"] = np.where(
         df["quote_age_seconds"].notna(),
         df["quote_age_seconds"] > config.stale_quote_seconds,
-        None,
+        np.nan,
     )
     df["days_bucket"] = df["days_to_expiration"].apply(classify_days_to_expiration_bucket)
     df["near_expiry_near_money_flag"] = (

@@ -2,7 +2,7 @@
 
 import argparse
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
@@ -107,7 +107,7 @@ def acquire_fetcher_lock():
     handle = FETCHER_LOCK_PATH.open("w", encoding="utf-8")
     try:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
+    except OSError:
         handle.close()
         return None
     handle.write(f"{FETCHER_LOCK_PATH}\n")
@@ -250,7 +250,7 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-branches,too-many-loca
         row_count = len(combined)
 
         write_csv = storage is None or config.storage_write_legacy_csv
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
         output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
         if write_csv:
             export_df = write_options_csv([combined], output_path=output_path)
@@ -314,7 +314,10 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-branches,too-many-loca
         if logger:
             logger.exception("run_finished fatal error: %s", exc)
         if storage is not None and run_id is not None:
-            storage.fail_run(run_id, str(exc))
+            try:
+                storage.fail_run(run_id, str(exc))
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass
         raise
 
 

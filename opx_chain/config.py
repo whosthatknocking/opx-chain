@@ -176,13 +176,24 @@ def _coerce_path(value, *, field_name):
     return Path(normalized).expanduser()
 
 
-def _read_config_data(config_path: Path) -> dict:
+def _read_config_data(config_path: Path, warnings: list[str] | None = None) -> dict:
     if not config_path.exists():
         return {}
     try:
         with config_path.open("rb") as handle:
             data = tomllib.load(handle)
-    except tomllib.TOMLDecodeError:
+    except tomllib.TOMLDecodeError as exc:
+        if warnings is not None:
+            warnings.append(
+                f"Config file {config_path} could not be parsed"
+                f" (TOML error: {exc}); using defaults."
+            )
+        return {}
+    except OSError as exc:
+        if warnings is not None:
+            warnings.append(
+                f"Config file {config_path} could not be read ({exc}); using defaults."
+            )
         return {}
     if not isinstance(data, dict):
         return {}
@@ -244,7 +255,7 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
     """Load runtime config from the user config file, falling back to defaults."""
     resolved_path = (config_path or DEFAULT_CONFIG_PATH).expanduser()
     warnings: list[str] = []
-    data = _read_config_data(resolved_path)
+    data = _read_config_data(resolved_path, warnings)
     settings = _resolve_table(data.get("settings", {}), field_name="settings", warnings=warnings)
     providers = _resolve_table(data.get("providers", {}), field_name="providers", warnings=warnings)
     massive_settings = _resolve_table(
@@ -361,6 +372,7 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
             default=DEFAULT_TRADING_DAYS_PER_YEAR,
             coercer=_coerce_int,
             warnings=warnings,
+            validator=lambda v: v > 0,
         ),
         option_score_income_weight=_resolve_config_value(
             settings.get("option_score_income_weight"),
@@ -535,8 +547,13 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
             coercer=_coerce_bool,
             warnings=warnings,
         ),
-        storage_dir=Path(storage_settings["dir"]).expanduser().resolve()
-            if storage_settings.get("dir") else None,
+        storage_dir=_resolve_config_value(
+            storage_settings.get("dir"),
+            field_name="storage.dir",
+            default=None,
+            coercer=_coerce_path,
+            warnings=warnings,
+        ),
         provider_cache_backend=_resolve_config_value(
             storage_settings.get("cache_backend"),
             field_name="storage.cache_backend",
@@ -551,7 +568,7 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
             default="cache",
             coercer=_coerce_str,
             warnings=warnings,
-        )),
+        )).expanduser(),
         provider_snapshot_ttl=_resolve_config_value(
             storage_settings.get("snapshot_ttl"),
             field_name="storage.snapshot_ttl",

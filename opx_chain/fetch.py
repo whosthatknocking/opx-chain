@@ -92,7 +92,7 @@ def append_underlying_snapshot_fields(df, snapshot, fetched_at, stale_quote_seco
     df["is_stale_underlying_price"] = np.where(
         pd.notna(df["underlying_price_age_seconds"]),
         df["underlying_price_age_seconds"] > stale_quote_seconds,
-        None,
+        np.nan,
     )
     return df
 
