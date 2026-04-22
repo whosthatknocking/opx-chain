@@ -4,10 +4,10 @@ from numbers import Real
 
 import pandas as pd
 
-from opx.config import get_runtime_config
-from opx.positions import DEFAULT_POSITIONS_PATH, load_positions
-from opx.storage.factory import get_storage_backend
-from opx.utils import read_dataset_file
+from opx_chain.config import get_runtime_config
+from opx_chain.positions import DEFAULT_POSITIONS_PATH, load_positions
+from opx_chain.storage.factory import get_storage_backend
+from opx_chain.utils import read_dataset_file
 
 OUTPUTS_DIR = Path("output")
 

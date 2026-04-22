@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from opx.storage.filesystem import FilesystemBackend
+from opx_chain.storage.filesystem import FilesystemBackend
 
 
 def get_storage_backend(config=None):
@@ -15,7 +15,7 @@ def get_storage_backend(config=None):
     Returns a FilesystemBackend or SqliteIndexedBackend when enabled.
     """
     if config is None:
-        from opx.config import get_runtime_config  # pylint: disable=import-outside-toplevel
+        from opx_chain.config import get_runtime_config  # pylint: disable=import-outside-toplevel
         config = get_runtime_config()
 
     if not config.storage_enabled:
@@ -30,7 +30,7 @@ def get_storage_backend(config=None):
     }
 
     if config.storage_backend == "sqlite":
-        from opx.storage.sqlite_indexed import SqliteIndexedBackend  # pylint: disable=import-outside-toplevel,no-name-in-module
-        return SqliteIndexedBackend(db_path=Path("data") / "opx.db", **kwargs)
+        from opx_chain.storage.sqlite_indexed import SqliteIndexedBackend  # pylint: disable=import-outside-toplevel,no-name-in-module
+        return SqliteIndexedBackend(db_path=Path("data") / "opx-chain.db", **kwargs)
 
     return FilesystemBackend(**kwargs)

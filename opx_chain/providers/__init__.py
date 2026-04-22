@@ -1,10 +1,10 @@
 """Provider selection helpers for the market-data layer."""
 
-from opx.config import get_runtime_config
-from opx.providers.massive import MassiveProvider
-from opx.providers.marketdata import MarketDataProvider
-from opx.providers.base import DataProvider
-from opx.providers.yfinance import YFinanceProvider
+from opx_chain.config import get_runtime_config
+from opx_chain.providers.massive import MassiveProvider
+from opx_chain.providers.marketdata import MarketDataProvider
+from opx_chain.providers.base import DataProvider
+from opx_chain.providers.yfinance import YFinanceProvider
 
 
 PROVIDER_FACTORIES = {

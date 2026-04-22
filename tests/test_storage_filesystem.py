@@ -8,10 +8,10 @@ import pandas as pd
 import pytest
 
 from conftest import make_runtime_config
-from opx.storage.base import StorageBackend
-from opx.storage.factory import get_storage_backend
-from opx.storage.filesystem import FilesystemBackend
-from opx.storage.models import (
+from opx_chain.storage.base import StorageBackend
+from opx_chain.storage.factory import get_storage_backend
+from opx_chain.storage.filesystem import FilesystemBackend
+from opx_chain.storage.models import (
     ArtifactWrite,
     DatasetHandle,
     DatasetRecord,

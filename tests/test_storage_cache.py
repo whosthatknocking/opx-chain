@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 from conftest import make_runtime_config
-from opx.storage.cache import FilesystemCache, NullCache, get_provider_cache
+from opx_chain.storage.cache import FilesystemCache, NullCache, get_provider_cache
 
 
 # ---------------------------------------------------------------------------

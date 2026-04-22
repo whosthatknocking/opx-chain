@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from opx.storage.models import (
+from opx_chain.storage.models import (
     ArtifactRecord,
     ArtifactWrite,
     DatasetHandle,

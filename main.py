@@ -1,6 +1,6 @@
 """Compatibility entrypoint for the packaged fetcher CLI."""
 
-from opx import fetcher as _fetcher
+from opx_chain import fetcher as _fetcher
 
 OUTPUTS_DIR = _fetcher.OUTPUTS_DIR
 LOCKS_DIR = _fetcher.LOCKS_DIR

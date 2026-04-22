@@ -3,10 +3,10 @@
 import pandas as pd
 import pytest
 
-from opx import SCHEMA_VERSION
-from opx.storage.base import StorageBackend
-from opx.storage.memory import MemoryBackend
-from opx.storage.models import (
+from opx_chain import SCHEMA_VERSION
+from opx_chain.storage.base import StorageBackend
+from opx_chain.storage.memory import MemoryBackend
+from opx_chain.storage.models import (
     ArtifactWrite,
     DatasetHandle,
     DatasetRecord,

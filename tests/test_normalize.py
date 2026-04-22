@@ -3,13 +3,13 @@
 import pandas as pd
 import pytest
 
-from opx.normalize import (
+from opx_chain.normalize import (
     apply_post_download_filters,
     filter_strikes_near_spot,
     filter_wide_spread_quotes,
     filter_zero_bid_quotes,
 )
-from opx.positions import OptionPositionKey
+from opx_chain.positions import OptionPositionKey
 
 
 def test_filter_zero_bid_quotes_excludes_only_explicit_zero_bid_rows():
@@ -32,7 +32,7 @@ def test_filter_strikes_near_spot_keeps_only_rows_within_configured_band(monkeyp
     def _config():
         return type("Config", (), {"max_strike_distance_pct": 0.30})()
 
-    monkeypatch.setattr("opx.normalize.get_runtime_config", _config)
+    monkeypatch.setattr("opx_chain.normalize.get_runtime_config", _config)
     frame = pd.DataFrame(
         [
             {"strike": 69.9},
@@ -54,7 +54,7 @@ def test_filter_wide_spread_quotes_keeps_rows_at_the_cutoff(monkeypatch: pytest.
         return type("Config", (), {"max_spread_pct_of_mid": 0.25})()
 
     monkeypatch.setattr(
-        "opx.normalize.get_runtime_config",
+        "opx_chain.normalize.get_runtime_config",
         make_config,
     )
     frame = pd.DataFrame(
@@ -79,7 +79,7 @@ def test_apply_post_download_filters_position_keys_bypass_all_filters(monkeypatc
             "max_spread_pct_of_mid": 0.25,
         })()
 
-    monkeypatch.setattr("opx.normalize.get_runtime_config", make_config)
+    monkeypatch.setattr("opx_chain.normalize.get_runtime_config", make_config)
 
     frame = pd.DataFrame([
         {
@@ -136,7 +136,7 @@ def test_apply_post_download_filters_no_position_keys_behaves_normally(monkeypat
             "max_spread_pct_of_mid": 0.25,
         })()
 
-    monkeypatch.setattr("opx.normalize.get_runtime_config", make_config)
+    monkeypatch.setattr("opx_chain.normalize.get_runtime_config", make_config)
 
     frame = pd.DataFrame([
         {

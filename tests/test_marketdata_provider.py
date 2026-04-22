@@ -11,9 +11,9 @@ from marketdata.output_types.options_chain import OptionsChain
 from marketdata.sdk_error import MarketDataClientErrorResult
 
 from conftest import make_runtime_config
-from opx import fetch
-from opx.providers.base import DataProvider, ProviderAuthenticationError
-from opx.providers.marketdata import CALLER_USER_AGENT, MarketDataProvider
+from opx_chain import fetch
+from opx_chain.providers.base import DataProvider, ProviderAuthenticationError
+from opx_chain.providers.marketdata import CALLER_USER_AGENT, MarketDataProvider
 
 
 def make_chain_result():
@@ -136,9 +136,9 @@ class FakeMarketDataClient:  # pylint: disable=too-few-public-methods,too-many-i
 
 def patch_marketdata_client(monkeypatch):
     """Route the provider through the local fake SDK client with a fake token."""
-    monkeypatch.setattr("opx.providers.marketdata.OpxMarketDataClient", FakeMarketDataClient)
+    monkeypatch.setattr("opx_chain.providers.marketdata.OpxMarketDataClient", FakeMarketDataClient)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_provider_credentials",
+        "opx_chain.providers.marketdata.get_provider_credentials",
         lambda provider_name: {"api_token": "token"} if provider_name == "marketdata" else {},
     )
 
@@ -152,7 +152,7 @@ def test_marketdata_provider_builds_snapshot_and_option_chain(monkeypatch):
     """Market Data provider should derive expirations, chains, and underlying snapshot."""
     patch_marketdata_client(monkeypatch)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_runtime_config",
+        "opx_chain.providers.marketdata.get_runtime_config",
         lambda: make_runtime_config(marketdata_mode=None),
     )
     provider = MarketDataProvider()
@@ -249,7 +249,7 @@ def test_marketdata_provider_passes_configured_mode(monkeypatch):
     """Configured Market Data mode should be forwarded to the SDK chain call."""
     patch_marketdata_client(monkeypatch)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_runtime_config",
+        "opx_chain.providers.marketdata.get_runtime_config",
         lambda: make_runtime_config(marketdata_mode="delayed"),
     )
     provider = MarketDataProvider()
@@ -263,14 +263,14 @@ def test_marketdata_provider_retries_rate_limits(monkeypatch):
     """429 responses should retry with backoff and eventually succeed."""
     patch_marketdata_client(monkeypatch)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_runtime_config",
+        "opx_chain.providers.marketdata.get_runtime_config",
         lambda: make_runtime_config(
             marketdata_max_retries=2,
             marketdata_request_interval_seconds=0.0,
         ),
     )
     sleep_calls = []
-    monkeypatch.setattr("opx.providers.marketdata.time.sleep", sleep_calls.append)
+    monkeypatch.setattr("opx_chain.providers.marketdata.time.sleep", sleep_calls.append)
     provider = MarketDataProvider()
     responses = iter(
         [
@@ -294,15 +294,17 @@ def test_marketdata_provider_respects_request_interval(monkeypatch):
     """Configured Market Data pacing should delay back-to-back HTTP requests."""
     patch_marketdata_client(monkeypatch)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_runtime_config",
+        "opx_chain.providers.marketdata.get_runtime_config",
         lambda: make_runtime_config(
             marketdata_request_interval_seconds=1.5,
         ),
     )
     monotonic_values = iter([10.0, 10.2, 10.2, 12.0])
-    monkeypatch.setattr("opx.providers.marketdata.time.monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(
+        "opx_chain.providers.marketdata.time.monotonic", lambda: next(monotonic_values)
+    )
     sleep_calls = []
-    monkeypatch.setattr("opx.providers.marketdata.time.sleep", sleep_calls.append)
+    monkeypatch.setattr("opx_chain.providers.marketdata.time.sleep", sleep_calls.append)
     provider = MarketDataProvider()
     wrapped = provider._wrap_logged_request(  # pylint: disable=protected-access
         lambda _method, _url, *_args, **_kwargs: FakeResponse(200, {"optionSymbol": []})
@@ -328,9 +330,9 @@ def test_marketdata_provider_invalid_credentials_fail_clearly(monkeypatch):
         def _options_chain(self, _symbol, **_kwargs):
             return MarketDataClientErrorResult(BaseMarketdataException("Unauthorized token"))
 
-    monkeypatch.setattr("opx.providers.marketdata.OpxMarketDataClient", FailingClient)
+    monkeypatch.setattr("opx_chain.providers.marketdata.OpxMarketDataClient", FailingClient)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_provider_credentials",
+        "opx_chain.providers.marketdata.get_provider_credentials",
         lambda provider_name: {"api_token": "token"} if provider_name == "marketdata" else {},
     )
     provider = MarketDataProvider()
@@ -349,8 +351,8 @@ def test_fetch_ticker_option_chain_runs_with_marketdata_selected(monkeypatch, tm
         max_expiration_weeks=52,
         max_expiration="2027-03-31",
     )
-    monkeypatch.setattr("opx.fetch.get_runtime_config", lambda: config)
-    monkeypatch.setattr("opx.fetch.get_data_provider", MarketDataProvider)
+    monkeypatch.setattr("opx_chain.fetch.get_runtime_config", lambda: config)
+    monkeypatch.setattr("opx_chain.fetch.get_data_provider", MarketDataProvider)
 
     result = fetch.fetch_ticker_option_chain("TSLA")
 
@@ -368,7 +370,7 @@ def test_marketdata_provider_load_ticker_events_parses_earnings_and_dividends(mo
     patch_marketdata_client(monkeypatch)
     today = date(2026, 4, 16)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_runtime_config",
+        "opx_chain.providers.marketdata.get_runtime_config",
         lambda: make_runtime_config(today=today),
     )
     provider = MarketDataProvider()
@@ -407,7 +409,7 @@ def test_marketdata_provider_parses_numeric_event_dates_in_market_timezone(monke
     patch_marketdata_client(monkeypatch)
     today = date(2026, 4, 29)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_runtime_config",
+        "opx_chain.providers.marketdata.get_runtime_config",
         lambda: make_runtime_config(today=today),
     )
     provider = MarketDataProvider()
@@ -432,7 +434,7 @@ def test_marketdata_provider_load_ticker_events_returns_blanks_on_api_failure(mo
     """load_ticker_events should return blank values when the API call raises."""
     patch_marketdata_client(monkeypatch)
     monkeypatch.setattr(
-        "opx.providers.marketdata.get_runtime_config",
+        "opx_chain.providers.marketdata.get_runtime_config",
         lambda: make_runtime_config(today=date(2026, 4, 16)),
     )
     provider = MarketDataProvider()

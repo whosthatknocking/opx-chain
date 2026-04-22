@@ -3,8 +3,8 @@
 import numpy as np
 import pandas as pd
 
-from opx.config import get_runtime_config
-from opx.greeks import compute_greeks
+from opx_chain.config import get_runtime_config
+from opx_chain.greeks import compute_greeks
 
 
 def classify_days_to_expiration_bucket(days_to_expiration):

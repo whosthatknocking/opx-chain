@@ -1,6 +1,6 @@
 """Options chain data pipeline."""
 
-from opx.version import __version__
+from opx_chain.version import __version__
 
 SCHEMA_VERSION: int = 1
 

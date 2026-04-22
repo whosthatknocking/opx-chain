@@ -16,19 +16,19 @@ from marketdata.client import MarketDataClient
 from marketdata.input_types.base import Mode, OutputFormat
 from marketdata.sdk_error import MarketDataClientErrorResult
 
-from opx.config import (
+from opx_chain.config import (
     SCRIPT_VERSION,
     US_MARKET_TIMEZONE,
     get_provider_credentials,
     get_runtime_config,
 )
-from opx.providers.base import (
+from opx_chain.providers.base import (
     DataProvider,
     OptionChainFrames,
     ProviderAuthenticationError,
     normalize_provider_frame,
 )
-from opx.utils import coerce_float, normalize_timestamp
+from opx_chain.utils import coerce_float, normalize_timestamp
 
 CALLER_USER_AGENT = f"opx/{SCRIPT_VERSION}"
 DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
@@ -253,7 +253,7 @@ class MarketDataProvider(DataProvider):
         ):
             raise ProviderAuthenticationError(
                 "Market Data authentication failed. Check [providers.marketdata] api_token "
-                "in ~/.config/opx/config.toml."
+                "in ~/.config/opx-chain/config.toml."
             )
         raise RuntimeError(f"Market Data {context} failed: {message}")
 

@@ -20,10 +20,10 @@ from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
 from pandas.api.types import is_bool_dtype, is_numeric_dtype
-from opx.config import get_runtime_config
-from opx.export import UNWANTED_EXPORT_COLUMNS
-from opx.positions import DEFAULT_POSITIONS_PATH
-from opx.utils import read_dataset_file
+from opx_chain.config import get_runtime_config
+from opx_chain.export import UNWANTED_EXPORT_COLUMNS
+from opx_chain.positions import DEFAULT_POSITIONS_PATH
+from opx_chain.utils import read_dataset_file
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -34,7 +34,7 @@ OUTPUTS_DIR = REPO_ROOT / "output"
 POSITIONS_PATH = REPO_ROOT / DEFAULT_POSITIONS_PATH
 CSV_PATTERN = "options_engine_output_*.csv"
 _DATA_DIR_OVERRIDE: Path | None = None
-VIEWER_PREFS_PATH = Path("~/.config/opx/viewer_prefs.json").expanduser()
+VIEWER_PREFS_PATH = Path("~/.config/opx-chain/viewer_prefs.json").expanduser()
 HIDDEN_COLUMNS = {
     "roll_from_days_to_expiration",
     *UNWANTED_EXPORT_COLUMNS,

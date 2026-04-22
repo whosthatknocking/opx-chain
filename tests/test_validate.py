@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from opx.validate import (
+from opx_chain.validate import (
     emit_validation_report,
     summarize_validation_findings,
     validate_export_frame,

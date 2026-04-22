@@ -13,11 +13,11 @@ try:
 except ImportError:  # pragma: no cover
     import tomli as tomllib
 
-from opx.version import __version__
+from opx_chain.version import __version__
 
 SUPPORTED_PROVIDERS = frozenset({"yfinance", "massive", "marketdata"})
 SCRIPT_VERSION = __version__
-DEFAULT_CONFIG_PATH = Path("~/.config/opx/config.toml").expanduser()
+DEFAULT_CONFIG_PATH = Path("~/.config/opx-chain/config.toml").expanduser()
 DEFAULT_TICKERS = ("TSLA", "NVDA", "UBER", "MSFT", "GOOGL", "ORCL", "PLTR")
 DEFAULT_DATA_PROVIDER = "yfinance"
 DEFAULT_MIN_BID = None  # disabled by default; previously 0.50

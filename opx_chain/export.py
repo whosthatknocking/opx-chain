@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from opx import SCHEMA_VERSION  # noqa: F401 pylint: disable=unused-import
-from opx.schema import QUALITY_FLAG_FIELDS
+from opx_chain import SCHEMA_VERSION  # noqa: F401 pylint: disable=unused-import
+from opx_chain.schema import QUALITY_FLAG_FIELDS
 
 
 COLUMN_ORDER = [

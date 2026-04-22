@@ -9,11 +9,13 @@ import pytest
 from massive.rest.models.snapshot import OptionContractSnapshot
 
 from conftest import make_runtime_config
-from opx import fetch
-from opx.greeks import compute_greeks
-from opx.config import reset_runtime_config
-from opx.providers.base import ProviderAuthenticationError
-from opx.providers.massive import CALLER_USER_AGENT, DEFAULT_SNAPSHOT_PAGE_LIMIT, MassiveProvider
+from opx_chain import fetch
+from opx_chain.greeks import compute_greeks
+from opx_chain.config import reset_runtime_config
+from opx_chain.providers.base import ProviderAuthenticationError
+from opx_chain.providers.massive import (
+    CALLER_USER_AGENT, DEFAULT_SNAPSHOT_PAGE_LIMIT, MassiveProvider,
+)
 
 TEST_EXPIRATION_DATE = date.today() + timedelta(days=30)
 TEST_EXPIRATION = TEST_EXPIRATION_DATE.isoformat()
@@ -318,7 +320,7 @@ def test_massive_provider_logs_each_http_call_status(capsys):
 def test_massive_provider_client_sets_app_user_agent(monkeypatch):
     """Massive requests should advertise the app name and version in User-Agent."""
     monkeypatch.setattr(
-        "opx.providers.massive.get_provider_credentials",
+        "opx_chain.providers.massive.get_provider_credentials",
         lambda _provider_name: {"api_key": "secret"},
     )
     provider = MassiveProvider()
@@ -381,7 +383,7 @@ def test_massive_provider_retries_rate_limits(monkeypatch):
         return fake_client
 
     monkeypatch.setattr(provider, "_client", fake_client_factory)
-    monkeypatch.setattr("opx.providers.massive.time.sleep", sleeps.append)
+    monkeypatch.setattr("opx_chain.providers.massive.time.sleep", sleeps.append)
 
     payload = provider._fetch_snapshot_results("TSLA")  # pylint: disable=protected-access
 
@@ -395,7 +397,7 @@ def test_massive_provider_can_dump_each_http_response_page(monkeypatch, tmp_path
     """Shared provider debug mode should dump one Massive JSON file per HTTP response page."""
     provider = MassiveProvider()
     monkeypatch.setattr(
-        "opx.providers.base.get_runtime_config",
+        "opx_chain.providers.base.get_runtime_config",
         lambda: make_runtime_config(
             data_provider="massive",
             massive_api_key="secret",
@@ -440,8 +442,10 @@ def test_massive_provider_spaces_underlying_http_requests(monkeypatch):
     sleeps = []
     wrapped_calls = []
 
-    monkeypatch.setattr("opx.providers.massive.time.monotonic", lambda: next(monotonic_values))
-    monkeypatch.setattr("opx.providers.massive.time.sleep", sleeps.append)
+    monkeypatch.setattr(
+        "opx_chain.providers.massive.time.monotonic", lambda: next(monotonic_values)
+    )
+    monkeypatch.setattr("opx_chain.providers.massive.time.sleep", sleeps.append)
     monkeypatch.setattr(provider, "_request_interval_seconds", lambda: 12.0)
 
     wrapped = provider._wrap_rate_limited_get(  # pylint: disable=protected-access
@@ -519,7 +523,7 @@ api_key = "secret"
         encoding="utf-8",
     )
 
-    monkeypatch.setattr("opx.config.DEFAULT_CONFIG_PATH", config_path)
+    monkeypatch.setattr("opx_chain.config.DEFAULT_CONFIG_PATH", config_path)
     reset_runtime_config()
     monkeypatch.setattr(
         MassiveProvider,

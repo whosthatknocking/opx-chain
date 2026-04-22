@@ -3,7 +3,7 @@
 import textwrap
 from pathlib import Path
 
-from opx.positions import (
+from opx_chain.positions import (
     DEFAULT_POSITIONS_PATH,
     EMPTY_POSITION_SET,
     OptionPositionKey,

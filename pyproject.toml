@@ -3,7 +3,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "opx"
+name = "opx-chain"
 version = "0.2.0"
 description = "Options chain fetcher, export pipeline, and local viewer."
 readme = "README.md"
@@ -30,15 +30,15 @@ parquet = [
 ]
 
 [project.scripts]
-opx-fetcher = "opx.fetcher:main"
-opx-viewer = "opx.viewer:main"
-opx-check = "opx.check_positions:main"
+opx-fetcher = "opx_chain.fetcher:main"
+opx-viewer = "opx_chain.viewer:main"
+opx-check = "opx_chain.check_positions:main"
 
 [tool.setuptools.packages.find]
-include = ["opx*"]
+include = ["opx_chain*"]
 
 [tool.setuptools.package-data]
-opx = ["viewer_static/*"]
+opx_chain = ["viewer_static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

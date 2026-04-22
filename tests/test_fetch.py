@@ -8,12 +8,12 @@ import pandas as pd
 import pytest
 
 from conftest import make_runtime_config
-from opx import fetch
-from opx.fetch import append_ticker_event_fields
-import opx.metrics
-import opx.normalize
-from opx.positions import EMPTY_POSITION_SET, OptionPositionKey, PositionSet
-from opx.providers.base import OptionChainFrames
+from opx_chain import fetch
+from opx_chain.fetch import append_ticker_event_fields
+import opx_chain.metrics
+import opx_chain.normalize
+from opx_chain.positions import EMPTY_POSITION_SET, OptionPositionKey, PositionSet
+from opx_chain.providers.base import OptionChainFrames
 
 
 def make_vendor_frame(rows):
@@ -151,8 +151,8 @@ def test_fetch_ticker_option_chain_logs_raw_provider_row_counts(monkeypatch, cap
         lambda: make_runtime_config(today=pd.Timestamp("2026-03-20").date()),
     )
 
-    caplog.set_level("INFO", logger="opx.run")
-    logger = logging.getLogger("opx.run")
+    caplog.set_level("INFO", logger="opx_chain.run")
+    logger = logging.getLogger("opx_chain.run")
 
     result = fetch.fetch_ticker_option_chain("TEST", logger=logger)
 
@@ -176,8 +176,8 @@ def test_fetch_ticker_option_chain_prints_stage_counts(monkeypatch, capsys):
         return make_runtime_config(today=pd.Timestamp("2026-03-20").date())
 
     monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.normalize, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.metrics, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
 
     result = fetch.fetch_ticker_option_chain("TEST")
 
@@ -202,8 +202,8 @@ def test_fetch_ticker_option_chain_explains_when_filters_remove_everything(monke
         )
 
     monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.normalize, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.metrics, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
 
     result = fetch.fetch_ticker_option_chain("TEST")
 
@@ -229,8 +229,8 @@ def test_fetch_ticker_option_chain_can_disable_post_download_filters(monkeypatch
         )
 
     monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.normalize, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.metrics, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
 
     result = fetch.fetch_ticker_option_chain("TEST")
 
@@ -255,8 +255,8 @@ def test_fetch_ticker_option_chain_validates_rows_before_filtering(monkeypatch):
         return make_runtime_config(today=pd.Timestamp("2026-03-20").date())
 
     monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.normalize, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.metrics, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
     findings = []
 
     result = fetch.fetch_ticker_option_chain("TEST", validation_findings=findings)
@@ -290,8 +290,8 @@ def test_fetch_ticker_option_chain_can_disable_validation(monkeypatch):
         )
 
     monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.normalize, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.metrics, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
     findings = []
 
     result = fetch.fetch_ticker_option_chain("TEST", validation_findings=findings)
@@ -305,8 +305,8 @@ def test_fetch_ticker_option_chain_logs_provider_name_on_error(monkeypatch, capl
     monkeypatch.setattr(fetch, "get_data_provider", ErrorProvider)
     monkeypatch.setattr(fetch, "get_runtime_config", make_runtime_config)
 
-    caplog.set_level("ERROR", logger="opx.run")
-    logger = logging.getLogger("opx.run")
+    caplog.set_level("ERROR", logger="opx_chain.run")
+    logger = logging.getLogger("opx_chain.run")
 
     result = fetch.fetch_ticker_option_chain("TEST", logger=logger)
 
@@ -387,8 +387,8 @@ def _patch_config_20260320(monkeypatch):
     def config_factory():
         return make_runtime_config(today=pd.Timestamp("2026-03-20").date())
     monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.normalize, "get_runtime_config", config_factory)
-    monkeypatch.setattr(opx.metrics, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
 
 
 def test_today_expiration_dropped_without_position_set(monkeypatch):

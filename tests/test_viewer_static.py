@@ -4,7 +4,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 
-STATIC_INDEX_PATH = Path(__file__).resolve().parent.parent / "opx" / "viewer_static" / "index.html"
+STATIC_INDEX_PATH = (
+    Path(__file__).resolve().parent.parent / "opx_chain" / "viewer_static" / "index.html"
+)
 
 
 class IdCollector(HTMLParser):

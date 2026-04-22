@@ -70,7 +70,7 @@ class FilesystemCache:
 def get_provider_cache(config=None):
     """Return a ProviderCache instance based on config, or NullCache when disabled."""
     if config is None:
-        from opx.config import get_runtime_config  # pylint: disable=import-outside-toplevel
+        from opx_chain.config import get_runtime_config  # pylint: disable=import-outside-toplevel
         config = get_runtime_config()
     if config.provider_cache_backend == "filesystem":
         return FilesystemCache(config.provider_cache_dir)

@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from opx.config import get_runtime_config
-from opx.providers.base import DataProvider, OptionChainFrames, normalize_provider_frame
-from opx.utils import coerce_float, normalize_timestamp
+from opx_chain.config import get_runtime_config
+from opx_chain.providers.base import DataProvider, OptionChainFrames, normalize_provider_frame
+from opx_chain.utils import coerce_float, normalize_timestamp
 
 
 def compute_historical_volatility(stock):  # pylint: disable=broad-exception-caught

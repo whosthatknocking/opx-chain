@@ -5,8 +5,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from opx.config import SCRIPT_VERSION, get_runtime_config
-from opx.providers import get_data_provider
+from opx_chain.config import SCRIPT_VERSION, get_runtime_config
+from opx_chain.providers import get_data_provider
 
 
 def configure_external_loggers(file_handler):

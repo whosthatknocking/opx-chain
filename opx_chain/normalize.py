@@ -2,8 +2,8 @@
 
 import pandas as pd
 
-from opx.config import get_runtime_config
-from opx.metrics import (
+from opx_chain.config import get_runtime_config
+from opx_chain.metrics import (
     add_derived_pricing_metrics,
     add_quote_quality_metrics,
     add_screening_and_freshness_flags,

@@ -7,9 +7,9 @@ import os
 import re
 import sys
 
-from opx import __version__
-from opx.config import SCRIPT_VERSION
-from opx.version import get_version
+from opx_chain import __version__
+from opx_chain.config import SCRIPT_VERSION
+from opx_chain.version import get_version
 
 SEMVER_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 

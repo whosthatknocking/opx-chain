@@ -4,7 +4,7 @@ import textwrap
 
 import pandas as pd
 
-from opx import viewer
+from opx_chain import viewer
 
 
 def build_config(viewer_host: str, viewer_port: int):
@@ -199,7 +199,7 @@ def test_pick_moderate_risk_opportunity_accepts_spread_at_config_cutoff(monkeypa
     def make_config():
         return type("Config", (), {"max_spread_pct_of_mid": 0.25})()
 
-    monkeypatch.setattr("opx.viewer.get_runtime_config", make_config)
+    monkeypatch.setattr("opx_chain.viewer.get_runtime_config", make_config)
     frame = pd.DataFrame(
         [
             {
@@ -317,10 +317,10 @@ def test_viewer_main_uses_runtime_config_host_and_port(monkeypatch):
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
-        "opx.viewer.get_runtime_config",
+        "opx_chain.viewer.get_runtime_config",
         lambda: build_config("0.0.0.0", 9001),
     )
-    monkeypatch.setattr("opx.viewer.serve", captured.update)
+    monkeypatch.setattr("opx_chain.viewer.serve", captured.update)
 
     monkeypatch.delenv("OPX_VIEWER_HOST", raising=False)
     monkeypatch.delenv("OPX_VIEWER_PORT", raising=False)
@@ -335,10 +335,10 @@ def test_viewer_main_env_overrides_runtime_config(monkeypatch):
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
-        "opx.viewer.get_runtime_config",
+        "opx_chain.viewer.get_runtime_config",
         lambda: build_config("127.0.0.1", 8000),
     )
-    monkeypatch.setattr("opx.viewer.serve", captured.update)
+    monkeypatch.setattr("opx_chain.viewer.serve", captured.update)
     monkeypatch.setenv("OPX_VIEWER_HOST", "0.0.0.0")
     monkeypatch.setenv("OPX_VIEWER_PORT", "9100")
 
@@ -364,15 +364,17 @@ def test_viewer_main_can_open_browser(monkeypatch):
             self._callback(*self._args, **self._kwargs)
 
     monkeypatch.setattr(
-        "opx.viewer.get_runtime_config",
+        "opx_chain.viewer.get_runtime_config",
         lambda: build_config("127.0.0.1", 8000),
     )
-    monkeypatch.setattr("opx.viewer.serve", lambda **kwargs: captured.update({"serve": kwargs}))
     monkeypatch.setattr(
-        "opx.viewer.open_viewer_in_browser",
+        "opx_chain.viewer.serve", lambda **kwargs: captured.update({"serve": kwargs})
+    )
+    monkeypatch.setattr(
+        "opx_chain.viewer.open_viewer_in_browser",
         lambda host, port: captured.update({"open": (host, port)}),
     )
-    monkeypatch.setattr("opx.viewer.threading.Timer", ImmediateTimer)
+    monkeypatch.setattr("opx_chain.viewer.threading.Timer", ImmediateTimer)
 
     viewer.main(["--open"])
 
@@ -387,12 +389,14 @@ def test_viewer_main_does_not_open_browser_without_flag(monkeypatch):
     captured: dict[str, object] = {}
 
     monkeypatch.setattr(
-        "opx.viewer.get_runtime_config",
+        "opx_chain.viewer.get_runtime_config",
         lambda: build_config("127.0.0.1", 8000),
     )
-    monkeypatch.setattr("opx.viewer.serve", lambda **kwargs: captured.update({"serve": kwargs}))
     monkeypatch.setattr(
-        "opx.viewer.open_viewer_in_browser",
+        "opx_chain.viewer.serve", lambda **kwargs: captured.update({"serve": kwargs})
+    )
+    monkeypatch.setattr(
+        "opx_chain.viewer.open_viewer_in_browser",
         lambda host, port: captured.update({"open": (host, port)}),
     )
 

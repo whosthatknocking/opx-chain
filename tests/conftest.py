@@ -10,7 +10,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import pytest  # pylint: disable=wrong-import-position
 
-from opx.config import RuntimeConfig, reset_runtime_config  # pylint: disable=wrong-import-position
+from opx_chain.config import RuntimeConfig, reset_runtime_config  # pylint: disable=wrong-import-position
 
 
 def make_runtime_config(**overrides):

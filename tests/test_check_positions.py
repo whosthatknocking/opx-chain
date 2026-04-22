@@ -6,7 +6,7 @@ import time
 
 import pandas as pd
 
-from opx.check_positions import (
+from opx_chain.check_positions import (
     check_positions,
     find_latest_output,
     format_freshness_summary_lines,
@@ -291,7 +291,7 @@ def test_main_prints_freshness_summary_when_requested(tmp_path, capsys, monkeypa
         },
     ])
     monkeypatch.setattr(
-        "opx.check_positions._utc_now",
+        "opx_chain.check_positions._utc_now",
         lambda: pd.Timestamp("2026-04-21T17:00:00Z"),
     )
 

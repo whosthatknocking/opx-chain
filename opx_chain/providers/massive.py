@@ -13,19 +13,19 @@ import numpy as np
 import pandas as pd
 from massive import RESTClient
 
-from opx.config import (
+from opx_chain.config import (
     DEFAULT_MASSIVE_SNAPSHOT_PAGE_LIMIT,
     SCRIPT_VERSION,
     get_provider_credentials,
     get_runtime_config,
 )
-from opx.providers.base import (
+from opx_chain.providers.base import (
     DataProvider,
     OptionChainFrames,
     ProviderAuthenticationError,
     normalize_provider_frame,
 )
-from opx.utils import coerce_float, normalize_timestamp
+from opx_chain.utils import coerce_float, normalize_timestamp
 
 MAX_RETRIES = 3
 BACKOFF_SECONDS = 1.0
@@ -222,7 +222,7 @@ class MassiveProvider(DataProvider):
                     if "401" in message or "403" in message or "auth" in message:
                         raise ProviderAuthenticationError(
                             "Massive authentication failed. Check [providers.massive] api_key "
-                            "in ~/.config/opx/config.toml."
+                            "in ~/.config/opx-chain/config.toml."
                         ) from exc
                     if attempt == MAX_RETRIES:
                         raise

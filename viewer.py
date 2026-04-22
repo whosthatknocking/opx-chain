@@ -1,6 +1,6 @@
 """Compatibility entrypoint for the local CSV viewer."""
 
-from opx.viewer import main
+from opx_chain.viewer import main
 
 
 if __name__ == "__main__":

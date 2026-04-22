@@ -5,8 +5,8 @@ import math
 import pandas as pd
 import pytest
 
-from opx.greeks import compute_greeks
-from opx.metrics import (
+from opx_chain.greeks import compute_greeks
+from opx_chain.metrics import (
     add_derived_pricing_metrics,
     add_event_risk_flags,
     add_expected_move_by_expiration,
@@ -182,7 +182,7 @@ def make_score_config():
 
 def test_add_derived_pricing_metrics_uses_expected_fill_rule_by_spread_threshold(monkeypatch):
     """Expected fill should switch from midpoint to bid-plus-quarter-spread above 10%."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
                 {
@@ -223,7 +223,7 @@ def test_add_derived_pricing_metrics_uses_expected_fill_rule_by_spread_threshold
 
 def test_add_derived_pricing_metrics_falls_back_for_call_capital_required(monkeypatch):
     """Call capital should fall back from last trade to expected fill when needed."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
             {
@@ -251,7 +251,7 @@ def test_add_derived_pricing_metrics_falls_back_for_call_capital_required(monkey
 
 def test_add_screening_and_freshness_flags_uses_prompt_spread_and_dte_tiers(monkeypatch):
     """Spread and DTE scores should follow the prompt's execution scoring tiers."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     fetched_at = pd.Timestamp("2026-03-20T16:00:00Z")
     frame = pd.DataFrame(
         [
@@ -318,7 +318,7 @@ def test_add_screening_and_freshness_flags_uses_prompt_spread_and_dte_tiers(monk
 
 def test_add_option_score_returns_bounded_value(monkeypatch):
     """Option score should stay within 0-100 and reward stronger inputs."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
             make_scored_row(),
@@ -347,7 +347,7 @@ def test_add_option_score_returns_bounded_value(monkeypatch):
 
 def test_add_option_score_penalizes_near_useless_premium_per_day(monkeypatch):
     """Income scoring should zero out near-useless premium-per-day values below the floor."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
             make_scored_row(premium_per_day=0.009, iv_adjusted_premium_per_day=0.009),
@@ -364,7 +364,7 @@ def test_add_option_score_penalizes_near_useless_premium_per_day(monkeypatch):
 
 def test_add_option_score_caps_income_component_at_point_zero_five(monkeypatch):
     """Income scoring should still cap at the premium-per-day ceiling."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
             make_scored_row(premium_per_day=0.05, iv_adjusted_premium_per_day=0.05),
@@ -379,7 +379,7 @@ def test_add_option_score_caps_income_component_at_point_zero_five(monkeypatch):
 
 def test_add_option_score_uses_prompt_execution_tiers(monkeypatch):
     """Score should prefer the prompt's best DTE and spread tiers over weaker execution."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
             make_scored_row(days_to_expiration=14, dte_score=100.0, spread_score=100.0),
@@ -398,7 +398,7 @@ def test_add_option_score_uses_prompt_execution_tiers(monkeypatch):
 
 def test_add_option_score_rewards_higher_iv_adjusted_income(monkeypatch):
     """Higher IV-adjusted premium-per-day should improve the prompt-aligned score."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
             make_scored_row(premium_per_day=0.02, iv_adjusted_premium_per_day=0.02),
@@ -415,7 +415,7 @@ def test_add_option_score_rewards_higher_iv_adjusted_income(monkeypatch):
 
 def test_add_option_score_assigns_final_score_adjustment(monkeypatch):
     """Score validation should adjust the row-level final score when alignment is weak or strong."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame(
         [
                 make_scored_row(
@@ -443,7 +443,7 @@ def test_add_option_score_assigns_final_score_adjustment(monkeypatch):
 
 def test_add_option_score_returns_nan_when_required_inputs_are_missing(monkeypatch):
     """Option score should stay blank when required inputs are not available."""
-    monkeypatch.setattr("opx.metrics.get_runtime_config", make_score_config)
+    monkeypatch.setattr("opx_chain.metrics.get_runtime_config", make_score_config)
     frame = pd.DataFrame([make_scored_row(delta_abs=None)])
 
     result = add_option_score(frame.copy())

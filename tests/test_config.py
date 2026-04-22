@@ -3,8 +3,8 @@
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from opx.config import describe_runtime_config, load_runtime_config, reset_runtime_config
-from opx.providers import (
+from opx_chain.config import describe_runtime_config, load_runtime_config, reset_runtime_config
+from opx_chain.providers import (
     PROVIDER_FACTORIES,
     MassiveProvider,
     YFinanceProvider,
@@ -52,7 +52,7 @@ def test_load_runtime_config_uses_eastern_market_calendar_for_today(tmp_path: Pa
             instant = datetime(2026, 4, 19, 4, 30, tzinfo=timezone.utc)
             return instant if tz is None else instant.astimezone(tz)
 
-    monkeypatch.setattr("opx.config.datetime", FixedDatetime)
+    monkeypatch.setattr("opx_chain.config.datetime", FixedDatetime)
 
     config = load_runtime_config(tmp_path / "missing.toml")
 
@@ -60,7 +60,7 @@ def test_load_runtime_config_uses_eastern_market_calendar_for_today(tmp_path: Pa
 
 
 def test_load_runtime_config_reads_user_config_file(tmp_path: Path):
-    """Runtime settings should load from ~/.config/opx/config.toml format."""
+    """Runtime settings should load from ~/.config/opx-chain/config.toml format."""
     config_path = tmp_path / "config.toml"
     config_path.write_text(
         """
@@ -275,7 +275,7 @@ def test_get_data_provider_returns_provider_from_runtime_config(monkeypatch, tmp
     """Provider factory should resolve yfinance and massive from config."""
     yfinance_config = tmp_path / "yfinance.toml"
     yfinance_config.write_text("[settings]\ndata_provider = 'yfinance'\n", encoding="utf-8")
-    monkeypatch.setattr("opx.config.DEFAULT_CONFIG_PATH", yfinance_config)
+    monkeypatch.setattr("opx_chain.config.DEFAULT_CONFIG_PATH", yfinance_config)
     assert isinstance(get_data_provider(), YFinanceProvider)
 
     massive_config = tmp_path / "massive.toml"
@@ -283,7 +283,7 @@ def test_get_data_provider_returns_provider_from_runtime_config(monkeypatch, tmp
         "[settings]\ndata_provider = 'massive'\n\n[providers.massive]\napi_key = 'secret'\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr("opx.config.DEFAULT_CONFIG_PATH", massive_config)
+    monkeypatch.setattr("opx_chain.config.DEFAULT_CONFIG_PATH", massive_config)
 
     reset_runtime_config()
     assert isinstance(get_data_provider(), MassiveProvider)

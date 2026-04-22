@@ -8,9 +8,9 @@ import pandas as pd
 import pytest
 
 from conftest import make_runtime_config
-from opx.storage.base import StorageBackend
-from opx.storage.factory import get_storage_backend
-from opx.storage.models import (
+from opx_chain.storage.base import StorageBackend
+from opx_chain.storage.factory import get_storage_backend
+from opx_chain.storage.models import (
     ArtifactWrite,
     DatasetHandle,
     DatasetRecord,
@@ -19,12 +19,12 @@ from opx.storage.models import (
     RunSummary,
     TickerFetchResult,
 )
-from opx.storage.sqlite_indexed import SqliteIndexedBackend
+from opx_chain.storage.sqlite_indexed import SqliteIndexedBackend
 
 
 def _make_backend(tmp_path: Path, max_runs_retained: int = 0) -> SqliteIndexedBackend:
     return SqliteIndexedBackend(
-        db_path=tmp_path / "data" / "opx.db",
+        db_path=tmp_path / "data" / "opx_chain.db",
         output_dir=tmp_path / "output",
         logs_dir=tmp_path / "logs",
         debug_dir=tmp_path / "debug",
@@ -72,7 +72,7 @@ def test_schema_initialises_on_first_connect(tmp_path: Path):
     """Constructor must create all tables and seed schema_version."""
     backend = _make_backend(tmp_path)
     import sqlite3  # pylint: disable=import-outside-toplevel
-    conn = sqlite3.connect(str(tmp_path / "data" / "opx.db"))
+    conn = sqlite3.connect(str(tmp_path / "data" / "opx_chain.db"))
     master = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     tables = {r[0] for r in master}
     assert {"runs", "datasets", "ticker_results", "artifacts", "_schema_meta"}.issubset(tables)

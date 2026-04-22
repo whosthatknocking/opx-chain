@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from opx.schema import QUALITY_FLAG_FIELDS
+from opx_chain.schema import QUALITY_FLAG_FIELDS
 
 
 REQUIRED_CORE_FIELDS = (

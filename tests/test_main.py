@@ -8,8 +8,8 @@ import pandas as pd
 
 from conftest import make_runtime_config
 import main
-from opx.config import get_runtime_config as get_process_runtime_config
-from opx.validate import validate_option_rows
+from opx_chain.config import get_runtime_config as get_process_runtime_config
+from opx_chain.validate import validate_option_rows
 
 
 class StubLogger:

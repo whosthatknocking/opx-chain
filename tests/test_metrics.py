@@ -2,7 +2,7 @@
 
 import numpy as np
 import pandas as pd
-from opx.metrics import (
+from opx_chain.metrics import (
     add_iv_state_level,
     add_iv_state_term,
     add_listed_strike_increment,

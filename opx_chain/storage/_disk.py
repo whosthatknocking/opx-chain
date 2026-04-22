@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from opx.storage.serializers import DatasetSerializer
+from opx_chain.storage.serializers import DatasetSerializer
 
 
 def write_dataset_artifact(

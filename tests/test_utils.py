@@ -1,6 +1,6 @@
 """Tests for shared scalar and timestamp utilities."""
 
-from opx.utils import normalize_timestamp
+from opx_chain.utils import normalize_timestamp
 
 
 def test_normalize_timestamp_infers_numeric_epoch_units():

@@ -7,7 +7,7 @@ import io
 import uuid
 from datetime import datetime, timezone
 
-from opx.storage.models import (
+from opx_chain.storage.models import (
     ArtifactRecord,
     ArtifactWrite,
     DatasetHandle,

@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from opx.storage.models import (
+from opx_chain.storage.models import (
     ArtifactRecord,
     ArtifactWrite,
     DatasetHandle,
@@ -21,8 +21,8 @@ from opx.storage.models import (
     TickerRunRecord,
     record_to_handle,
 )
-from opx.storage._disk import write_artifact_bytes, write_dataset_artifact
-from opx.storage.serializers import get_serializer
+from opx_chain.storage._disk import write_artifact_bytes, write_dataset_artifact
+from opx_chain.storage.serializers import get_serializer
 
 
 _SCHEMA_SQL = """

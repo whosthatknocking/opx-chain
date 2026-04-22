@@ -11,8 +11,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from opx.config import get_runtime_config
-from opx.normalize import normalize_vendor_option_frame
+from opx_chain.config import get_runtime_config
+from opx_chain.normalize import normalize_vendor_option_frame
 
 
 class ProviderAuthenticationError(RuntimeError):

@@ -6,7 +6,7 @@ import json
 import pandas as pd
 
 from conftest import make_runtime_config
-from opx.providers.yfinance import YFinanceProvider
+from opx_chain.providers.yfinance import YFinanceProvider
 
 
 class FakeChain:  # pylint: disable=too-few-public-methods
@@ -43,17 +43,17 @@ class FakeTicker:  # pylint: disable=too-few-public-methods
 def test_yfinance_provider_can_dump_raw_payloads(monkeypatch, tmp_path: Path, capsys):
     """Shared provider debug mode should dump raw yfinance payloads to JSON."""
     monkeypatch.setattr(
-        "opx.providers.yfinance.get_runtime_config",
+        "opx_chain.providers.yfinance.get_runtime_config",
         lambda: make_runtime_config(
             debug_dump_provider_payload=True,
             debug_dump_dir=tmp_path,
         ),
     )
-    monkeypatch.setattr("opx.providers.base.get_runtime_config", lambda: make_runtime_config(
+    monkeypatch.setattr("opx_chain.providers.base.get_runtime_config", lambda: make_runtime_config(
         debug_dump_provider_payload=True,
         debug_dump_dir=tmp_path,
     ))
-    monkeypatch.setattr("opx.providers.yfinance.yf.Ticker", FakeTicker)
+    monkeypatch.setattr("opx_chain.providers.yfinance.yf.Ticker", FakeTicker)
 
     provider = YFinanceProvider()
     provider.load_underlying_snapshot("TSLA")

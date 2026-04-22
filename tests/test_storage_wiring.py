@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from conftest import make_runtime_config
-from opx.storage.memory import MemoryBackend
-from opx.storage.models import DatasetWrite, RunContext
+from opx_chain.storage.memory import MemoryBackend
+from opx_chain.storage.models import DatasetWrite, RunContext
 
 
 # ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ def _make_ticker_df(ticker: str = "TSLA") -> pd.DataFrame:
 
 def _fetcher_patches(tmp_path: Path, config, backend, ticker_df=None):
     """Return a list of patch context managers for a minimal fetcher run."""
-    from opx import fetcher  # pylint: disable=import-outside-toplevel
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
 
     if ticker_df is None:
         ticker_df = _make_ticker_df()
@@ -58,7 +58,7 @@ def _fetcher_patches(tmp_path: Path, config, backend, ticker_df=None):
 
 def test_fetcher_calls_write_dataset_when_storage_enabled(tmp_path: Path):
     """When storage is enabled, fetcher must call write_dataset after write_options_csv."""
-    from opx import fetcher  # pylint: disable=import-outside-toplevel
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
 
     backend = MemoryBackend()
     config = make_runtime_config(storage_enabled=True)
@@ -76,7 +76,7 @@ def test_fetcher_calls_write_dataset_when_storage_enabled(tmp_path: Path):
 
 def test_fetcher_finalizes_run_on_success(tmp_path: Path):
     """Successful fetch must finalize the run with status=complete."""
-    from opx import fetcher  # pylint: disable=import-outside-toplevel
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
 
     backend = MemoryBackend()
     config = make_runtime_config(storage_enabled=True)
@@ -94,7 +94,7 @@ def test_fetcher_finalizes_run_on_success(tmp_path: Path):
 
 def test_fetcher_fails_run_on_no_data(tmp_path: Path):
     """When no data is fetched, the run must be marked as failed."""
-    from opx import fetcher  # pylint: disable=import-outside-toplevel
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
 
     backend = MemoryBackend()
     config = make_runtime_config(storage_enabled=True)
@@ -113,7 +113,7 @@ def test_fetcher_fails_run_on_no_data(tmp_path: Path):
 
 def test_fetcher_skips_storage_when_disabled(tmp_path: Path):
     """When storage is disabled, write_dataset must never be called."""
-    from opx import fetcher  # pylint: disable=import-outside-toplevel
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
 
     backend = MemoryBackend()
     config = make_runtime_config(storage_enabled=False)
@@ -134,7 +134,7 @@ def test_fetcher_skips_storage_when_disabled(tmp_path: Path):
 
 def test_check_positions_uses_storage_when_enabled(tmp_path: Path):
     """opx-check must use list_datasets when storage is enabled."""
-    from opx import check_positions as cp  # pylint: disable=import-outside-toplevel
+    from opx_chain import check_positions as cp  # pylint: disable=import-outside-toplevel
 
     backend = MemoryBackend()
     run_id = backend.create_run(RunContext(
@@ -161,7 +161,7 @@ def test_check_positions_uses_storage_when_enabled(tmp_path: Path):
 
 def test_check_positions_falls_back_to_scan_when_disabled(tmp_path: Path):
     """opx-check must fall back to directory scanning when storage is disabled."""
-    from opx import check_positions as cp  # pylint: disable=import-outside-toplevel
+    from opx_chain import check_positions as cp  # pylint: disable=import-outside-toplevel
 
     positions_file = tmp_path / "positions.csv"
     positions_file.write_text(
