@@ -266,6 +266,20 @@ def test_write_artifact_creates_file(tmp_path: Path):
     assert len(record.content_hash) == 64
 
 
+def test_write_sidecar_artifact_stays_under_run_dir(tmp_path: Path):
+    """Sidecar artifacts must live under the run directory, not the debug directory."""
+    backend = _make_backend(tmp_path)
+    run_id = backend.create_run(_make_context())
+    payload = ArtifactWrite(
+        artifact_type="sidecar", content=b"positions", filename="positions.csv"
+    )
+
+    record = backend.write_artifact(run_id, payload)
+
+    assert Path(record.location) == (tmp_path / "runs" / run_id / "positions.csv").resolve()
+    assert Path(record.location).read_bytes() == b"positions"
+
+
 # ---------------------------------------------------------------------------
 # Retention pruning
 # ---------------------------------------------------------------------------
@@ -295,6 +309,22 @@ def test_pruning_removes_artifact_file(tmp_path: Path):
     _write(backend, run_id)
 
     assert not Path(r1.location).exists()
+
+
+def test_pruning_removes_positions_sidecar_for_pruned_run(tmp_path: Path):
+    """Pruning must also remove a run's positions snapshot sidecar."""
+    backend = _make_backend(tmp_path, max_runs_retained=1)
+    run_id = backend.create_run(_make_context())
+    record = backend.write_artifact(run_id, ArtifactWrite(
+        artifact_type="sidecar",
+        content=b"positions",
+        filename="positions.csv",
+    ))
+    _write(backend, run_id)
+    next_run_id = backend.create_run(_make_context(provider="marketdata"))
+    _write(backend, next_run_id, provider="marketdata")
+
+    assert not Path(record.location).exists()
 
 
 def test_no_pruning_when_max_runs_retained_zero(tmp_path: Path):

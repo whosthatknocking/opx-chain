@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
@@ -75,6 +76,12 @@ class FilesystemBackend:
     def _artifact_path(self, artifact_id: str, filename: str) -> Path:
         return self._debug_dir / artifact_id / filename
 
+    def _sidecar_path(self, run_id: str, filename: str) -> Path:
+        return self._runs_dir / run_id / filename
+
+    def _delete_sidecar_files(self, run_id: str) -> None:
+        self._sidecar_path(run_id, "positions.csv").unlink(missing_ok=True)
+
     def _read_run(self, run_id: str) -> dict:
         path = self._run_path(run_id)
         with path.open() as fh:
@@ -140,6 +147,7 @@ class FilesystemBackend:
                 artifact = meta_path.parent / Path(data["location"]).name
                 if artifact.exists():
                     artifact.unlink()
+                self._delete_sidecar_files(meta_path.parent.parent.name)
             except (OSError, KeyError, json.JSONDecodeError):
                 pass
             meta_path.unlink(missing_ok=True)
@@ -208,9 +216,16 @@ class FilesystemBackend:
 
     def write_artifact(self, run_id: str, artifact: ArtifactWrite) -> ArtifactRecord:
         """Write artifact bytes to disk and return an ArtifactRecord."""
-        artifact_id, dest, content_hash = write_artifact_bytes(
-            artifact.content, self._debug_dir, artifact.filename
-        )
+        if artifact.artifact_type == "sidecar":
+            dest = self._sidecar_path(run_id, artifact.filename)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(artifact.content)
+            artifact_id = f"{run_id}:{artifact.filename}"
+            content_hash = hashlib.sha256(artifact.content).hexdigest()
+        else:
+            artifact_id, dest, content_hash = write_artifact_bytes(
+                artifact.content, self._debug_dir, artifact.filename
+            )
         return ArtifactRecord(
             artifact_id=artifact_id,
             run_id=run_id,

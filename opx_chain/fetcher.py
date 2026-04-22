@@ -21,7 +21,13 @@ from opx_chain.fetch import fetch_ticker_option_chain
 from opx_chain.positions import DEFAULT_POSITIONS_PATH, load_positions
 from opx_chain.runlog import create_run_logger
 from opx_chain.storage.factory import get_data_dir, get_storage_backend
-from opx_chain.storage.models import DatasetWrite, RunContext, RunSummary, TickerFetchResult
+from opx_chain.storage.models import (
+    ArtifactWrite,
+    DatasetWrite,
+    RunContext,
+    RunSummary,
+    TickerFetchResult,
+)
 from opx_chain.validate import emit_validation_report, validate_export_frame
 
 RUNS_DIR = get_data_dir() / "runs"
@@ -239,10 +245,6 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-branches,too-many-loca
                 config_fingerprint=_config_fingerprint(config),
                 positions_fingerprint=_positions_fingerprint(resolved_positions_path),
             ))
-            if resolved_positions_path.exists():
-                run_positions_dest = RUNS_DIR / run_id / "positions.csv"
-                run_positions_dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(resolved_positions_path, run_positions_dest)
 
         ticker_frames = []
         validation_findings = []
@@ -318,6 +320,12 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-branches,too-many-loca
                 schema_version=SCHEMA_VERSION,
                 format=config.storage_dataset_format,
             ))
+            if resolved_positions_path.exists():
+                storage.write_artifact(run_id, ArtifactWrite(
+                    artifact_type="sidecar",
+                    content=resolved_positions_path.read_bytes(),
+                    filename="positions.csv",
+                ))
             storage.finalize_run(run_id, RunSummary(status="complete"))
 
         print()

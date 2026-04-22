@@ -93,6 +93,29 @@ def test_fetcher_finalizes_run_on_success(tmp_path: Path):
     assert run.status == "complete"
 
 
+def test_fetcher_snapshots_positions_only_after_success(tmp_path: Path):
+    """Successful storage-backed runs must persist positions.csv as a sidecar."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+
+    backend = MemoryBackend()
+    config = make_runtime_config(storage_enabled=True)
+    positions_file = tmp_path / "positions.csv"
+    positions_file.write_text("Symbol\nTSLA\n", encoding="utf-8")
+    patches = _fetcher_patches(tmp_path, config, backend)
+
+    with patches[0], patches[1], patches[2], patches[3], patches[4], \
+         patches[5], patches[6], patches[7], patches[8], patches[9], \
+         patches[10], patches[11]:
+        result = fetcher.main(["--positions", str(positions_file)])
+
+    assert result == 0
+    run_id = backend.list_datasets()[0].run_id
+    artifacts = backend._artifacts[run_id]  # pylint: disable=protected-access
+    assert len(artifacts) == 1
+    assert artifacts[0].artifact_type == "sidecar"
+    assert artifacts[0].location.endswith("/positions.csv")
+
+
 def test_fetcher_fails_run_on_no_data(tmp_path: Path):
     """When no data is fetched, the run must be marked as failed."""
     from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
@@ -110,6 +133,25 @@ def test_fetcher_fails_run_on_no_data(tmp_path: Path):
     runs = list(backend._runs.values())  # pylint: disable=protected-access
     assert len(runs) == 1
     assert runs[0].status == "failed"
+
+
+def test_fetcher_does_not_snapshot_positions_when_run_fails(tmp_path: Path):
+    """Failed runs must not leave behind a positions sidecar artifact."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+
+    backend = MemoryBackend()
+    config = make_runtime_config(storage_enabled=True)
+    positions_file = tmp_path / "positions.csv"
+    positions_file.write_text("Symbol\nTSLA\n", encoding="utf-8")
+    patches = _fetcher_patches(tmp_path, config, backend, ticker_df=pd.DataFrame())
+
+    with patches[0], patches[1], patches[2], patches[3], patches[4], \
+         patches[5], patches[6], patches[7], patches[8], patches[9], \
+         patches[10], patches[11]:
+        result = fetcher.main(["--positions", str(positions_file)])
+
+    assert result == 1
+    assert not backend._artifacts  # pylint: disable=protected-access
 
 
 def test_fetcher_quota_error_fails_run_without_writing_dataset(tmp_path: Path):

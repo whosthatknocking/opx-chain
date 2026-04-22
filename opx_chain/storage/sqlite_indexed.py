@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from contextlib import contextmanager
 import uuid
@@ -160,17 +161,31 @@ class SqliteIndexedBackend:
                 )
             conn.commit()
 
+    def _sidecar_path(self, run_id: str, filename: str) -> Path:
+        return self._runs_dir / run_id / filename
+
+    def _delete_sidecar_artifacts(self, conn: sqlite3.Connection, run_id: str) -> None:
+        rows = conn.execute(
+            "SELECT artifact_id, location FROM artifacts "
+            "WHERE run_id = ? AND artifact_type = 'sidecar'",
+            (run_id,),
+        ).fetchall()
+        for row in rows:
+            Path(row["location"]).unlink(missing_ok=True)
+            conn.execute("DELETE FROM artifacts WHERE artifact_id = ?", (row["artifact_id"],))
+
     def _prune_datasets(self, conn: sqlite3.Connection) -> None:
         if self._max_runs_retained <= 0:
             return
         rows = conn.execute(
-            "SELECT dataset_id, location FROM datasets ORDER BY created_at DESC"
+            "SELECT dataset_id, run_id, location FROM datasets ORDER BY created_at DESC"
         ).fetchall()
         excess = rows[self._max_runs_retained:]
         for row in excess:
             artifact = Path(row["location"])
             if artifact.exists():
                 artifact.unlink(missing_ok=True)
+            self._delete_sidecar_artifacts(conn, row["run_id"])
             conn.execute("DELETE FROM datasets WHERE dataset_id = ?", (row["dataset_id"],))
 
     # ------------------------------------------------------------------
@@ -267,9 +282,16 @@ class SqliteIndexedBackend:
 
     def write_artifact(self, run_id: str, artifact: ArtifactWrite) -> ArtifactRecord:
         """Write artifact bytes to disk and record metadata in SQLite."""
-        artifact_id, dest, content_hash = write_artifact_bytes(
-            artifact.content, self._debug_dir, artifact.filename
-        )
+        if artifact.artifact_type == "sidecar":
+            dest = self._sidecar_path(run_id, artifact.filename)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(artifact.content)
+            artifact_id = f"{run_id}:{artifact.filename}"
+            content_hash = hashlib.sha256(artifact.content).hexdigest()
+        else:
+            artifact_id, dest, content_hash = write_artifact_bytes(
+                artifact.content, self._debug_dir, artifact.filename
+            )
         with self._open_connection() as conn:
             conn.execute(
                 """INSERT INTO artifacts
