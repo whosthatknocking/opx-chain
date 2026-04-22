@@ -18,7 +18,7 @@ This guide is for people changing the codebase, adding providers, or working on 
 │       └── viewer-option-chain.png
 ├── scripts/
 │   └── capture_viewer_screenshot.py
-├── opx/
+├── opx_chain/
 │   ├── config.py
 │   ├── export.py
 │   ├── fetch.py
@@ -70,7 +70,7 @@ This installs all market-data client libraries used by the project, including th
 
 `playwright` is optional for the fetch/export pipeline itself, but required if you want automated browser screenshots or browser-driven UI checks.
 
-For Massive / Polygon access, this project assumes you have an options-capable Massive account. The default `request_interval_seconds = 12.0` is intentionally conservative for delayed-plan usage, and you should adjust it in `~/.config/opx/config.toml` to match the actual rate limits and throughput your Massive options plan allows.
+For Massive / Polygon access, this project assumes you have an options-capable Massive account. The default `request_interval_seconds = 12.0` is intentionally conservative for delayed-plan usage, and you should adjust it in `~/.config/opx-chain/config.toml` to match the actual rate limits and throughput your Massive options plan allows.
 
 For Market Data access, this project assumes you have a Market Data account and API token configured under `[providers.marketdata].api_token`.
 The Market Data provider now retries `429` rate-limit responses with exponential backoff, honors `Retry-After` when present, and exposes optional client-side pacing through `[providers.marketdata].request_interval_seconds`.
@@ -142,7 +142,7 @@ Rules to keep the provider layer stable:
 
 ## Debugging Config
 
-The runtime exposes a small debugging config surface through `~/.config/opx/config.toml`. Use [`config/example.toml`](config/example.toml) as the starting point for local config and then override only the debugging keys you need.
+The runtime exposes a small debugging config surface through `~/.config/opx-chain/config.toml`. Use [`config/example.toml`](../config/example.toml) as the starting point for local config and then override only the debugging keys you need.
 
 Objective:
 
@@ -267,7 +267,7 @@ The package version is defined in `pyproject.toml` and is the single source of t
 Rules:
 
 - Use plain semver `X.Y.Z` in `pyproject.toml`.
-- Runtime `SCRIPT_VERSION`, package `opx.__version__`, provider user-agent strings, and release validation all derive from that package version.
+- Runtime `SCRIPT_VERSION`, package `opx_chain.__version__`, provider user-agent strings, and release validation all derive from that package version.
 - GitHub release tags must be named `vX.Y.Z` and must match the package version exactly.
 
 GitHub automation:

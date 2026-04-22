@@ -243,15 +243,15 @@ as a read-only consumer. These are the fields it depends on from day one:
 | `format` | `DatasetHandle` | Selects the correct reader (`pd.read_csv` vs `pd.read_parquet`) |
 | `positions_fingerprint` | `RunRecord` | Cross-checked against the pipeline's own positions fingerprint to detect chain/positions mismatch |
 
-**`SCHEMA_VERSION`** (from `opx/__init__.py`) is the most critical
+**`SCHEMA_VERSION`** (from `opx_chain/__init__.py`) is the most critical
 single field. The downstream consumer imports it directly:
 
 ```python
-from opx import SCHEMA_VERSION
+from opx_chain import SCHEMA_VERSION
 assert handle.schema_version == SCHEMA_VERSION
 ```
 
-A mismatch means either the opx package has been updated without
+A mismatch means either the opx-chain package has been updated without
 re-fetching, or a stale chain is being reused across a schema boundary.
 Both cases are fatal — the pipeline stops with a clear error message
 before any data is read.

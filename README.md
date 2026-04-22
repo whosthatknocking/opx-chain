@@ -1,6 +1,6 @@
-# opx
+# opx-chain
 
-`opx` downloads near-term option chains, enriches them with pricing and screening metrics, writes a timestamped CSV, and serves the local Options Screener UI for inspection.
+`opx-chain` downloads near-term option chains, enriches them with pricing and screening metrics, writes a timestamped CSV, and serves the local Options Screener UI for inspection.
 
 Its objective is to collect, normalize, export, and inspect option-chain information. This repository is not the strategy engine, portfolio workflow, or trading-automation layer.
 
@@ -11,8 +11,8 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
-mkdir -p ~/.config/opx
-cp config/example.toml ~/.config/opx/config.toml
+mkdir -p ~/.config/opx-chain
+cp config/example.toml ~/.config/opx-chain/config.toml
 opx-fetcher
 opx-viewer
 ```
@@ -21,7 +21,7 @@ Then open `http://127.0.0.1:8000` in your browser.
 
 If you want the viewer to launch the page automatically, run `opx-viewer --open`.
 
-For one-off fetch runs, you can override the shared filter toggle from the CLI with `opx-fetcher --disable-filters` or `opx-fetcher --enable-filters` instead of editing `~/.config/opx/config.toml`.
+For one-off fetch runs, you can override the shared filter toggle from the CLI with `opx-fetcher --disable-filters` or `opx-fetcher --enable-filters` instead of editing `~/.config/opx-chain/config.toml`.
 
 `opx-fetcher` also accepts `--positions /path/to/positions.csv` when you want one run to use a non-default positions file instead of `data/positions.csv`.
 
@@ -39,7 +39,7 @@ For local development setup, including `.[dev]` extras and Playwright, use [docs
 
 This repo can also enforce local quality checks before each commit through the tracked Git pre-commit hook described in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-Runtime configuration defaults live in [config/example.toml](config/example.toml). Copy it to `~/.config/opx/config.toml` and replace provider placeholders as needed.
+Runtime configuration defaults live in [config/example.toml](config/example.toml). Copy it to `~/.config/opx-chain/config.toml` and replace provider placeholders as needed.
 
 The local viewer is organized around five primary tabs: `Dataset`, `Positions`, `Overview`, `Chain View`, and `Reference`.
 

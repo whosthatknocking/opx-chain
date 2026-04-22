@@ -4,7 +4,7 @@ This file gives project-specific guidance to AI agents working in this repositor
 
 ## Project Context
 
-- Project: `opx`
+- Project: `opx-chain`
 - Purpose: fetch near-term option chains from one configured provider, normalize them into a canonical CSV schema, enrich them with shared analytics, and serve a local viewer for inspection
 - Runtime: Python `3.10+`
 - Main entrypoints:
@@ -29,36 +29,36 @@ Keep those files aligned with the implementation. If you change canonical fields
 
 ## Architecture Map
 
-- `opx/fetcher.py`
+- `opx_chain/fetcher.py`
   - CLI entrypoint for fetch runs
   - runtime config reporting
   - fetch lock handling
   - export writing and run-level validation
-- `opx/fetch.py`
+- `opx_chain/fetch.py`
   - per-ticker fetch orchestration
   - expiration filtering
   - provider execution, normalization, filtering, and progress logging
-- `opx/config.py`
-  - config loading from `~/.config/opx/config.toml`
+- `opx_chain/config.py`
+  - config loading from `~/.config/opx-chain/config.toml`
   - defaults, fallback warnings, provider selection, and runtime override support
-- `opx/providers/`
+- `opx_chain/providers/`
   - provider contract in `base.py`
   - vendor implementations in `yfinance.py`, `massive.py`, and `marketdata.py`
-- `opx/normalize.py`
+- `opx_chain/normalize.py`
   - canonical field normalization
   - shared post-download filters
   - enrichment handoff into pricing and freshness metrics
-- `opx/metrics.py` and `opx/greeks.py`
+- `opx_chain/metrics.py` and `opx_chain/greeks.py`
   - derived analytics, scoring, and options math
-- `opx/export.py`
+- `opx_chain/export.py`
   - canonical export column handling and CSV writing
-- `opx/validate.py`
+- `opx_chain/validate.py`
   - row-level and export-level validation
-- `opx/viewer.py`
+- `opx_chain/viewer.py`
   - local HTTP server
   - CSV discovery and serialization
   - dataset summaries and reference content wiring
-- `opx/viewer_static/`
+- `opx_chain/viewer_static/`
   - frontend assets for the local viewer
 
 ## Non-Negotiable Design Rules
@@ -74,7 +74,7 @@ Keep those files aligned with the implementation. If you change canonical fields
 
 ## Provider and Pipeline Conventions
 
-- Add or change provider-specific market-data logic under `opx/providers/`.
+- Add or change provider-specific market-data logic under `opx_chain/providers/`.
 - Route provider payloads through the shared `DataProvider` contract; do not bypass it from fetch orchestration.
 - Normalize vendor frames through `normalize_provider_frame(...)` or equivalent provider methods before enrichment.
 - Keep provider debug dumps representative of the raw upstream payload shape.
@@ -84,8 +84,8 @@ Keep those files aligned with the implementation. If you change canonical fields
 
 ## Config and Runtime Rules
 
-- Runtime settings come from `~/.config/opx/config.toml`; `config/example.toml` is the tracked template.
-- Defaults and fallback warnings in `opx/config.py` are part of the product behavior. Keep startup reporting accurate if config handling changes.
+- Runtime settings come from `~/.config/opx-chain/config.toml`; `config/example.toml` is the tracked template.
+- Defaults and fallback warnings in `opx_chain/config.py` are part of the product behavior. Keep startup reporting accurate if config handling changes.
 - If the selected provider is misconfigured, preserve the current clear fallback or failure behavior rather than failing ambiguously.
 - Secrets must stay redacted in any user-facing output.
 

@@ -1,8 +1,8 @@
-# Overall Project Specification: opx
+# Overall Project Specification: opx-chain
 
 ## 1. Overview
 
-`opx` is a single-provider options data fetcher and local viewer.
+`opx-chain` is a single-provider options data fetcher and local viewer.
 
 The project downloads option-chain data for configured tickers, normalizes that data into a stable canonical CSV schema, computes shared analytics, writes timestamped exports, and serves the local Options Screener UI for inspection.
 
@@ -54,12 +54,12 @@ The project does not currently aim to:
 
 ## 3. Naming and Packaging
 
-The project name, repository name, and package path are `opx`.
+The project name and repository name are `opx-chain`; the Python package path is `opx_chain`.
 
 Implemented naming rules:
 
-- the Python package path is `opx`
-- documentation and user-facing commands use `opx`
+- the Python package path is `opx_chain`
+- documentation and user-facing commands use `opx-chain`
 - `viewer.py` remains the unchanged entrypoint name
 - no temporary compatibility layer for the old package name remains in the repo
 
@@ -86,7 +86,7 @@ Behavior:
 
 The single source of truth for runtime settings is:
 
-- `~/.config/opx/config.toml`
+- `~/.config/opx-chain/config.toml`
 - `config/example.toml` is the tracked template users copy into that path
 
 The config loader is responsible for:
@@ -128,8 +128,8 @@ Provider credentials are local-only configuration.
 Current credential model:
 
 - `yfinance` requires no secret
-- `massive` reads `[providers.massive].api_key` from `~/.config/opx/config.toml`
-- `marketdata` reads `[providers.marketdata].api_token` from `~/.config/opx/config.toml`
+- `massive` reads `[providers.massive].api_key` from `~/.config/opx-chain/config.toml`
+- `marketdata` reads `[providers.marketdata].api_token` from `~/.config/opx-chain/config.toml`
 
 Current Market Data request controls:
 
@@ -193,7 +193,7 @@ Implemented Massive behavior:
 - request page size is configurable and clamped to the endpoint maximum of `250`
 - request spacing is configurable through `providers.massive.request_interval_seconds`
 - provider retry handling uses exponential backoff with 3 retries
-- request caller header identifies the app as `opx/<version>`
+- request caller header identifies the app as `opx-chain/<version>`
 - fetch progress prints per-page API status and row-count progress
 - raw per-response payload dumps can be written to `debug/`
 
@@ -224,7 +224,7 @@ Implemented Market Data behavior:
 - supports optional SDK request mode selection through `[providers.marketdata].mode`
 - retries `429` rate-limit responses with exponential backoff and honors `Retry-After` when present
 - optional client-side request spacing is available through `[providers.marketdata].request_interval_seconds`
-- request caller header identifies the app as `opx/<version>`
+- request caller header identifies the app as `opx-chain/<version>`
 - fetch progress prints per-request API status and row-count progress
 - raw response payload dumps can be written to `debug/`
 
@@ -364,9 +364,9 @@ Current behavior:
 
 ### 7.5 Read-Time Freshness Check
 
-This requirement applies to downstream consumers of the exported CSV — it is not enforced by `opx` itself. `opx` publishes freshness fields in the export; what consumers do with them is governed by `docs/EXTERNAL_INTERFACE_SPEC.md` §6.
+This requirement applies to downstream consumers of the exported CSV — it is not enforced by `opx-chain` itself. `opx-chain` publishes freshness fields in the export; what consumers do with them is governed by `docs/EXTERNAL_INTERFACE_SPEC.md` §6.
 
-Any consumer of the exported CSV should revalidate data freshness at read time. The `is_stale_underlying_price` and `quote_age_seconds` fields are computed relative to the moment opx ran, not relative to when the file is read. A CSV that was fresh at generation can be arbitrarily old by the time it is consumed.
+Any consumer of the exported CSV should revalidate data freshness at read time. The `is_stale_underlying_price` and `quote_age_seconds` fields are computed relative to the moment `opx-chain` ran, not relative to when the file is read. A CSV that was fresh at generation can be arbitrarily old by the time it is consumed.
 
 Required behavior on import:
 
@@ -462,8 +462,8 @@ The following project work has already landed.
 
 Completed:
 
-- migrated runtime settings into `~/.config/opx/config.toml`
-- renamed the project/package to `opx`
+- migrated runtime settings into `~/.config/opx-chain/config.toml`
+- renamed the project/package to `opx-chain` / `opx_chain`
 - kept `viewer.py` unchanged
 - isolated credential access behind the config layer
 
@@ -565,7 +565,7 @@ As of the current repository state:
 
 - provider model: complete for `yfinance`, `massive`, and `marketdata`
 - config migration: complete
-- rename to `opx`: complete
+- rename to `opx-chain` / `opx_chain`: complete
 - documentation split and provider-aware field reference: complete
 - viewer/provider metadata alignment: complete
 - validation coverage for shipped behavior: complete
@@ -649,7 +649,7 @@ themselves fall outside the ±35% distance threshold.
 3. Set `True` for rows where `theta_efficiency < p25`; `False` otherwise.
 4. Can be used by external consumers to label relatively weak rows within one
    (underlying, option_type) group, but that downstream interpretation is out of
-   scope for `opx` itself.
+   scope for `opx-chain` itself.
 
 **Filter timing:** Post-filter. The percentile should reflect only tradeable rows so
 untradeable contracts (zero bid, wide spread) do not distort the distribution.

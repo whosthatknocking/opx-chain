@@ -1,11 +1,11 @@
 # External Interface Specification
 
-This document specifies the stable external interface that `opx` exposes to
+This document specifies the stable external interface that `opx-chain` exposes to
 downstream consumers. It covers the CLI invocation contract, the Python package
 interface, and the schema versioning contract.
 
-`opx` does not own any downstream system and has no dependency on them. This
-document describes what `opx` commits to stabilizing so that consumers can
+`opx-chain` does not own any downstream system and has no dependency on them. This
+document describes what `opx-chain` commits to stabilizing so that consumers can
 integrate without coupling to internal implementation details.
 
 ---
@@ -16,11 +16,11 @@ Two integration points are in scope:
 
 1. **CLI invocation** — a downstream orchestrator can invoke `opx-fetcher` as a
    subprocess to trigger a fresh chain fetch
-2. **Storage interface** — a downstream consumer can import `opx` as a Python
+2. **Storage interface** — a downstream consumer can import `opx_chain` as a Python
    package and use `StorageBackend` to discover and read the latest chain dataset
 
 Everything else — internal storage layout, provider adapters, scoring weights,
-normalization logic — is internal to `opx` and may change without notice.
+normalization logic — is internal to `opx-chain` and may change without notice.
 
 ---
 
@@ -73,13 +73,13 @@ of the stable downstream interface. A downstream orchestrator should not set the
 ## 3. Python Package Interface
 
 **Prerequisite:** the Python package interface is only available when storage is
-enabled in the `opx` config (`[storage] enable = true`). When storage is
-disabled (the default), `opx.storage` modules are importable but
+enabled in the `opx-chain` config (`[storage] enable = true`). When storage is
+disabled (the default), `opx_chain.storage` modules are importable but
 `get_storage_backend()` returns `None` and `list_datasets` is not meaningful.
-A downstream consumer must ensure the `opx` instance it connects to has storage
+A downstream consumer must ensure the `opx-chain` instance it connects to has storage
 enabled before using this interface.
 
-A downstream consumer may import `opx` as a Python dependency to query the storage
+A downstream consumer may import `opx_chain` as a Python dependency to query the storage
 layer without shelling out or scanning the filesystem directly.
 
 ### 3.1 Public surface
@@ -87,14 +87,14 @@ layer without shelling out or scanning the filesystem directly.
 The stable public surface is limited to:
 
 ```python
-from opx.storage.base import StorageBackend
-from opx.storage.models import DatasetHandle, DatasetRecord, RunRecord
-from opx.storage.factory import get_storage_backend
-from opx import SCHEMA_VERSION
+from opx_chain.storage.base import StorageBackend
+from opx_chain.storage.models import DatasetHandle, DatasetRecord, RunRecord
+from opx_chain.storage.factory import get_storage_backend
+from opx_chain import SCHEMA_VERSION
 ```
 
-All other modules are internal. Importing from `opx.fetcher`, `opx.normalize`,
-`opx.provider`, or any other internal module is not supported and may break across
+All other modules are internal. Importing from `opx_chain.fetcher`, `opx_chain.normalize`,
+`opx_chain.provider`, or any other internal module is not supported and may break across
 releases.
 
 ### 3.2 Obtaining a backend instance
@@ -104,7 +104,7 @@ backend: StorageBackend = get_storage_backend()
 ```
 
 `get_storage_backend()` returns the configured backend (filesystem or SQLite) based
-on the `opx` config. No arguments are required. The consumer must not construct a
+on the `opx-chain` config. No arguments are required. The consumer must not construct a
 backend directly.
 
 ### 3.3 Discovering the latest dataset
@@ -153,13 +153,13 @@ assert run.positions_fingerprint == pipeline_positions_fingerprint
 ### 3.6 Reading the chain artifact
 
 ```python
-from opx.utils import read_dataset_file
+from opx_chain.utils import read_dataset_file
 df = read_dataset_file(handle.location)  # dispatches on .csv / .parquet extension
 ```
 
 `read_dataset_file` is the recommended reader. It selects `pd.read_parquet` or
 `pd.read_csv` based on the file extension, matching `handle.format`. Parquet
-requires the optional `pyarrow` dependency (`pip install 'opx[parquet]'`).
+requires the optional `pyarrow` dependency (`pip install 'opx-chain[parquet]'`).
 
 ---
 
@@ -196,7 +196,7 @@ consumers must not construct or infer artifact paths independently — always us
 ### 5.1 `SCHEMA_VERSION` constant
 
 ```python
-# opx/__init__.py
+# opx_chain/__init__.py
 SCHEMA_VERSION: int = 1   # incremented on every breaking schema change
 ```
 
@@ -221,7 +221,7 @@ time.
 A consumer that detects `schema_version != SCHEMA_VERSION` must not read the
 artifact. It should surface a clear error: `chain schema version mismatch:
 expected {expected}, got {actual}`. The operator must either re-fetch with the
-current `opx` version or update the consumer to support the new schema.
+current `opx-chain` version or update the consumer to support the new schema.
 
 Backward compatibility across schema versions is not guaranteed.
 
@@ -230,32 +230,32 @@ Backward compatibility across schema versions is not guaranteed.
 ## 6. Staleness Contract
 
 A downstream consumer is responsible for determining whether the latest dataset
-is fresh enough for its purposes. `opx` does not enforce freshness on behalf of
+is fresh enough for its purposes. `opx-chain` does not enforce freshness on behalf of
 consumers.
 
 The consumer should use `DatasetHandle.created_at` as the dataset-level timestamp.
 For per-ticker freshness, the chain artifact includes `underlying_price_time` per
 row — the consumer applies its own staleness policy against that field.
 
-`opx` does not expose a staleness API. The consumer decides what "fresh enough"
+`opx-chain` does not expose a staleness API. The consumer decides what "fresh enough"
 means and blocks its own pipeline when the threshold is exceeded.
 
 ---
 
 ## 7. Changes Required
 
-The following changes to `opx` implement this interface. They are ordered by
+The following changes to `opx-chain` implement this interface. They are ordered by
 dependency.
 
 ### 7.1 Add `SCHEMA_VERSION` public constant
 
-- add `SCHEMA_VERSION: int = 1` to `opx/__init__.py`; this is the
-  canonical location — `from opx import SCHEMA_VERSION` must work
-- also update `opx/export.py` to reference this constant rather than
+- add `SCHEMA_VERSION: int = 1` to `opx_chain/__init__.py`; this is the
+  canonical location — `from opx_chain import SCHEMA_VERSION` must work
+- also update `opx_chain/export.py` to reference this constant rather than
   defining its own, so there is one source of truth
 - write it into `DatasetRecord.schema_version` on every `write_dataset` call
 - this is already described in STORAGE_SPEC §3.4 and §17 step 1; this spec
-  makes it a named public constant importable from `opx` directly
+  makes it a named public constant importable from `opx_chain` directly
 
 ### 7.2 Add `content_hash` and `created_at` to `DatasetHandle`
 
@@ -279,8 +279,8 @@ Implemented. Behaviour is specified in `docs/PROJECT_SPEC.md` §7.3.
 
 ### 7.4 Expose `get_storage_backend()` as a public factory function
 
-Implemented. `opx.storage.factory.get_storage_backend()` returns a
-`StorageBackend` instance configured from the `opx` config, or `None` when
+Implemented. `opx_chain.storage.factory.get_storage_backend()` returns a
+`StorageBackend` instance configured from the `opx-chain` config, or `None` when
 storage is disabled.
 
 ### 7.5 `write_legacy_csv` config option
@@ -294,7 +294,7 @@ reading through `get_storage_backend().list_datasets()`.
 ### 7.7 Add `get_run()` to `StorageBackend` protocol
 
 Add `get_run(run_id: str) -> RunRecord` to the `StorageBackend` protocol in
-`opx/storage/base.py`. The method already exists on `FilesystemBackend` and
+`opx_chain/storage/base.py`. The method already exists on `FilesystemBackend` and
 `SqliteIndexedBackend`; this change promotes it to the formal protocol so
 downstream consumers can call it through the typed interface. `MemoryBackend`
 must also implement it so the protocol conformance test passes.
@@ -316,7 +316,7 @@ output is disabled. The default viewer behavior (no `--data-dir`) is to glob
 - `opx-fetcher` fetch logic, provider adapters, scoring, or normalization
 - `StorageBackend` write interface — consumers are read-only; they never call
   `create_run`, `write_dataset`, or any write method
-- `opx` config file format
+- `opx-chain` config file format
 
 ---
 
