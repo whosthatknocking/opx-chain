@@ -1616,20 +1616,25 @@ function inlineMarkdown(text) {
     .replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
-function formatFileOptionLabel(fileName) {
+function formatFileOptionLabel(fileName, modifiedAt) {
   const match = /^options_engine_output_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.csv$/.exec(fileName);
-  if (!match) return fileName;
-
-  const [, year, month, day, hour, minute, second] = match;
-  const parsedDate = new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second),
-  );
-  if (Number.isNaN(parsedDate.getTime())) return fileName;
+  let parsedDate;
+  if (match) {
+    const [, year, month, day, hour, minute, second] = match;
+    parsedDate = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+    if (Number.isNaN(parsedDate.getTime())) return fileName;
+  } else if (modifiedAt != null) {
+    parsedDate = new Date(modifiedAt * 1000);
+  } else {
+    return fileName;
+  }
 
   return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
@@ -1648,7 +1653,7 @@ async function loadFiles() {
   state.files.forEach((file) => {
     const option = document.createElement('option');
     option.value = file.name;
-    option.textContent = formatFileOptionLabel(file.name);
+    option.textContent = formatFileOptionLabel(file.name, file.modified_at);
     option.title = file.name;
     elements.fileSelect.appendChild(option);
   });
