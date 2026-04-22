@@ -95,6 +95,7 @@ class RuntimeConfig:
     storage_backend: str = "filesystem"
     storage_max_runs_retained: int = 0
     storage_dataset_format: str = "csv"
+    storage_write_legacy_csv: bool = True
     provider_cache_backend: str = "none"
     provider_cache_dir: Path = field(default_factory=lambda: Path("cache"))
     provider_snapshot_ttl: int = 300
@@ -525,6 +526,13 @@ def load_runtime_config(config_path: Path | None = None) -> RuntimeConfig:  # py
             coercer=_coerce_str,
             warnings=warnings,
             validator=lambda v: v in {"csv", "parquet"},
+        ),
+        storage_write_legacy_csv=_resolve_config_value(
+            storage_settings.get("write_legacy_csv"),
+            field_name="storage.write_legacy_csv",
+            default=True,
+            coercer=_coerce_bool,
+            warnings=warnings,
         ),
         provider_cache_backend=_resolve_config_value(
             storage_settings.get("cache_backend"),

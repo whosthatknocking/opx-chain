@@ -52,6 +52,7 @@ def make_runtime_config(**overrides):
         "storage_backend": "filesystem",
         "storage_max_runs_retained": 0,
         "storage_dataset_format": "csv",
+        "storage_write_legacy_csv": True,
         "provider_cache_backend": "none",
         "provider_cache_dir": Path("cache"),
         "provider_snapshot_ttl": 300,

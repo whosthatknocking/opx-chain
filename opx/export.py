@@ -158,14 +158,20 @@ def coerce_export_column_types(df):
     return df
 
 
-def write_options_csv(ticker_frames, output_path):
-    """Combine fetched frames, format the schema, and write the final CSV."""
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+def prepare_export_frame(ticker_frames) -> pd.DataFrame:
+    """Combine fetched frames and apply schema formatting without writing to disk."""
     df = pd.concat(ticker_frames, ignore_index=True)
     df = drop_unwanted_columns(df)
     df = format_export_timestamps(df)
     df = reorder_export_columns(df)
     df = coerce_export_column_types(df)
+    return df
+
+
+def write_options_csv(ticker_frames, output_path):
+    """Combine fetched frames, format the schema, and write the final CSV."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df = prepare_export_frame(ticker_frames)
     df.to_csv(output_path, index=False)
     return df

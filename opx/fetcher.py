@@ -13,7 +13,7 @@ import pandas as pd
 
 from opx import SCHEMA_VERSION
 from opx.config import describe_runtime_config, get_runtime_config, set_runtime_config_override
-from opx.export import write_options_csv
+from opx.export import prepare_export_frame, write_options_csv
 from opx.fetch import fetch_ticker_option_chain
 from opx.positions import DEFAULT_POSITIONS_PATH, load_positions
 from opx.runlog import create_run_logger
@@ -238,32 +238,50 @@ def main(argv=None):  # pylint: disable=too-many-branches,too-many-locals,too-ma
                 storage.fail_run(run_id, "no data fetched")
             return 1
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
         combined = pd.concat(ticker_frames, ignore_index=True)
         if config.enable_validation:
             validation_findings.extend(validate_export_frame(combined))
             emit_validation_report(validation_findings, logger=logger)
         row_count = len(combined)
-        export_df = write_options_csv([combined], output_path=output_path)
-        file_size_bytes = output_path.stat().st_size
+
+        write_csv = storage is None or config.storage_write_legacy_csv
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
+        if write_csv:
+            export_df = write_options_csv([combined], output_path=output_path)
+            file_size_bytes = output_path.stat().st_size
+        else:
+            export_df = prepare_export_frame([combined])
+            file_size_bytes = 0
+
         if storage is not None and run_id is not None:
             storage.write_dataset(run_id, DatasetWrite(
                 data=export_df,
                 provider=config.data_provider,
                 schema_version=SCHEMA_VERSION,
+                format=config.storage_dataset_format,
             ))
             storage.finalize_run(run_id, RunSummary(status="complete"))
-        logger.info(
-            "run_finished output_path=%s ticker_frames=%s rows_written=%s file_size_bytes=%s",
-            output_path,
-            len(ticker_frames),
-            row_count,
-            file_size_bytes,
-        )
-        print(f"\nSaved: {output_path}")
-        file_size = format_file_size(file_size_bytes)
-        print(f"rows={row_count}  size={file_size}  dropped={filtered_out_rows}")
+
+        if write_csv:
+            logger.info(
+                "run_finished output_path=%s ticker_frames=%s rows_written=%s file_size_bytes=%s",
+                output_path,
+                len(ticker_frames),
+                row_count,
+                file_size_bytes,
+            )
+            print(f"\nSaved: {output_path}")
+            file_size = format_file_size(file_size_bytes)
+            print(f"rows={row_count}  size={file_size}  dropped={filtered_out_rows}")
+        else:
+            logger.info(
+                "run_finished legacy_csv=disabled ticker_frames=%s rows_written=%s",
+                len(ticker_frames),
+                row_count,
+            )
+            print("\nDone (legacy CSV disabled).")
+            print(f"rows={row_count}  dropped={filtered_out_rows}")
         return 0
     except KeyboardInterrupt:
         print("\nInterrupted.")
