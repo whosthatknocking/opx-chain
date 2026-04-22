@@ -284,8 +284,11 @@ class FilesystemBackend:
         )
 
     def count_runs_today(self, provider: str) -> int:
-        """Return the number of run sidecars started today (UTC) for the given provider."""
-        today_start = _now().date().isoformat()
+        """Return the number of run sidecars started today (US/Eastern) for the given provider."""
+        from opx_chain.config import US_MARKET_TIMEZONE  # pylint: disable=import-outside-toplevel
+        now_et = datetime.now(tz=US_MARKET_TIMEZONE)
+        midnight_et = now_et.replace(hour=0, minute=0, second=0, microsecond=0)
+        since_utc = _dt_to_str(midnight_et.astimezone(timezone.utc))
         count = 0
         if not self._logs_dir.exists():
             return count
@@ -294,8 +297,7 @@ class FilesystemBackend:
                 data = json.loads(run_path.read_text(encoding="utf-8"))
                 if data.get("provider") != provider:
                     continue
-                started_at = data.get("started_at", "")
-                if started_at[:10] >= today_start:
+                if data.get("started_at", "") >= since_utc:
                     count += 1
             except (OSError, json.JSONDecodeError):
                 continue

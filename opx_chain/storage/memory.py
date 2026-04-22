@@ -154,11 +154,13 @@ class MemoryBackend:
             run.error_summary = error
 
     def count_runs_today(self, provider: str) -> int:
-        """Return the number of runs started today (UTC) for the given provider."""
-        today_start = datetime.now(tz=timezone.utc).date().isoformat()
+        """Return the number of runs started today (US/Eastern) for the given provider."""
+        from opx_chain.config import US_MARKET_TIMEZONE  # pylint: disable=import-outside-toplevel
+        now_et = datetime.now(tz=US_MARKET_TIMEZONE)
+        midnight_et = now_et.replace(hour=0, minute=0, second=0, microsecond=0)
+        since_utc = midnight_et.astimezone(timezone.utc)
         return sum(
             1
             for run in self._runs.values()
-            if run.provider == provider
-            and run.started_at.isoformat()[:10] >= today_start
+            if run.provider == provider and run.started_at >= since_utc
         )
