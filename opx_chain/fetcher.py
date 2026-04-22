@@ -2,7 +2,7 @@
 
 import argparse
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime
 import fcntl
 import hashlib
 import json
@@ -250,7 +250,7 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-branches,too-many-loca
         row_count = len(combined)
 
         write_csv = storage is None or config.storage_write_legacy_csv
-        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = OUTPUTS_DIR / f"options_engine_output_{timestamp}.csv"
         if write_csv:
             export_df = write_options_csv([combined], output_path=output_path)
