@@ -5,7 +5,7 @@ from numbers import Real
 import pandas as pd
 
 from opx_chain.config import get_runtime_config
-from opx_chain.positions import DEFAULT_POSITIONS_PATH, load_positions
+from opx_chain.positions import DEFAULT_POSITIONS_PATH, STRIKE_MATCH_TOLERANCE, load_positions
 from opx_chain.storage.factory import get_storage_backend
 from opx_chain.utils import read_dataset_file
 
@@ -49,7 +49,7 @@ def check_positions(positions_path: Path | None = None, output_path: Path | None
             (df["underlying_symbol"] == key.ticker)
             & (df["expiration_date"] == key.expiration_date)
             & (df["option_type"] == key.option_type)
-            & ((df["strike"] - key.strike).abs() < 0.01)
+            & ((df["strike"] - key.strike).abs() < STRIKE_MATCH_TOLERANCE)
         )
         if df[mask].empty:
             missing.append(key)

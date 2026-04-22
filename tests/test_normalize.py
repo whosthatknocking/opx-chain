@@ -9,7 +9,7 @@ from opx_chain.normalize import (
     filter_wide_spread_quotes,
     filter_zero_bid_quotes,
 )
-from opx_chain.positions import OptionPositionKey
+from opx_chain.positions import OptionPositionKey, STRIKE_MATCH_TOLERANCE
 
 
 def test_filter_zero_bid_quotes_excludes_only_explicit_zero_bid_rows():
@@ -154,3 +154,54 @@ def test_apply_post_download_filters_no_position_keys_behaves_normally(monkeypat
     result = apply_post_download_filters(frame, underlying_price=391.0)
 
     assert result.empty
+
+
+def test_filter_wide_spread_quotes_drops_nan_spread_rows(monkeypatch: pytest.MonkeyPatch):
+    """Rows with NaN bid_ask_spread_pct_of_mid are removed (no valid quote to evaluate)."""
+    def make_config():
+        return type("Config", (), {"max_spread_pct_of_mid": 0.25})()
+
+    monkeypatch.setattr("opx_chain.normalize.get_runtime_config", make_config)
+    frame = pd.DataFrame([
+        {"contract_symbol": "TIGHT", "bid_ask_spread_pct_of_mid": 0.10},
+        {"contract_symbol": "NO_QUOTE", "bid_ask_spread_pct_of_mid": float("nan")},
+    ])
+
+    result = filter_wide_spread_quotes(frame)
+
+    assert result["contract_symbol"].tolist() == ["TIGHT"]
+
+
+def test_position_bypass_uses_strike_match_tolerance(monkeypatch):
+    """Positions with a strike differing by just under STRIKE_MATCH_TOLERANCE must be matched."""
+    def make_config():
+        return type("Config", (), {
+            "enable_filters": True,
+            "max_strike_distance_pct": 0.05,
+            "max_spread_pct_of_mid": 0.25,
+        })()
+
+    monkeypatch.setattr("opx_chain.normalize.get_runtime_config", make_config)
+
+    near_miss = STRIKE_MATCH_TOLERANCE - 0.001
+    frame = pd.DataFrame([
+        {
+            "contract_symbol": "FUZZ",
+            "underlying_symbol": "AAPL",
+            "expiration_date": "2026-06-20",
+            "option_type": "call",
+            "strike": 200.0 + near_miss,
+            "bid": 0.0,                        # would be dropped by zero-bid filter
+            "bid_ask_spread_pct_of_mid": 0.90,  # would be dropped by spread filter
+            "underlying_price": 200.0,
+        },
+    ])
+    position_keys = frozenset([
+        OptionPositionKey(
+            ticker="AAPL", expiration_date="2026-06-20", option_type="call", strike=200.0
+        )
+    ])
+
+    result = apply_post_download_filters(frame, underlying_price=200.0, position_keys=position_keys)
+
+    assert "FUZZ" in result["contract_symbol"].values

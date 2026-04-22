@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_POSITIONS_PATH = Path("data/positions.csv")
+STRIKE_MATCH_TOLERANCE = 0.01  # max abs difference when matching strikes across data sources
 
 _OPTION_RE = re.compile(r"^-?([A-Z.]+)(\d{2})(\d{2})(\d{2})([CP])(\d+\.?\d*)$")
 _VALID_TICKER_RE = re.compile(r"^[A-Z.]{1,10}$")

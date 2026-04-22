@@ -3,6 +3,7 @@
 import pandas as pd
 
 from opx_chain.config import get_runtime_config
+from opx_chain.positions import STRIKE_MATCH_TOLERANCE
 from opx_chain.metrics import (
     add_derived_pricing_metrics,
     add_quote_quality_metrics,
@@ -112,7 +113,7 @@ def _matches_any_position(df, option_keys):
             (df["underlying_symbol"] == key.ticker)
             & (df["expiration_date"] == key.expiration_date)
             & (df["option_type"] == key.option_type)
-            & ((df["strike"] - key.strike).abs() < 0.005)
+            & ((df["strike"] - key.strike).abs() < STRIKE_MATCH_TOLERANCE)
         )
         mask |= row_mask
     return mask
