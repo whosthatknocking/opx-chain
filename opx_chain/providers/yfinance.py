@@ -13,6 +13,14 @@ from opx_chain.providers.base import DataProvider, OptionChainFrames, normalize_
 from opx_chain.utils import coerce_float, normalize_timestamp
 
 
+def _first_non_missing(*values):
+    """Return the first value that is not None/NaN, preserving legitimate zeroes."""
+    for value in values:
+        if value is not None and not pd.isna(value):
+            return value
+    return None
+
+
 def compute_historical_volatility(stock):  # pylint: disable=broad-exception-caught
     """Compute trailing annualized realized volatility from daily closes."""
     config = get_runtime_config()
@@ -59,13 +67,17 @@ class YFinanceProvider(DataProvider):
         )
 
         last_price = coerce_float(
-            fast_info.get("lastPrice")
-            or info.get("regularMarketPrice")
-            or info.get("previousClose")
+            _first_non_missing(
+                fast_info.get("lastPrice"),
+                info.get("regularMarketPrice"),
+                info.get("previousClose"),
+            )
         )
         previous_close = coerce_float(
-            fast_info.get("previousClose")
-            or info.get("previousClose")
+            _first_non_missing(
+                fast_info.get("previousClose"),
+                info.get("previousClose"),
+            )
         )
 
         if pd.notna(last_price) and pd.notna(previous_close) and previous_close > 0:

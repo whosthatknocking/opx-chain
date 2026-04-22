@@ -23,7 +23,7 @@ def _version_from_pyproject() -> str:
 def get_version() -> str:
     """Return the installed package version, falling back to pyproject in source checkouts."""
     try:
-        return version("opx")
+        return version("opx-chain")
     except PackageNotFoundError:
         return _version_from_pyproject()
 

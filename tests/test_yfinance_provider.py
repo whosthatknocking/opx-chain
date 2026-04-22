@@ -1,4 +1,4 @@
-"""YFinance provider tests covering shared debug payload dumping."""
+"""YFinance provider tests covering snapshot normalization and debug payload dumping."""
 
 from pathlib import Path
 import json
@@ -68,3 +68,32 @@ def test_yfinance_provider_can_dump_raw_payloads(monkeypatch, tmp_path: Path, ca
     labels = {payload["label"] for payload in payloads}
     assert labels == {"underlying_snapshot", "expirations", "option_chain_2026-04-17"}
     assert "yfinance debug: dumped underlying_snapshot payload to" in capsys.readouterr().out
+
+
+def test_yfinance_snapshot_preserves_zero_last_price_instead_of_falling_back(monkeypatch):
+    """A real zero price should remain zero instead of being replaced by previous-close fallback."""
+    class ZeroPriceTicker:  # pylint: disable=too-few-public-methods
+        """Minimal ticker stub that reports a zero last price."""
+
+        def __init__(self, _ticker):
+            self.fast_info = {"lastPrice": 0.0, "previousClose": 10.0}
+            self.info = {
+                "regularMarketTime": "2026-03-23T13:30:00Z",
+                "regularMarketPrice": 11.0,
+                "previousClose": 10.0,
+            }
+
+        def history(self, **_kwargs):
+            """Return enough daily bars for HV calculation."""
+            return pd.DataFrame({"Close": [100.0, 101.0, 99.5, 102.0] * 30})
+
+    def fake_runtime_config():
+        """Return a standard runtime config for the provider test."""
+        return make_runtime_config()
+
+    monkeypatch.setattr("opx_chain.providers.yfinance.get_runtime_config", fake_runtime_config)
+    monkeypatch.setattr("opx_chain.providers.yfinance.yf.Ticker", ZeroPriceTicker)
+
+    snapshot = YFinanceProvider().load_underlying_snapshot("TSLA")
+
+    assert snapshot["underlying_price"] == 0.0

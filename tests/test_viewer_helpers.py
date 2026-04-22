@@ -120,6 +120,26 @@ def test_load_positions_payload_reads_rows_and_stops_before_footer(tmp_path: Pat
     assert "Footer notice" not in str(payload["rows"])
 
 
+def test_resolve_csv_path_rejects_path_traversal_names(tmp_path: Path, monkeypatch):
+    """Viewer dataset selection should only accept discovered dataset basenames."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    dataset_path = output_dir / "options_engine_output_20260421_120000.csv"
+    dataset_path.write_text("underlying_symbol\nTSLA\n", encoding="utf-8")
+    outside_path = tmp_path / "secret.csv"
+    outside_path.write_text("do not read\n", encoding="utf-8")
+
+    monkeypatch.setattr(viewer, "_DATA_DIR_OVERRIDE", output_dir)
+
+    assert viewer.resolve_csv_path(dataset_path.name) == dataset_path
+    try:
+        viewer.resolve_csv_path("../secret.csv")
+    except FileNotFoundError as exc:
+        assert str(exc) == "Dataset file not found: ../secret.csv"
+    else:
+        raise AssertionError("Expected FileNotFoundError for path traversal input")
+
+
 def test_build_ticker_summary_marks_estimated_marketdata_earnings_dates():
     """Summary payload should preserve whether the next earnings date is estimated."""
     frame = pd.DataFrame(
@@ -192,6 +212,58 @@ def test_pick_profitable_opportunity_prefers_higher_final_score_when_rom_matches
     assert summary["contract_symbol"] == "TSLA260417C00105000"
     assert summary["option_score"] == 88.0
     assert summary["final_score"] == 92.0
+
+
+def test_sort_ticker_candidates_preserves_zero_rom_as_real_value():
+    """A real zero ROM should rank above missing ROM instead of being treated as absent."""
+    items = [
+        {
+            "ticker": "ZERO",
+            "row_count": 1,
+            "call_count": 1,
+            "put_count": 0,
+            "expiration_count": 1,
+            "underlying_price": 100.0,
+            "underlying_day_change_pct": None,
+            "median_implied_volatility_pct": None,
+            "historical_volatility_pct": None,
+            "iv_hv_ratio": None,
+            "next_earnings_date": None,
+            "next_earnings_date_is_estimated": None,
+            "event_risk_score": None,
+            "latest_status": "Snapshot unavailable",
+            "market_context": "",
+            "profitable_opportunity": {"return_on_margin_annualized_pct": 0.0},
+            "moderate_risk_opportunity": None,
+            "high_conviction_call": None,
+            "high_conviction_put": None,
+        },
+        {
+            "ticker": "MISSING",
+            "row_count": 1,
+            "call_count": 1,
+            "put_count": 0,
+            "expiration_count": 1,
+            "underlying_price": 100.0,
+            "underlying_day_change_pct": None,
+            "median_implied_volatility_pct": None,
+            "historical_volatility_pct": None,
+            "iv_hv_ratio": None,
+            "next_earnings_date": None,
+            "next_earnings_date_is_estimated": None,
+            "event_risk_score": None,
+            "latest_status": "Snapshot unavailable",
+            "market_context": "",
+            "profitable_opportunity": {"return_on_margin_annualized_pct": None},
+            "moderate_risk_opportunity": None,
+            "high_conviction_call": None,
+            "high_conviction_put": None,
+        },
+    ]
+
+    sorted_items = viewer.sort_ticker_candidates(items, "profitable_opportunity")
+
+    assert [item["ticker"] for item in sorted_items] == ["ZERO", "MISSING"]
 
 
 def test_pick_moderate_risk_opportunity_accepts_spread_at_config_cutoff(monkeypatch):
@@ -403,3 +475,25 @@ def test_viewer_main_does_not_open_browser_without_flag(monkeypatch):
     viewer.main([])
 
     assert captured == {"serve": {"host": "127.0.0.1", "port": 8000}}
+
+
+def test_viewer_main_resets_data_dir_override_between_runs(monkeypatch, tmp_path: Path):
+    """A prior --data-dir run must not leak into later viewer invocations."""
+    first_dir = tmp_path / "first"
+    first_dir.mkdir()
+    captured: list[Path | None] = []
+
+    monkeypatch.setattr(
+        "opx_chain.viewer.get_runtime_config",
+        lambda: build_config("127.0.0.1", 8000),
+    )
+
+    def capture_serve(**_kwargs):
+        captured.append(viewer._DATA_DIR_OVERRIDE)  # pylint: disable=protected-access
+
+    monkeypatch.setattr("opx_chain.viewer.serve", capture_serve)
+
+    viewer.main(["--data-dir", str(first_dir)])
+    viewer.main([])
+
+    assert captured == [first_dir.resolve(), None]

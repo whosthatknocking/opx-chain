@@ -35,6 +35,7 @@ POSITIONS_PATH = REPO_ROOT / DEFAULT_POSITIONS_PATH
 CSV_PATTERN = "options_engine_output_*.csv"
 _DATA_DIR_OVERRIDE: Path | None = None
 VIEWER_PREFS_PATH = Path("~/.config/opx-chain/viewer_prefs.json").expanduser()
+ALLOWED_DATASET_SUFFIXES = frozenset({".csv", ".parquet"})
 HIDDEN_COLUMNS = {
     "roll_from_days_to_expiration",
     *UNWANTED_EXPORT_COLUMNS,
@@ -214,10 +215,13 @@ def resolve_csv_path(csv_name: str | None = None) -> Path:
         if candidate.name == csv_name:
             return candidate
 
-    search_dir = _DATA_DIR_OVERRIDE if _DATA_DIR_OVERRIDE is not None else OUTPUTS_DIR
-    candidate = search_dir / csv_name
-    if candidate.exists() and candidate.is_file():
-        return candidate
+    candidate_name = Path(csv_name)
+    if (
+        candidate_name.is_absolute()
+        or candidate_name.name != csv_name
+        or candidate_name.suffix.lower() not in ALLOWED_DATASET_SUFFIXES
+    ):
+        raise FileNotFoundError(f"Dataset file not found: {csv_name}")
 
     raise FileNotFoundError(f"Dataset file not found: {csv_name}")
 
@@ -675,12 +679,16 @@ def sort_ticker_candidates(
     opportunity_key: str,
 ) -> list[TickerSummary]:
     """Sort ticker summaries by the chosen opportunity ROM value descending."""
+    def _rom_value(item: TickerSummary) -> float:
+        opportunity = item[opportunity_key]
+        if opportunity is None:
+            return -(10**9)
+        value = opportunity.get("return_on_margin_annualized_pct")
+        return -(10**9) if value is None else float(value)
+
     return sorted(
         items,
-        key=lambda item: (
-            (item[opportunity_key] or {}).get("return_on_margin_annualized_pct")
-            or -10**9
-        ),
+        key=_rom_value,
         reverse=True,
     )
 
@@ -980,6 +988,8 @@ def main(argv=None) -> None:
     args = parse_args(argv)
     if args.data_dir is not None:
         _DATA_DIR_OVERRIDE = args.data_dir.expanduser().resolve()
+    else:
+        _DATA_DIR_OVERRIDE = None
     config = get_runtime_config()
     host = os.environ.get("OPX_VIEWER_HOST", config.viewer_host)
     port = int(os.environ.get("OPX_VIEWER_PORT", str(config.viewer_port)))
