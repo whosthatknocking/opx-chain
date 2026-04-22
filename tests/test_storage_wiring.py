@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 from conftest import make_runtime_config
+from opx_chain.providers.base import ProviderQuotaError
 from opx_chain.storage.memory import MemoryBackend
 
 
@@ -108,6 +109,30 @@ def test_fetcher_fails_run_on_no_data(tmp_path: Path):
     runs = list(backend._runs.values())  # pylint: disable=protected-access
     assert len(runs) == 1
     assert runs[0].status == "failed"
+
+
+def test_fetcher_quota_error_fails_run_without_writing_dataset(tmp_path: Path):
+    """A mid-loop ProviderQuotaError must mark the run failed and write no dataset."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+
+    backend = MemoryBackend()
+    config = make_runtime_config(storage_enabled=True)
+    patches = _fetcher_patches(tmp_path, config, backend)
+
+    with patches[0], patches[1], patches[2], patches[3], patches[4], \
+         patches[5], patches[6], patches[7], patches[8], patches[11]:
+        with patch.object(
+            fetcher, "fetch_ticker_option_chain",
+            side_effect=ProviderQuotaError("daily request limit reached"),
+        ):
+            result = fetcher.main([])
+
+    assert result == 1
+    assert not backend.list_datasets()
+    runs = list(backend._runs.values())  # pylint: disable=protected-access
+    assert len(runs) == 1
+    assert runs[0].status == "failed"
+    assert "request limit" in (runs[0].error_summary or "")
 
 
 def test_fetcher_skips_storage_when_disabled(tmp_path: Path):
