@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from decimal import Decimal
+from functools import lru_cache
 import re
 
 import numpy as np
@@ -59,6 +60,21 @@ _RAW_OPTIONAL_NUMERIC_FIELDS = (
 _RAW_TIMESTAMP_FIELDS = ("option_quote_time", "lastTradeDate", "updated")
 _RAW_BOOLEAN_FIELDS = ("is_in_the_money", "inTheMoney")
 _RAW_OPTION_TYPE_FIELDS = ("option_type", "side", "contract_type")
+
+
+def _timestamp_invalid_checker():
+    """Memoize exact strings only, bounded to one validation invocation."""
+    @lru_cache(maxsize=1024)
+    def invalid_string(value: str) -> bool:
+        return bool(pd.isna(pd.to_datetime(value, utc=True, errors="coerce")))
+
+    def invalid(value: object):
+        # Only built-in strings: subclasses can customize equality and hashing.
+        if type(value) is str:  # pylint: disable=unidiomatic-typecheck
+            return invalid_string(value)
+        return pd.isna(pd.to_datetime(value, utc=True, errors="coerce"))
+
+    return invalid
 
 
 def _missing(value: object) -> bool:
@@ -166,6 +182,7 @@ def validate_option_chain_provider_response(  # pylint: disable=too-many-stateme
     provider: str,
 ) -> OptionChainIntegritySummary:
     """Validate aligned raw provider frames before lossy canonical coercion."""
+    timestamp_invalid = _timestamp_invalid_checker()
     findings: list[OptionChainIntegrityFinding] = []
     frames: list[pd.DataFrame] = []
     row_offset = 0
@@ -238,7 +255,7 @@ def validate_option_chain_provider_response(  # pylint: disable=too-many-stateme
             for field in _RAW_TIMESTAMP_FIELDS:
                 if field not in frame.columns or _missing(row.get(field)):
                     continue
-                if pd.isna(pd.to_datetime(row.get(field), utc=True, errors="coerce")):
+                if timestamp_invalid(row.get(field)):
                     findings.append(
                         _raw_finding(
                             OptionChainIntegrityCode.FIELD_VALUE_INVALID,
@@ -361,6 +378,7 @@ def _append_field_findings(
     frame: pd.DataFrame,
     boundary: OptionChainIntegrityBoundary,
 ) -> None:
+    timestamp_invalid = _timestamp_invalid_checker()
     for row_index, row in frame.iterrows():
         for field in REQUIRED_CORE_FIELDS:
             if field not in frame.columns or _missing(row.get(field)):
@@ -405,7 +423,7 @@ def _append_field_findings(
         for field in TIMESTAMP_FIELDS:
             if field not in frame.columns or _missing(row.get(field)):
                 continue
-            if pd.isna(pd.to_datetime(row.get(field), utc=True, errors="coerce")):
+            if timestamp_invalid(row.get(field)):
                 findings.append(
                     _finding(
                         boundary,

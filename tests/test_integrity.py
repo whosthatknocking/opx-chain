@@ -1,11 +1,13 @@
 """Public and package-private option-chain integrity contract tests."""
-# pylint: disable=duplicate-code,line-too-long,missing-function-docstring
+# pylint: disable=duplicate-code,line-too-long,missing-function-docstring,protected-access
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import pandas as pd
 import pytest
+
+from opx_chain import _integrity_validation as validation
 
 from opx_chain._integrity_validation import (
     collect_option_chain_frame_findings,
@@ -50,6 +52,78 @@ def _frame(**overrides) -> pd.DataFrame:
     }
     row.update(overrides)
     return pd.DataFrame([row])
+
+
+def test_timestamp_memo_preserves_findings_and_summary(monkeypatch):
+    values = ["2026-08-21T15:30:00Z", "2026-08-21T08:30:00-07:00",
+              "08/21/2026", "invalid", "", None, pd.NaT,
+              datetime(2026, 8, 21, tzinfo=timezone.utc), 123456, float("inf")]
+    frame = pd.concat([_frame(underlying_price_time=value) for value in values] * 2)
+    frame.iloc[0, frame.columns.get_loc("strike")] = float("nan")
+    frame.iloc[1, frame.columns.get_loc("contract_symbol")] = "OTHER260821C00100000"
+    boundary = OptionChainIntegrityBoundary.STORED_ARTIFACT
+    actual = collect_option_chain_frame_findings(frame, boundary=boundary)
+    monkeypatch.setattr(validation, "_timestamp_invalid_checker", lambda: lambda value: pd.isna(pd.to_datetime(value, utc=True, errors="coerce")))
+    expected = collect_option_chain_frame_findings(frame, boundary=boundary)
+    assert actual == expected
+    checked = datetime(2026, 8, 21, tzinfo=timezone.utc)
+    assert project_option_chain_integrity_summary(actual, total_rows=len(frame), checked_at=checked) == project_option_chain_integrity_summary(expected, total_rows=len(frame), checked_at=checked)
+
+
+def test_timestamp_memo_is_bounded_exact_string_and_invocation_local(monkeypatch):
+    original = pd.to_datetime
+    calls = []
+
+    def parse(value, **kwargs):
+        calls.append(value)
+        return original(value, **kwargs)
+
+    monkeypatch.setattr(pd, "to_datetime", parse)
+    check = validation._timestamp_invalid_checker()
+    for _ in range(3):
+        assert not check("2026-08-21")
+        assert check("bad")
+        assert not check(123)
+    assert calls == ["2026-08-21", "bad", 123, 123, 123]
+    for index in range(1025):
+        check(f"invalid-{index}")
+    before = len(calls)
+    check("2026-08-21")
+    validation._timestamp_invalid_checker()("2026-08-21")
+    assert len(calls) == before + 2
+
+
+def test_canonical_validation_parses_each_repeated_timestamp_once_per_pass(monkeypatch):
+    original = pd.to_datetime
+    calls = []
+
+    def parse(value, **kwargs):
+        calls.append(value)
+        return original(value, **kwargs)
+
+    monkeypatch.setattr(pd, "to_datetime", parse)
+    frame = pd.concat([_frame()] * 100, ignore_index=True)
+    for expected in (1, 2):
+        collect_option_chain_frame_findings(frame, boundary=OptionChainIntegrityBoundary.EXPORT)
+        assert len(calls) == expected
+
+
+def test_provider_timestamp_memo_keeps_raw_errors_and_pass_local_scope(monkeypatch):
+    original = pd.to_datetime
+    calls = []
+
+    def parse(value, **kwargs):
+        calls.append(value)
+        return original(value, **kwargs)
+
+    monkeypatch.setattr(pd, "to_datetime", parse)
+    raw = pd.DataFrame([{"strike": 100.0, "bid": 1.0, "ask": 2.0,
+                         "lastTradeDate": "invalid"}] * 20)
+    for expected in (1, 2):
+        with pytest.raises(OptionChainDataIntegrityError) as caught:
+            validate_option_chain_provider_response(raw, pd.DataFrame(), ticker="SYNTH", provider="yfinance")
+        assert len(calls) == expected
+        assert caught.value.summary.invalid_row_count == 20
 
 
 def test_public_constants_and_enum_sets_are_exact():

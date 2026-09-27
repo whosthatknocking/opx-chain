@@ -378,3 +378,11 @@ Local validation:
 python scripts/check_version.py
 python scripts/check_version.py --tag v0.1.0
 ```
+# Integrity Validation Performance
+
+Timestamp validity checks memoize exact built-in strings within each validation
+invocation (at most 1024 entries). Provider-response and canonical-frame checks
+use independent caches; other scalar types keep the existing pandas parser.
+Eviction affects only runtime. Validation findings, ordering, samples and all
+publication/consumer integrity boundaries remain unchanged. No cross-dataset
+cache or provider requests are introduced.
