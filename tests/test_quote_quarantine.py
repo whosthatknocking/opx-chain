@@ -6,9 +6,13 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+import httpx
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 from test_integrity import _frame
 
 from opx_chain.integrity import OptionChainDataIntegrityError
+from opx_chain.providers.base import ProviderAuthenticationError, ProviderQuotaError
 from opx_chain.quote_quarantine import quarantine_unusable_quotes
 
 
@@ -96,3 +100,55 @@ def test_disappearing_quote_remains_quarantined():
 def test_duplicate_contract_is_fatal_before_quarantine():
     with pytest.raises(OptionChainDataIntegrityError):
         run(pd.concat([frames(), frames().iloc[[1]]], ignore_index=True))
+
+
+@pytest.mark.parametrize("error", [
+    TimeoutError, ConnectionError, httpx.ReadTimeout, httpx.ConnectError,
+    httpx.RemoteProtocolError, RequestsConnectionError, RequestsTimeout,
+])
+def test_transport_failure_preserves_valid_rows_and_safe_evidence(error):
+    provider = Provider(frames())
+
+    def fail(ticker, expiration):
+        assert (ticker, expiration) == ("SYNTH", "2026-08-21")
+        provider.calls += 1
+        raise error("secret credentialed URL must not reach the report")
+
+    provider.load_option_chain = fail
+    result, raw_report = quarantine_unusable_quotes(
+        frames(), provider=provider, ticker="SYNTH", underlying_price=105,
+    )
+    report = json.loads(raw_report)
+    assert len(result) == 1 and provider.calls == 1
+    assert report["quarantined_count"] == 1
+    assert report["affected_quotes"][0]["refresh_error"] == error.__name__
+    assert report["affected_quotes"][0]["refresh_found"] is False
+    assert "secret" not in raw_report
+
+
+@pytest.mark.parametrize("error", [ProviderAuthenticationError, ProviderQuotaError, ValueError])
+def test_nontransport_refresh_failure_propagates(error):
+    provider = Provider(frames())
+
+    def fail(ticker, expiration):
+        assert (ticker, expiration) == ("SYNTH", "2026-08-21")
+        raise error("stop")
+
+    provider.load_option_chain = fail
+    with pytest.raises(error):
+        quarantine_unusable_quotes(
+            frames(), provider=provider, ticker="SYNTH", underlying_price=105,
+        )
+
+
+def test_refresh_normalization_failure_is_not_swallowed():
+    provider = Provider(frames())
+
+    def fail(**kwargs):
+        raise ValueError("invalid mapping")
+
+    provider.normalize_option_frame = fail
+    with pytest.raises(ValueError, match="invalid mapping"):
+        quarantine_unusable_quotes(
+            frames(), provider=provider, ticker="SYNTH", underlying_price=105,
+        )

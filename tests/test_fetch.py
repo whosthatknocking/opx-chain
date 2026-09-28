@@ -978,7 +978,10 @@ def _patch_config_20260320(monkeypatch):
 
 
 @pytest.mark.parametrize("held", [False, True])
-def test_isolated_crossed_quote_is_quarantined_with_durable_warning(monkeypatch, held):
+@pytest.mark.parametrize("refresh_timeout", [False, True])
+def test_isolated_crossed_quote_is_quarantined_with_durable_warning(
+    monkeypatch, held, refresh_timeout,
+):
     """A held corrupt quote is missing, never preserved by the position corridor."""
     import json  # pylint: disable=import-outside-toplevel
 
@@ -986,6 +989,8 @@ def test_isolated_crossed_quote_is_quarantined_with_durable_warning(monkeypatch,
         """Reproduce a provider's zero offer with a positive bid."""
 
         def load_option_chain(self, ticker, expiration_date):
+            if refresh_timeout and len(self.prepared_tickers) > 1:
+                raise TimeoutError("upstream timeout")
             chain = super().load_option_chain(ticker, expiration_date)
             chain.calls.loc[0, "bid"] = .01
             chain.calls.loc[0, "ask"] = 0
@@ -1007,6 +1012,8 @@ def test_isolated_crossed_quote_is_quarantined_with_durable_warning(monkeypatch,
     assert "TEST260417C00100000" not in set(result["contract_symbol"])
     assert result.attrs["fetch_status"] == "ok_with_warnings"
     assert json.loads(result.attrs["fetch_error_summary"])["quarantined_count"] == 1
+    warning = json.loads(result.attrs["fetch_error_summary"])["affected_quotes"][0]
+    assert warning["refresh_error"] == ("TimeoutError" if refresh_timeout else None)
     assert result.attrs["normalized_row_count"] == len(result) + result.attrs["filtered_row_count"]
     assert provider.prepared_tickers == ["TEST", "TEST"]
 

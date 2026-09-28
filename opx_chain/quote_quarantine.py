@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import pandas as pd
+import httpx
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import Timeout as RequestsTimeout
 
 from opx_chain._integrity_validation import (
     collect_option_chain_frame_findings,
@@ -15,7 +18,14 @@ from opx_chain.integrity import (
 )
 from opx_chain.json_utils import dumps_strict_json
 from opx_chain.option_types import OPTION_TYPE_CALL, OPTION_TYPE_PUT
+from opx_chain.providers.base import OptionChainFrames
 from opx_chain.timestamps import utc_now
+
+
+_TRANSPORT_ERRORS = (
+    TimeoutError, ConnectionError, httpx.TimeoutException, httpx.NetworkError,
+    httpx.RemoteProtocolError, RequestsConnectionError, RequestsTimeout,
+)
 
 
 def _quote_failures(frame, ticker, provider):
@@ -52,7 +62,13 @@ def quarantine_unusable_quotes(frame, *, provider, ticker, underlying_price):  #
     for expiration in sorted(initial["expiration_date"].unique()):
         # Bypass the persistent chain cache. Providers may fetch a whole ticker
         # internally, but only affected expirations are requested here.
-        chain = provider.load_option_chain(ticker, expiration)
+        refresh_error = None
+        try:
+            chain = provider.load_option_chain(ticker, expiration)
+        except _TRANSPORT_ERRORS as exc:
+            # Do not persist upstream messages: they can include credentialed URLs.
+            refresh_error = type(exc).__name__
+            chain = OptionChainFrames(calls=pd.DataFrame(), puts=pd.DataFrame())
         validate_option_chain_provider_response(
             chain.calls, chain.puts, ticker=ticker, provider=provider.name,
         )
@@ -88,6 +104,7 @@ def quarantine_unusable_quotes(frame, *, provider, ticker, underlying_price):  #
                 "ask_size": str(current.get("askSize", "")),
                 "quote_time": str(current.get("option_quote_time")),
                 "refresh_found": replacement is not None,
+                "refresh_error": refresh_error,
                 "reason": "ZERO_ASK" if current["ask"] == 0 else "CROSSED_QUOTE",
                 "quarantined": bool(current["bid"] > current["ask"]),
             })

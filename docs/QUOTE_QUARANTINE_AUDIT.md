@@ -1,5 +1,26 @@
 # Isolated unusable option quotes
 
+## Follow-up audit: refresh failure boundaries
+
+Closed: AUD-01a0e9e6-3408-79ae-a64b-3fcfb9c32a41 (strategy audit ledger).
+A refresh transport exception escapes and causes fetch to discard previously
+validated ticker rows. Preserve them, quarantine the unresolved quote, and report
+the transport error class without leaking exception text. Authentication, quota,
+structural and normalization failures remain fatal or retain existing handling.
+Resolution: catch only recognized transport exceptions around the refresh call,
+retain original quotes for quarantine, and persist a safe exception-class field.
+Verified with seven transport variants, negative permission/quota/mapping cases,
+held/unheld fetch-path tests, and the complete offline suite (1,504 passed before
+adding two further passing fetch-path timeout variants).
+
+Open: AUD-01a0e9e6-6497-7441-a6cb-4875d24c3c2c (same audit round).
+Refresh incorrectly recalculates the ticker-wide quarantine limit from an
+expiration subset. Twenty ticker rows with two crossed quotes in one three-row
+expiration pass initial validation but fail unchanged refresh validation. Use
+the original ticker denominator consistently, preserving structural checks.
+
+## Original repair
+
 Status: closed. Cross-package reference:
 AUD-01a0e99f-d4b8-778d-ab29-ec7e0692c2c4 in opx-strategy.
 

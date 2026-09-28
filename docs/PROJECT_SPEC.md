@@ -408,6 +408,11 @@ Acquisition has one bounded quote-only exception: after checking every row for
 structural corruption, finite nonnegative crossed quotes (including positive
 bid/zero ask) receive one provider refresh per affected expiration, bypassing
 the local chain cache. A provider may internally request the whole ticker.
+If that refresh raises a recognized network/timeout transport error, quarantine
+the unresolved original quotes and retain other validated rows. Authentication,
+quota, malformed responses and normalization errors are not transport waivers.
+Evidence includes nullable `refresh_error` with only the exception class, never
+upstream exception text or credential-bearing URLs.
 Unresolved quotes are quarantined, not corrected, and never reach enrichment,
 filter exemptions for held contracts, or published datasets. At most ten rows
 and ten percent of the ticker frame (with a one-row floor) can qualify;

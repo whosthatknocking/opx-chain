@@ -1329,6 +1329,10 @@ This means usable validated rows exist but acquisition refreshed or quarantined
 isolated crossed quotes. `error_summary` contains JSON with `schema_version=1`,
 `ticker`, `provider`, `checked_at`, `refresh_attempts`, `quarantined_count`, and
 `affected_quotes` (original/refreshed bid/ask, quote time, identity and outcome).
+Each affected quote can include nullable `refresh_error`: a safe transport
+exception class when the refresh was unavailable. Such failures preserve other
+validated rows and quarantine the original bad quote; no raw exception text is
+included. Non-transport failures retain their existing failure behavior.
 Do not classify the whole ticker as unavailable. Surface the warning on both
 fresh and reused datasets, and treat omitted held contracts as unavailable for
 price-dependent actions. Published rows still pass strict integrity validation.
