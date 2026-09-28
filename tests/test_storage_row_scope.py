@@ -56,7 +56,7 @@ def _scope(*, kept: int = 2) -> OptionChainRowScope:
     )
 
 
-def _publish(backend):
+def _publish(backend, *, warning=None):
     run_id = backend.create_run(
         RunContext("synthetic-provider", ("SYNTH",), "config", "positions")
     )
@@ -69,7 +69,8 @@ def _publish(backend):
             kept_row_count=2,
             filtered_row_count=0,
             expiration_count=1,
-            status="ok",
+            status="ok_with_warnings" if warning else "ok",
+            error_summary=warning,
         ),
     )
     record = backend.write_dataset(
@@ -87,6 +88,18 @@ def _publish(backend):
     )
     backend.finalize_run(run_id, RunSummary("complete"))
     return record
+
+
+@pytest.mark.parametrize("backend_factory", BACKENDS)
+def test_quote_warning_survives_publication_and_validated_reuse(backend_factory, tmp_path):
+    backend = backend_factory(tmp_path)
+    evidence = '{"quarantined_count":1,"affected_quotes":[{"bid":0.01,"ask":0}]}'
+    record = _publish(backend, warning=evidence)
+    loaded = backend.load_validated_option_chain_dataset(record.dataset_id)
+    assert loaded.integrity.status == "valid"
+    result = backend.get_ticker_results(record.run_id)[0]
+    assert result.status == "ok_with_warnings"
+    assert result.error_summary == evidence
 
 
 def test_row_scope_is_strict_and_count_conserving():

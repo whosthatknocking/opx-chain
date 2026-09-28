@@ -29,7 +29,7 @@ from opx_chain.tickers import is_valid_ticker
 INVALID_TICKER_FILTER = ""
 ARTIFACT_TYPES = frozenset({"debug_payload", "run_log", "sidecar"})
 RUN_SUMMARY_STATUSES = frozenset({"complete", "failed", "interrupted"})
-TICKER_FETCH_STATUSES = frozenset({"ok", "skipped", "error"})
+TICKER_FETCH_STATUSES = frozenset({"ok", "ok_with_warnings", "skipped", "error"})
 VALIDATION_SEVERITIES = frozenset({"error", "warning", "info"})
 
 

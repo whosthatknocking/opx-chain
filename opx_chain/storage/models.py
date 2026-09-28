@@ -129,7 +129,7 @@ class TickerRunRecord:
     kept_row_count: int
     filtered_row_count: int
     expiration_count: int
-    status: str  # ok | skipped | error
+    status: str  # ok | ok_with_warnings | skipped | error
     error_summary: str | None
 
 

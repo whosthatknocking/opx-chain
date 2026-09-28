@@ -400,9 +400,28 @@ The same shared contract is enforced at four material boundaries:
 
 Required contract identity, required numeric/time fields, finite nonnegative
 market values, `bid <= ask`, unique contract symbols, unique canonical contract
-keys, and symbol/column identity agreement are fatal invariants. Findings use
+keys, and symbol/column identity agreement are fatal invariants for published data. Findings use
 bounded provider-neutral codes and samples. Provider names and upstream error
 text may be recorded as provenance, but they do not alter the validation rules.
+
+Acquisition has one bounded quote-only exception: after checking every row for
+structural corruption, finite nonnegative crossed quotes (including positive
+bid/zero ask) receive one provider refresh per affected expiration, bypassing
+the local chain cache. A provider may internally request the whole ticker.
+Unresolved quotes are quarantined, not corrected, and never reach enrichment,
+filter exemptions for held contracts, or published datasets. At most ten rows
+and ten percent of the ticker frame (with a one-row floor) can qualify;
+widespread corruption and all other fatal findings still stop acquisition.
+An empty remaining frame is not publishable. Null/malformed required quotes
+remain fatal until their provider semantics have a separately approved contract.
+
+Ticker results use `ok_with_warnings` with JSON evidence in `error_summary`:
+schema version, provider, ticker, check time, refresh count, quarantine count,
+and original/refreshed quote values and contract identities. The run log also
+retains this evidence. Repaired quotes retain a warning even when no rows are
+ultimately removed. These are complete fetches with quality warnings, not clean
+coverage; downstream consumers must expose the warning and suppress actions
+requiring any excluded held-contract price.
 
 With storage enabled, `write_dataset` only stages a checked artifact. Its exact
 run can finalize `complete` only with `integrity_status=valid` and

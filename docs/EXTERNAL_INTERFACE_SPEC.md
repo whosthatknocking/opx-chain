@@ -1322,3 +1322,17 @@ This document and `docs/STORAGE_SPEC.md` are complementary:
 
 When STORAGE_SPEC changes affect the public surface (e.g., a new field on
 `DatasetHandle`), this document must be updated in the same commit.
+# Quote-quality acquisition warnings
+
+`StorageBackend.get_ticker_results(run_id)` can return `status="ok_with_warnings"`.
+This means usable validated rows exist but acquisition refreshed or quarantined
+isolated crossed quotes. `error_summary` contains JSON with `schema_version=1`,
+`ticker`, `provider`, `checked_at`, `refresh_attempts`, `quarantined_count`, and
+`affected_quotes` (original/refreshed bid/ask, quote time, identity and outcome).
+Do not classify the whole ticker as unavailable. Surface the warning on both
+fresh and reused datasets, and treat omitted held contracts as unavailable for
+price-dependent actions. Published rows still pass strict integrity validation.
+Row-scope normalized/filtered counts describe validated rows entering ordinary
+post-download screening; quarantine counts are separate in the quality evidence.
+Consumers must not claim complete candidate coverage from row-scope counts alone
+when a ticker carries quality warnings.

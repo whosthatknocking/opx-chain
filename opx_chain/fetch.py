@@ -35,6 +35,7 @@ from opx_chain.price_context import (
     compute_price_context,
 )
 from opx_chain.price_history import reconcile_price_history
+from opx_chain.quote_quarantine import quarantine_unusable_quotes
 from opx_chain.providers.base import (
     OptionChainFrames,
     ProviderAuthenticationError,
@@ -543,6 +544,15 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
             f"{ticker}: normalize  rows={pre_filter_count}",
             logger=logger,
         )
+        all_normalized, quote_report = quarantine_unusable_quotes(
+            all_normalized, provider=provider, ticker=ticker,
+            underlying_price=underlying_price,
+        )
+        if quote_report:
+            _emit_fetch_info(f"{ticker}: quote_quality_warning {quote_report}", logger=logger)
+        # Row-scope counts describe validated canonical rows entering ordinary
+        # screening; excluded quote counts live in the durable quality report.
+        pre_filter_count = len(all_normalized)
         validate_option_chain_frame(
             all_normalized,
             boundary=OptionChainIntegrityBoundary.PRE_FILTER,
@@ -609,7 +619,9 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
                     raw_contract_count,
                     raw_expiration_count,
             )
-            return _with_fetch_status(combined, "skipped")
+            return _with_fetch_status(
+                combined, "skipped", quote_report,
+            )
 
         _emit_fetch_info(
             f"{ticker}: filter  rows={len(combined)}  dropped={dropped_rows}",
@@ -646,6 +658,8 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
                 raw_contract_count,
                 raw_expiration_count,
             )
+        if quote_report:
+            return _with_fetch_status(combined, "ok_with_warnings", quote_report)
         return combined
 
     except (

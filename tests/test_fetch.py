@@ -977,6 +977,40 @@ def _patch_config_20260320(monkeypatch):
     monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
 
 
+@pytest.mark.parametrize("held", [False, True])
+def test_isolated_crossed_quote_is_quarantined_with_durable_warning(monkeypatch, held):
+    """A held corrupt quote is missing, never preserved by the position corridor."""
+    import json  # pylint: disable=import-outside-toplevel
+
+    class CrossedProvider(StubProvider):
+        """Reproduce a provider's zero offer with a positive bid."""
+
+        def load_option_chain(self, ticker, expiration_date):
+            chain = super().load_option_chain(ticker, expiration_date)
+            chain.calls.loc[0, "bid"] = .01
+            chain.calls.loc[0, "ask"] = 0
+            return chain
+
+    provider = CrossedProvider()
+    monkeypatch.setattr(fetch, "get_data_provider", lambda: provider)
+    _patch_config_20260320(monkeypatch)
+    def config_factory():
+        return make_runtime_config(today=date(2026, 3, 20), enable_filters=False)
+    monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
+    positions = PositionSet(
+        stock_tickers=frozenset({"TEST"}),
+        option_keys=frozenset({OptionPositionKey("TEST", "2026-04-17", "call", 100)}),
+    ) if held else EMPTY_POSITION_SET
+    result = fetch.fetch_ticker_option_chain("TEST", position_set=positions)
+    assert "TEST260417C00100000" not in set(result["contract_symbol"])
+    assert result.attrs["fetch_status"] == "ok_with_warnings"
+    assert json.loads(result.attrs["fetch_error_summary"])["quarantined_count"] == 1
+    assert result.attrs["normalized_row_count"] == len(result) + result.attrs["filtered_row_count"]
+    assert provider.prepared_tickers == ["TEST", "TEST"]
+
+
 def test_today_expiration_dropped_without_position_set(monkeypatch):
     """Expirations on today's date must be skipped when the ticker is not a portfolio stock."""
     monkeypatch.setattr(fetch, "get_data_provider", TodayExpirationProvider)
