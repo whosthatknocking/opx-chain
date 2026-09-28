@@ -28,15 +28,16 @@ _TRANSPORT_ERRORS = (
 )
 
 
-def _quote_failures(frame, ticker, provider):
+def _quote_failures(frame, ticker, provider, *, ticker_row_count=None):
     findings = collect_option_chain_frame_findings(
         frame, boundary=OptionChainIntegrityBoundary.PRE_FILTER,
         requested_tickers=(ticker,),
     )
     failures = [item for item in findings if item.severity.value == "fatal"]
     quote_rows = {item.row_index for item in failures if item.field == "bid_ask"}
+    total = len(frame) if ticker_row_count is None else ticker_row_count
     if any(item.field != "bid_ask" for item in failures) or (
-        len(quote_rows) > min(10, max(1, len(frame) // 10))
+        len(quote_rows) > min(10, max(1, total // 10))
     ):
         raise OptionChainDataIntegrityError(project_option_chain_integrity_summary(
             findings, total_rows=len(frame), provider=provider,
@@ -81,7 +82,7 @@ def quarantine_unusable_quotes(frame, *, provider, ticker, underlying_price):  #
                 ))
         refreshed = pd.concat(normalized, ignore_index=True) if normalized else pd.DataFrame()
         if not refreshed.empty:
-            _quote_failures(refreshed, ticker, provider.name)
+            _quote_failures(refreshed, ticker, provider.name, ticker_row_count=len(frame))
         for index, original in initial.loc[initial["expiration_date"] == expiration].iterrows():
             matches = (refreshed.loc[refreshed["contract_symbol"] == original["contract_symbol"]]
                        if not refreshed.empty else refreshed)

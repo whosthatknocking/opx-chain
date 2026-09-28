@@ -152,3 +152,38 @@ def test_refresh_normalization_failure_is_not_swallowed():
         quarantine_unusable_quotes(
             frames(), provider=provider, ticker="SYNTH", underlying_price=105,
         )
+
+
+def multi_expiration_frame():
+    """Two bad rows fit the ticker budget, but exceed the small expiry budget."""
+    return pd.concat([
+        _frame(
+            contract_symbol=f"SYNTH26{'0821' if i < 3 else '0828'}C{(100 + i) * 1000:08d}",
+            expiration_date="2026-08-21" if i < 3 else "2026-08-28",
+            strike=100 + i, bid=.01, ask=0 if i < 2 else .02,
+        )
+        for i in range(20)
+    ], ignore_index=True)
+
+
+def test_refresh_uses_original_ticker_quarantine_denominator():
+    frame = multi_expiration_frame()
+    result, report, calls = run(frame, frame.iloc[:3].copy())
+    assert calls == 1 and len(result) == 18
+    assert report["quarantined_count"] == 2
+
+
+def test_refresh_still_rejects_quote_failures_above_ticker_limit():
+    frame = multi_expiration_frame()
+    refreshed = frame.iloc[:3].copy()
+    refreshed.loc[2, "ask"] = 0
+    with pytest.raises(OptionChainDataIntegrityError):
+        run(frame, refreshed)
+
+
+def test_refresh_still_checks_structural_errors_in_unselected_rows():
+    frame = multi_expiration_frame()
+    refreshed = frame.iloc[:3].copy()
+    refreshed.loc[2, "strike"] = 999
+    with pytest.raises(OptionChainDataIntegrityError):
+        run(frame, refreshed)

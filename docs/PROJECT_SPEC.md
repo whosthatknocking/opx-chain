@@ -415,8 +415,10 @@ Evidence includes nullable `refresh_error` with only the exception class, never
 upstream exception text or credential-bearing URLs.
 Unresolved quotes are quarantined, not corrected, and never reach enrichment,
 filter exemptions for held contracts, or published datasets. At most ten rows
-and ten percent of the ticker frame (with a one-row floor) can qualify;
-widespread corruption and all other fatal findings still stop acquisition.
+and ten percent of the ticker frame (with a one-row floor) can qualify.
+The denominator remains the original full ticker frame when validating a
+refreshed expiration subset. Widespread corruption and all other fatal findings
+still stop acquisition.
 An empty remaining frame is not publishable. Null/malformed required quotes
 remain fatal until their provider semantics have a separately approved contract.
 

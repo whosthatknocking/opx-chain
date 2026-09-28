@@ -13,11 +13,15 @@ Verified with seven transport variants, negative permission/quota/mapping cases,
 held/unheld fetch-path tests, and the complete offline suite (1,504 passed before
 adding two further passing fetch-path timeout variants).
 
-Open: AUD-01a0e9e6-6497-7441-a6cb-4875d24c3c2c (same audit round).
+Closed: AUD-01a0e9e6-6497-7441-a6cb-4875d24c3c2c (same audit round).
 Refresh incorrectly recalculates the ticker-wide quarantine limit from an
 expiration subset. Twenty ticker rows with two crossed quotes in one three-row
 expiration pass initial validation but fail unchanged refresh validation. Use
 the original ticker denominator consistently, preserving structural checks.
+Resolution: pass the original ticker row count into refreshed-frame validation.
+The exact 20-row/three-row reproducer failed before the repair and now passes;
+refresh corruption and over-budget refresh failures remain rejected.
+The complete offline suite passed: 1,509 tests, two existing pandas warnings.
 
 ## Original repair
 
