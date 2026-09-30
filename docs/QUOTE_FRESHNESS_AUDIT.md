@@ -29,3 +29,14 @@ source timestamps.
 Verification: full offline suite passes (1,515 tests; two existing pandas
 warnings). Changed-module lint passes. Canonical and wheel-packaged reference
 documentation are synchronized. Package version: 0.6.3.
+
+## Follow-up audit
+
+Reviewed the final acquisition path, both age consumers, refresh completion,
+cache reuse and negative-age safeguards again after the fix. The assessment
+clock is sampled after validation of the final acquired chain, before either
+age consumer; no earlier consumer retains the fetch-start reference. Provider
+timestamps are not rewritten, and stale thresholds and package boundaries are
+unchanged. Empty/error paths do not publish partially assessed rows. Full
+repository Pylint passes at 10/10. No additional actionable finding was found
+in this scope; the full offline suite is repeated before this audit commit.
