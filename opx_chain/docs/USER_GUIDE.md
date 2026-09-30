@@ -105,6 +105,11 @@ opx-check --freshness
 
 That summary is intentionally different from the stored `quote_age_seconds`, `underlying_price_age_seconds`, `is_stale_quote`, and `is_stale_underlying_price` fields. Those CSV columns describe freshness at fetch time. `opx-check --freshness` compares `option_quote_time` and `underlying_price_time` to the current clock when you run the command, so an old file will show `stale_now_rows` and `stale_underlyings_now` even if the fetch-time stale flags were `false` when the file was created.
 
+Fetch-time ages use one assessment instant after all ticker quotes and any
+bounded refresh have been received. Logs retain `fetch_started_at` separately
+from `freshness_assessed_at`. Cached quote timestamps are unchanged; truly
+future-dated quotes still have negative ages and are flagged stale.
+
 Run the local viewer:
 
 ```

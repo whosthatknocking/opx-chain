@@ -1,6 +1,6 @@
 """Fetch orchestration using the configured market-data provider."""
 
-from datetime import datetime, timezone
+from datetime import datetime
 from numbers import Integral
 from numbers import Real
 import pickle
@@ -46,7 +46,7 @@ from opx_chain.runlog import get_logger
 from opx_chain.runtime_args import strict_bool_arg
 from opx_chain.storage.cache import get_provider_cache
 from opx_chain.tickers import is_valid_ticker
-from opx_chain.timestamps import format_utc_z_seconds
+from opx_chain.timestamps import format_utc_z_seconds, utc_now_timestamp
 from opx_chain.utils import is_finite_positive_number
 from opx_chain.validate import validate_option_rows
 
@@ -353,7 +353,7 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
     try:
         config = get_runtime_config()
         cache = get_provider_cache(config)
-        fetched_at = pd.Timestamp.now(tz=timezone.utc)
+        fetch_started_at = utc_now_timestamp()
         provider = get_data_provider()
         prepare_ticker_fetch = getattr(provider, "prepare_ticker_fetch", None)
         if callable(prepare_ticker_fetch):
@@ -560,6 +560,15 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
             provider=provider.name,
         )
 
+        # Assess all received/cached quotes after acquisition and quote refresh.
+        # Fetch-start time can legitimately precede a quote received in this call.
+        fetched_at = utc_now_timestamp()
+        if logger:
+            logger.info(
+                "ticker=%s fetch_started_at=%s freshness_assessed_at=%s",
+                ticker, format_utc_z_seconds(fetch_started_at),
+                format_utc_z_seconds(fetched_at),
+            )
         # Pre-filter cross-row enrichment on the full unfiltered chain.
         all_normalized = append_ticker_event_fields(
             all_normalized,

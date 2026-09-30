@@ -223,8 +223,8 @@ For Market Data, numeric event dates are interpreted on the `America/New_York` m
 - `has_nonzero_bid`: True when bid is greater than zero. Use it to find contracts with actual sell-side value.
 - `has_nonzero_ask`: True when ask is greater than zero. Use it to find contracts with an actionable offer.
 - `has_crossed_or_locked_market`: True when bid is greater than or equal to ask. Use it to detect suspicious market states.
-- `quote_age_seconds`: Age of the option quote at fetch time. Use it to avoid stale option prices. Lower is better; high values mean the option quote may be stale.
-- `is_stale_quote`: Flag showing whether the option quote exceeds the staleness threshold. Use it to filter delayed quotes.
+- `quote_age_seconds`: Post-acquisition assessment time minus option quote time, after any bounded refresh. Cached timestamps remain unchanged. Negative values identify quotes later than the assessment instant, not quotes received after fetch started.
+- `is_stale_quote`: True for negative quote ages or ages above the configured staleness threshold; missing ages remain unknown. Use it to identify future-dated or delayed quotes.
 - `is_wide_market`: True when spread percentage exceeds the configured limit. Use it to remove illiquid contracts. `True` is usually a bad sign for execution quality.
 - `days_bucket`: Expiration bucket from `Week_1` through `Week_4`. Use it for quick grouping of near-term maturities.
 - `near_expiry_near_money_flag`: True when expiration is within 14 days and strike is within 3% of spot. Use it to highlight short-dated near-the-money contracts.
