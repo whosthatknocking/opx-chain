@@ -1127,3 +1127,102 @@ def test_append_underlying_snapshot_fields_is_stale_underlying_price_stays_nulla
     assert missing["is_stale_underlying_price"].dtype == object
     assert missing.loc[0, "is_stale_underlying_price"] is None
     assert missing.loc[1, "is_stale_underlying_price"] is None
+
+
+@pytest.mark.parametrize("enable_filters", [True, False])
+def test_held_expiry_beyond_horizon_keeps_only_exact_held_contract(monkeypatch, enable_filters):
+    """A held long-dated put retains quotes/Greeks without expanding search scope."""
+    class HeldExpiryProvider(StubProvider):
+        """Expose normal, held, unrelated future, and expired expiries."""
+
+        def __init__(self):
+            super().__init__()
+            self.requested_expirations = []
+
+        def list_option_expirations(self, ticker):
+            assert ticker == "TEST"
+            return ["2026-03-19", "2026-04-17", "2027-09-17", "2027-12-17"]
+
+        def load_option_chain(self, ticker, expiration_date):
+            self.requested_expirations.append(expiration_date)
+            payload = super().load_option_chain(ticker, "2026-04-17")
+            for frame in (payload.calls, payload.puts):
+                frame["contract_symbol"] = frame["contract_symbol"].str.replace(
+                    "260417", expiration_date[2:].replace("-", ""), regex=False,
+                )
+                frame["delta"] = 0.35 if frame is payload.calls else -0.75
+                frame["theta"] = -0.025
+            return payload
+
+    provider = HeldExpiryProvider()
+    monkeypatch.setattr(fetch, "get_data_provider", lambda: provider)
+    def config_factory():
+        return make_runtime_config(enable_filters=enable_filters)
+    monkeypatch.setattr(fetch, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.normalize, "get_runtime_config", config_factory)
+    monkeypatch.setattr(opx_chain.metrics, "get_runtime_config", config_factory)
+    positions = PositionSet(frozenset(), frozenset({
+        OptionPositionKey("TEST", "2027-12-17", "put", 95.0),
+        OptionPositionKey("TEST", "2026-03-19", "call", 100.0),
+        OptionPositionKey("OTHER", "2027-09-17", "call", 100.0),
+    }))
+    result = fetch.fetch_ticker_option_chain("TEST", position_set=positions)
+    assert provider.requested_expirations == ["2026-04-17", "2027-12-17"]
+    future = result.loc[result["expiration_date"] > "2026-06-30"]
+    assert list(future["contract_symbol"]) == ["TEST271217P00095000"]
+    held = future.iloc[0]
+    assert held["bid"] == 0.5
+    assert held["ask"] == 0.7
+    assert held["delta"] == -0.75
+    assert held["theta"] == -0.025
+    assert "TEST260417C00100000" in set(result["contract_symbol"])
+    assert result.attrs["raw_expiration_count"] == 2
+    assert result.attrs["normalized_row_count"] == len(result) + result.attrs["filtered_row_count"]
+
+
+def test_ordinary_expiry_horizon_does_not_expand_for_stock_only(monkeypatch):
+    """Only an exact held option expiry can bypass the acquisition horizon."""
+    class FarExpiryProvider(StubProvider):
+        """Expose only an expiry outside the ordinary horizon."""
+
+        def list_option_expirations(self, ticker):
+            assert ticker == "TEST"
+            return ["2027-12-17"]
+
+        def load_option_chain(self, ticker, expiration_date):
+            raise AssertionError("outside-horizon non-held expiry must not be fetched")
+
+    monkeypatch.setattr(fetch, "get_data_provider", FarExpiryProvider)
+    _patch_config_20260320(monkeypatch)
+    positions = PositionSet(frozenset({"TEST"}), frozenset())
+    result = fetch.fetch_ticker_option_chain("TEST", position_set=positions)
+    assert result.empty
+
+
+def test_missing_outside_horizon_held_strike_does_not_publish_other_contracts(monkeypatch):
+    """A held expiry exception cannot turn missing coverage into another strike."""
+    class MissingHeldProvider(StubProvider):
+        """Return another strike at the required expiry."""
+
+        def list_option_expirations(self, ticker):
+            assert ticker == "TEST"
+            return ["2027-12-17"]
+
+        def load_option_chain(self, ticker, expiration_date):
+            assert expiration_date == "2027-12-17"
+            payload = super().load_option_chain(ticker, "2026-04-17")
+            for frame in (payload.calls, payload.puts):
+                frame["contract_symbol"] = frame["contract_symbol"].str.replace(
+                    "260417", "271217", regex=False,
+                )
+            return payload
+
+    monkeypatch.setattr(fetch, "get_data_provider", MissingHeldProvider)
+    _patch_config_20260320(monkeypatch)
+    positions = PositionSet(frozenset(), frozenset({
+        OptionPositionKey("TEST", "2027-12-17", "put", 96.0),
+    }))
+    result = fetch.fetch_ticker_option_chain("TEST", position_set=positions)
+    assert result.empty
+    assert result.attrs["fetch_status"] == "skipped"
+    assert result.attrs["normalized_row_count"] == result.attrs["filtered_row_count"] == 3

@@ -80,6 +80,20 @@ def _with_fetch_counts(
     return df
 
 
+def _restrict_expiration_scope(frame, max_expiration, positions):
+    """Keep ordinary horizon rows plus exact held contracts beyond it."""
+    if max_expiration is None or frame.empty:
+        return frame
+    columns = ["underlying_symbol", "expiration_date", "option_type", "strike"]
+    held_keys = {
+        (key.ticker, key.expiration_date, key.option_type, key.strike)
+        for key in positions.option_keys
+    }
+    held_mask = pd.MultiIndex.from_frame(frame[columns]).isin(held_keys)
+    ordinary_mask = frame["expiration_date"].le(max_expiration)
+    return frame.loc[ordinary_mask | held_mask].copy()
+
+
 def _with_fetch_status(
     df: pd.DataFrame,
     status: str,
@@ -401,8 +415,13 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
         skipped_for_max_expiration = 0
         skipped_for_past_expiration = 0
         positions = position_set or EMPTY_POSITION_SET
+        held_expirations = {
+            key.expiration_date for key in positions.option_keys if key.ticker == ticker
+        }
         for expiration_date in available_expirations:
-            if config.max_expiration is not None and expiration_date > config.max_expiration:
+            if (config.max_expiration is not None
+                    and expiration_date > config.max_expiration
+                    and expiration_date not in held_expirations):
                 skipped_for_max_expiration += 1
                 continue
 
@@ -558,6 +577,12 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
             boundary=OptionChainIntegrityBoundary.PRE_FILTER,
             requested_tickers=(ticker,),
             provider=provider.name,
+        )
+
+        # Validate before the lossy scope filter. Extra held expiries are coverage
+        # exceptions, not an extension of the ordinary candidate universe.
+        all_normalized = _restrict_expiration_scope(
+            all_normalized, config.max_expiration, positions,
         )
 
         # Assess all received/cached quotes after acquisition and quote refresh.

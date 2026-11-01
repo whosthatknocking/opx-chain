@@ -70,8 +70,13 @@ default `~/.local/share/opx-chain/positions.csv`). When provided,
 `opx-fetch` uses this file to determine which option contracts must survive hard
 filters regardless of screening criteria. Each exact held contract and fetched
 contract with the same ticker, option type, and strike from the held expiration
-forward is retained; the configured provider expiration window remains the
-outer bound. When the positions file is absent, behaviour is unchanged.
+forward is retained within the configured provider expiration window. Available
+unexpired held expiries beyond that window are also fetched, but only exact
+held ticker/type/strike/expiry contracts from those added expiries are published.
+This exception applies with ordinary quality filters enabled or disabled and
+preserves source quotes and Greeks without downloading unrelated outside-window
+contracts. Missing provider coverage remains missing; past expiries are not
+requested. When the positions file is absent, behaviour is unchanged.
 
 A downstream orchestrator that manages a per-run positions file passes the
 run-specific path here:
@@ -605,6 +610,9 @@ can still add additional tickers via stock-ticker expansion. When absent, the co
 **`max_expiration_weeks` (optional `int`)** — overrides the configured maximum
 expiration window for this run only. `0` disables the max-expiration filter for the
 fetch. When absent, the configured `settings.max_expiration_weeks` is used unchanged.
+This bounds ordinary candidates and held-strike forward corridors. Exact
+unexpired held contracts can add isolated expiries beyond the bound; this does
+not imply complete coverage of intervening or later expiries.
 
 **`stale_quote_seconds` (optional `int`)** — overrides the configured stale quote
 threshold for this run only. Downstream callers use this to align fetch freshness with

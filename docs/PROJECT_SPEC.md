@@ -522,8 +522,13 @@ Current behavior:
 - today's expiration is kept for any ticker with stock or option exposure in the positions file
 - matching option contracts and same-ticker/type/strike contracts from each
   held expiration forward bypass post-download quality filters when filters are
-  enabled; the configured provider expiration window still bounds this
-  position-related corridor
+  enabled; the configured provider expiration window bounds this forward corridor
+- available unexpired held expiries beyond the configured window are fetched as
+  exact-contract coverage exceptions; only the held ticker/type/strike/expiry
+  rows are published from those extra expiries, with filters enabled or disabled
+- provider/canonical validation and quote quarantine run before the lossy scope
+  restriction; held exceptions do not bypass integrity checks or invent missing
+  quotes/Greeks, and ordinary search coverage is not widened
 - if the file is absent or cannot be parsed, the run continues without position-aware behavior
 - the resolved positions path is logged at startup for run auditability
 - `--positions` and `--enable-filters` / `--disable-filters` are independent; supplying a positions path does not change the filter toggle
