@@ -4,12 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opx-chain"
-version = "0.6.5"
+version = "0.6.6"
 description = "Options chain fetcher, export pipeline, and local viewer."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 dependencies = [
+    "certifi>=2026.10.19",
     "httpx>=0.28",
     "marketdata-sdk-py>=1.2.0",
     "massive>=2.4.0",

@@ -386,3 +386,13 @@ use independent caches; other scalar types keep the existing pandas parser.
 Eviction affects only runtime. Validation findings, ordering, samples and all
 publication/consumer integrity boundaries remain unchanged. No cross-dataset
 cache or provider requests are introduced.
+
+## Certificate dependency maintenance
+
+The standalone fetch/viewer runtime requires `certifi>=2026.10.19`, including
+the removal of the compromised emSign ECC Root CA - G3. Refresh the installed
+environment after a trust-bundle advisory; a fresh CI resolution does not
+replace an already running local bundle. Restart long-lived fetch/viewer
+processes after the refresh. The dependency regression checks both the declared
+release floor and the removed root's fingerprint without disabling TLS
+verification or making a provider request.
