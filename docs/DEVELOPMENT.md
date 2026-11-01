@@ -396,3 +396,9 @@ replace an already running local bundle. Restart long-lived fetch/viewer
 processes after the refresh. The dependency regression checks both the declared
 release floor and the removed root's fingerprint without disabling TLS
 verification or making a provider request.
+
+The developer lint dependency requires pylint 4.0.9 or later, which replaces
+the affected pickle cache loader. Keep lint cache directories private to the
+developer account and refresh existing development environments after updating
+the declared floor. This lint-only dependency does not change runtime TLS or
+market-data contracts.

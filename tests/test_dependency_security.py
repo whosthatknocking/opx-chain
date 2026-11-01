@@ -31,3 +31,15 @@ def test_actual_certificate_bundle_removes_compromised_root_and_keeps_verificati
     assert len(roots) > 100
     assert context.check_hostname is True
     assert context.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_developer_lint_requirement_excludes_pickle_cache_releases():
+    """The developer lint floor excludes the vulnerable pickle cache loader."""
+    manifest = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    requirement = next(
+        Requirement(item) for item in manifest["project"]["optional-dependencies"]["dev"]
+        if Requirement(item).name == "pylint"
+    )
+    assert Version("4.0.5") not in requirement.specifier
+    assert Version("4.0.9") in requirement.specifier
+    assert Version("4.0.10") in requirement.specifier
