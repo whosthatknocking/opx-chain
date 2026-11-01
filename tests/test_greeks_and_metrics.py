@@ -1155,6 +1155,7 @@ def test_add_screening_and_freshness_flags_risk_model_uses_nullable_boolean(monk
         ]
     )
 
+    frame["risk_model_inconsistent"] = pd.Series([False, True, pd.NA], dtype="boolean")
     result = add_screening_and_freshness_flags(frame.copy(), fetched_at=fetched_at)
 
     assert str(result["risk_model_inconsistent"].dtype) == "boolean"
@@ -1167,3 +1168,45 @@ def test_add_screening_and_freshness_flags_risk_model_uses_nullable_boolean(monk
         finding.field for finding in findings if finding.code == "invalid_boolean_field"
     }
     assert "risk_model_inconsistent" not in invalid_boolean_fields
+
+
+@pytest.mark.parametrize("option_type", ["call", "put"])
+@pytest.mark.parametrize("years,volatility", [(411 / 365, .5966), (.05, .2)])
+def test_risk_consistency_keeps_self_consistent_model_with_distinct_probability(
+    option_type, years, volatility,
+):
+    """Long-duration delta/probability divergence is not model inconsistency."""
+    frame = pd.DataFrame([{"strike": 100., "time_to_expiration_years": years,
+                           "implied_volatility": volatility, "option_type": option_type}])
+    result = compute_greeks(frame, 65.76, .045)
+    assert bool(result.loc[0, "risk_model_inconsistent"]) is False
+    if years > 1:
+        assert abs(abs(result.loc[0, "delta"]) - result.loc[0, "probability_itm"]) > .15
+
+
+@pytest.mark.parametrize("native_delta,expected_flag", [
+    (-.6109, False), (-.05, True), (.6109, True),
+])
+def test_risk_consistency_compares_native_signed_delta_without_replacing_it(
+    native_delta, expected_flag,
+):
+    """Retain the actual INTC Greek and reject a material same-quantity mismatch."""
+    frame = pd.DataFrame([{"strike": 100., "time_to_expiration_years": 411 / 365,
+                           "implied_volatility": .5966, "option_type": "put",
+                           "delta": native_delta}])
+    result = compute_greeks(frame, 65.76, .045)
+    assert result.loc[0, "delta"] == native_delta
+    assert bool(result.loc[0, "risk_model_inconsistent"]) is expected_flag
+    assert result.loc[0, "probability_itm"] == pytest.approx(.8155658550797064)
+
+
+@pytest.mark.parametrize("iv,years,spot", [(0., 1., 65.76), (float("nan"), 1., 65.76),
+                                         (.6, 0., 65.76), (.6, 1., 0.)])
+def test_risk_consistency_stays_unknown_without_independent_model_inputs(iv, years, spot):
+    """Native Greeks remain available without manufacturing a consistency pass."""
+    frame = pd.DataFrame([{"strike": 100., "time_to_expiration_years": years,
+                           "implied_volatility": iv, "option_type": "put", "delta": -.6109}])
+    result = compute_greeks(frame, spot, .045)
+    assert result.loc[0, "delta"] == -.6109
+    assert pd.isna(result.loc[0, "risk_model_inconsistent"])
+    assert str(result["risk_model_inconsistent"].dtype) == "boolean"

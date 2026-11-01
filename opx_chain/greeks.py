@@ -7,6 +7,8 @@ from scipy.stats import norm
 from opx_chain.option_types import OPTION_TYPE_CALL
 from opx_chain.utils import finite_float, finite_numeric_series
 
+RISK_MODEL_DELTA_TOLERANCE = 0.15
+
 
 def _merge_provider_and_derived(existing, derived):
     """Keep provider-native values when present and fill gaps with derived ones."""
@@ -26,6 +28,18 @@ def _provider_greek_available(df):
             numeric = finite_numeric_series(existing)
             available |= numeric.notna()
     return available
+
+
+def _delta_model_inconsistency(observed_delta, derived_delta):
+    """Compare signed delta with delta, never with an ITM probability proxy."""
+    observed = finite_numeric_series(observed_delta)
+    comparable = observed.notna() & derived_delta.notna()
+    result = pd.Series(pd.NA, index=derived_delta.index, dtype="boolean")
+    result.loc[comparable] = (
+        (observed.loc[comparable] - derived_delta.loc[comparable]).abs()
+        > RISK_MODEL_DELTA_TOLERANCE
+    )
+    return result
 
 
 def compute_greeks(  # pylint: disable=too-many-locals
@@ -111,6 +125,7 @@ def compute_greeks(  # pylint: disable=too-many-locals
     derived_theta = pd.Series(theta / 365, index=df.index, dtype=float)
 
     df["delta"] = _merge_provider_and_derived(df.get("delta"), derived_delta)
+    df["risk_model_inconsistent"] = _delta_model_inconsistency(df["delta"], derived_delta)
     df["probability_itm"] = _merge_provider_and_derived(
         df.get("probability_itm"),
         derived_probability_itm,

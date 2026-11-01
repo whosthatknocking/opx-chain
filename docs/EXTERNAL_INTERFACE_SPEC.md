@@ -1348,3 +1348,17 @@ Row-scope normalized/filtered counts describe validated rows entering ordinary
 post-download screening; quarantine counts are separate in the quality evidence.
 Consumers must not claim complete candidate coverage from row-scope counts alone
 when a ticker carries quality warnings.
+
+
+### Delta model-consistency contract
+
+`risk_model_inconsistent` compares the retained signed delta with the independent
+Black-Scholes delta derived from the same row's valid spot, strike, IV, time and
+configured risk-free rate. The threshold is a difference greater than 0.15.
+Provider-native Greeks remain unchanged. Without a usable model reference, the
+flag stays unknown. Shared screening preserves this nullable boolean.
+
+`probability_itm` remains its own model quantity; a legitimate delta/probability
+difference does not imply inconsistent Greeks. Model agreement does not prove
+quote freshness, eliminate American-exercise/model differences, or give an
+assignment probability. Existing quote and integrity qualifications still apply.

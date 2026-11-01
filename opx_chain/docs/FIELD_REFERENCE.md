@@ -232,7 +232,7 @@ For Market Data, numeric event dates are interpreted on the `America/New_York` m
 - `spread_score`: Execution-quality score from the prompt spread tiers. Higher is better.
 - `dte_score`: Execution-quality score from the prompt DTE tiers. Higher is better.
 - `risk_level`: Prompt-aligned row risk label using delta as the score-driving risk input.
-- `risk_model_inconsistent`: Flag showing delta and `probability_itm` disagree materially.
+- `risk_model_inconsistent`: Nullable flag for a retained signed delta differing from the independent Black-Scholes delta by more than 0.15. Missing model inputs leave this unknown. ITM probability is a different quantity and is not a delta-consistency reference; this flag is not an assignment probability.
 - `quote_quality_score`: Simple composite score built from quote validity, IV, Greeks, market structure, and freshness checks. Use it to rank rows by data quality. Higher is better.
 - `option_score`: Shared 0-100 row score built from IV-adjusted premium/day, spread execution quality, DTE execution quality, delta-only risk, and theta efficiency. Use it to sort contracts by overall attractiveness within one run before score validation adjustments.
 - `score_validation`: Row-level alignment label: `DISCREPANCY`, `UNDERVALUED`, or `ALIGNED`.
@@ -401,7 +401,7 @@ Legend:
 | `spread_score` | Derived: prompt spread execution score | Derived: prompt spread execution score | Derived: prompt spread execution score |
 | `dte_score` | Derived: prompt DTE execution score | Derived: prompt DTE execution score | Derived: prompt DTE execution score |
 | `risk_level` | Derived: delta-led risk classification with ITM-probability validation | Derived: delta-led risk classification with ITM-probability validation | Derived: delta-led risk classification with ITM-probability validation |
-| `risk_model_inconsistent` | Derived: flag for material disagreement between delta and `probability_itm` | Derived: flag for material disagreement between delta and `probability_itm` | Derived: flag for material disagreement between delta and `probability_itm` |
+| `risk_model_inconsistent` | Derived: signed delta differs from model delta by more than 0.15; unknown without valid model inputs | Derived: signed delta differs from model delta by more than 0.15; unknown without valid model inputs | Derived: signed delta differs from model delta by more than 0.15; unknown without valid model inputs |
 | `quote_quality_score` | Derived: shared composite quality score | Derived: shared composite quality score | Derived: shared composite quality score |
 | `option_score` | Derived: shared row score from IV-adjusted income, spread execution, delta-only risk, and efficiency | Derived: shared row score from IV-adjusted income, spread execution, delta-only risk, and efficiency | Derived: shared row score from IV-adjusted income, spread execution, delta-only risk, and efficiency |
 | `score_validation` | Derived: row-level alignment label for score review | Derived: row-level alignment label for score review | Derived: row-level alignment label for score review |
