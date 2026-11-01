@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover - yfinance currently depends on curl_cff
     curl_exceptions = None
 
 from opx_chain.config import get_runtime_config
+from opx_chain.providers._yfinance_transport import yfinance_session
 from opx_chain.providers.base import (
     DataProvider,
     OptionChainFrames,
@@ -322,7 +323,7 @@ class YFinanceProvider(DataProvider):
 
     def load_underlying_snapshot(self, ticker: str) -> dict:  # pylint: disable=broad-exception-caught
         """Load the underlying snapshot once per ticker and reuse it for each expiration."""
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker, session=yfinance_session())
         fast_info = self._call_yahoo(
             f"{ticker} fast_info",
             lambda: getattr(stock, "fast_info", {}) or {},
@@ -368,7 +369,7 @@ class YFinanceProvider(DataProvider):
 
     def load_ticker_events(self, ticker: str) -> dict:
         """Load best-effort earnings and dividend events from Yahoo metadata."""
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker, session=yfinance_session())
         info = self._safe_info(ticker, stock)
         calendar_payload = self._safe_calendar(ticker, stock)
         dividends = self._safe_dividends(ticker, stock)
@@ -411,7 +412,7 @@ class YFinanceProvider(DataProvider):
 
     def load_analyst_forecast(self, ticker: str) -> dict:
         """Load structured analyst price targets and recommendation summary."""
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker, session=yfinance_session())
         price_targets = self._safe_yfinance_attr(
             f"{ticker} analyst price targets",
             stock.get_analyst_price_targets,
@@ -458,7 +459,7 @@ class YFinanceProvider(DataProvider):
     def load_price_history(self, ticker: str, *, lookback_days: int) -> pd.DataFrame:
         """Load daily OHLCV history for optional price-context enrichment."""
         calendar_days = _calendar_days_for_trading_lookback(lookback_days)
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker, session=yfinance_session())
         history = self._call_yahoo(
             f"{ticker} price history",
             lambda: stock.history(
@@ -472,14 +473,14 @@ class YFinanceProvider(DataProvider):
 
     def list_option_expirations(self, ticker: str) -> list[str]:
         """Return option expiration strings available from yfinance."""
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker, session=yfinance_session())
         expirations = list(self._call_yahoo(f"{ticker} expirations", lambda: stock.options))
         self.debug_dump_payload(ticker, "expirations", expirations)
         return expirations
 
     def load_option_chain(self, ticker: str, expiration_date: str) -> OptionChainFrames:
         """Load one yfinance option chain and return its raw call/put frames."""
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(ticker, session=yfinance_session())
         chain = self._call_yahoo(
             f"{ticker} option_chain {expiration_date}",
             lambda: stock.option_chain(expiration_date),

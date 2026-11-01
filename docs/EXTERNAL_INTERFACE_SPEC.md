@@ -1362,3 +1362,11 @@ flag stays unknown. Shared screening preserves this nullable boolean.
 difference does not imply inconsistent Greeks. Model agreement does not prove
 quote freshness, eliminate American-exercise/model differences, or give an
 assignment probability. Existing quote and integrity qualifications still apply.
+
+## Yahoo TLS trust
+
+From version 0.6.8, every Yahoo provider entry point uses the package's corrected
+Certifi CA bundle for HTTPS origin and proxy verification. The shared verified
+transport preserves browser impersonation and Yahoo cookie reuse. It does not
+change the canonical option-chain schema, provider selection, retry policy, or
+market-data ownership contract. No system trust-store modification is required.

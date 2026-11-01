@@ -402,3 +402,11 @@ the affected pickle cache loader. Keep lint cache directories private to the
 developer account and refresh existing development environments after updating
 the declared floor. This lint-only dependency does not change runtime TLS or
 market-data contracts.
+
+Yahoo transport explicitly uses the corrected Certifi bundle for both HTTPS
+origins and HTTPS proxies. System/Homebrew CA defaults and CA environment
+overrides do not replace this package-owned trust source. Peer and hostname
+verification remain enabled. A shared browser-impersonating curl session keeps
+Yahoo cookies and normal provider retry/pacing behavior. The runtime requires
+`yfinance>=0.2.65` and `curl-cffi>=0.7`; offline tests inspect effective native
+curl options before network I/O and cover each Yahoo provider entry point.

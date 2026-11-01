@@ -43,3 +43,14 @@ def test_developer_lint_requirement_excludes_pickle_cache_releases():
     assert Version("4.0.5") not in requirement.specifier
     assert Version("4.0.9") in requirement.specifier
     assert Version("4.0.10") in requirement.specifier
+
+
+def test_yahoo_transport_dependencies_support_explicit_curl_sessions():
+    """Supported installs include the public transport APIs used for trust."""
+    manifest = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
+    requirements = {Requirement(item).name: Requirement(item)
+                    for item in manifest["project"]["dependencies"]}
+    assert Version("0.2.40") not in requirements["yfinance"].specifier
+    assert Version("0.2.65") in requirements["yfinance"].specifier
+    assert Version("1.3.0") in requirements["yfinance"].specifier
+    assert Version("0.7.0") in requirements["curl-cffi"].specifier

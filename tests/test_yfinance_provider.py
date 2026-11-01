@@ -26,7 +26,7 @@ class FakeChain:  # pylint: disable=too-few-public-methods
 class FakeTicker:  # pylint: disable=too-few-public-methods
     """Minimal yfinance ticker stand-in."""
 
-    def __init__(self, ticker):
+    def __init__(self, ticker, **_kwargs):
         self.ticker = ticker
         self.fast_info = {"lastPrice": 101.5, "previousClose": 100.0}
         self.info = {
@@ -81,7 +81,7 @@ def test_yfinance_snapshot_preserves_zero_last_price_instead_of_falling_back(mon
     class ZeroPriceTicker:  # pylint: disable=too-few-public-methods
         """Minimal ticker stub that reports a zero last price."""
 
-        def __init__(self, _ticker):
+        def __init__(self, _ticker, **_kwargs):
             self.fast_info = {"lastPrice": 0.0, "previousClose": 10.0}
             self.info = {
                 "regularMarketTime": "2026-03-23T13:30:00Z",
@@ -110,7 +110,7 @@ def test_yfinance_provider_load_ticker_events_parses_earnings_and_dividends(monk
     class EventTicker(FakeTicker):  # pylint: disable=too-few-public-methods
         """Ticker stub with future earnings and dividend metadata."""
 
-        def __init__(self, ticker):
+        def __init__(self, ticker, **_kwargs):
             super().__init__(ticker)
             self.info.update(
                 {
@@ -156,7 +156,7 @@ def test_yfinance_provider_prefers_info_ex_dividend_date_over_calendar(monkeypat
     class EventTicker(FakeTicker):  # pylint: disable=too-few-public-methods
         """Ticker stub matching the GOOGL off-by-one dividend-date shape."""
 
-        def __init__(self, ticker):
+        def __init__(self, ticker, **_kwargs):
             super().__init__(ticker)
             self.info.update(
                 {
@@ -189,7 +189,7 @@ def test_yfinance_provider_uses_calendar_ex_dividend_when_stronger_sources_missi
     class EventTicker(FakeTicker):  # pylint: disable=too-few-public-methods
         """Ticker stub with only calendar dividend metadata."""
 
-        def __init__(self, ticker):
+        def __init__(self, ticker, **_kwargs):
             super().__init__(ticker)
             self.calendar = {
                 "Ex-Dividend Date": date(2026, 6, 8),
@@ -215,7 +215,7 @@ def test_yfinance_provider_rejects_boolean_dividend_amounts(monkeypatch):
     class EventTicker(FakeTicker):  # pylint: disable=too-few-public-methods
         """Ticker fixture with malformed boolean dividend data."""
 
-        def __init__(self, ticker):
+        def __init__(self, ticker, **_kwargs):
             super().__init__(ticker)
             self.dividends = pd.Series(
                 [True],
@@ -274,7 +274,7 @@ def test_yfinance_provider_load_price_history_validates_lookback_before_yahoo(
     class PriceHistoryTicker(FakeTicker):  # pylint: disable=too-few-public-methods
         """Ticker stub that fails the test if constructed before validation."""
 
-        def __init__(self, ticker):
+        def __init__(self, ticker, **_kwargs):
             ticker_calls.append(ticker)
             super().__init__(ticker)
 
@@ -291,7 +291,7 @@ def test_yfinance_provider_load_ticker_events_returns_blanks_on_missing_data(mon
     class BlankEventTicker(FakeTicker):  # pylint: disable=too-few-public-methods
         """Ticker stub with no future event metadata."""
 
-        def __init__(self, ticker):
+        def __init__(self, ticker, **_kwargs):
             super().__init__(ticker)
             self.info = {}
             self.calendar = None
@@ -345,7 +345,7 @@ def test_yfinance_provider_retries_configured_failures(monkeypatch, capsys):
     class FlakyTicker:  # pylint: disable=too-few-public-methods
         """Ticker stub that fails once before returning options."""
 
-        def __init__(self, ticker):
+        def __init__(self, ticker, **_kwargs):
             self.ticker = ticker
 
         @property
@@ -393,7 +393,9 @@ def test_yfinance_provider_raises_quota_error_after_rate_limit_retries(monkeypat
             yfinance_backoff_seconds=0.25,
         ),
     )
-    monkeypatch.setattr("opx_chain.providers.yfinance.yf.Ticker", lambda _ticker: LimitedTicker())
+    monkeypatch.setattr(
+        "opx_chain.providers.yfinance.yf.Ticker", lambda _ticker, **_kwargs: LimitedTicker()
+    )
     monkeypatch.setattr("opx_chain.providers.base.random.uniform", lambda _low, _high: 1.0)
     sleep_calls = []
     monkeypatch.setattr("opx_chain.providers.yfinance.time.sleep", sleep_calls.append)
@@ -423,7 +425,9 @@ def test_yfinance_provider_does_not_retry_non_transient_errors(monkeypatch, erro
             yfinance_backoff_seconds=0.25,
         ),
     )
-    monkeypatch.setattr("opx_chain.providers.yfinance.yf.Ticker", lambda _ticker: BrokenTicker())
+    monkeypatch.setattr(
+        "opx_chain.providers.yfinance.yf.Ticker", lambda _ticker, **_kwargs: BrokenTicker()
+    )
     sleep_calls = []
     monkeypatch.setattr("opx_chain.providers.yfinance.time.sleep", sleep_calls.append)
 
