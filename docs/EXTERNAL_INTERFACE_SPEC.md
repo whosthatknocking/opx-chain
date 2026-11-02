@@ -839,6 +839,9 @@ evaluates to `unknown`.
 scope stored with the same dataset publication. Its strict version-1 object
 records whether generic filters ran, the configured expiration horizon (`0`
 means unbounded), and conserved normalized/kept/filtered/per-ticker totals.
+Normalized screening input excludes unrelated strikes in extra held expirations;
+those acquisition exclusions remain in raw provider counts and never appear as
+generic-filter drops. The disabled-filter zero-drop invariant remains binding.
 Legacy records without this object remain `unknown`/null. Current malformed or
 contradictory scope raises `OptionChainRowScopeIntegrityError` at the validated
 load boundary.

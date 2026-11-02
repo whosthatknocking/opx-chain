@@ -12,14 +12,20 @@ import pytest
 from conftest import make_runtime_config
 from opx_chain import fetch
 from opx_chain.fetch import append_ticker_event_fields
-from opx_chain.integrity import OptionChainDataIntegrityError, OptionChainIntegrityCode
+from opx_chain.integrity import (
+    OPTION_CHAIN_ROW_SCOPE_SCHEMA_VERSION, OptionChainDataIntegrityError,
+    OptionChainIntegrityCode, OptionChainRowScope,
+)
 import opx_chain.metrics
 import opx_chain.normalize
 from opx_chain.price_context import PriceContextStatus
 from opx_chain.positions import EMPTY_POSITION_SET, OptionPositionKey, PositionSet
 from opx_chain.providers.base import OptionChainFrames
 from opx_chain.runlog import RUN_LOGGER_NAME
+from opx_chain import SCHEMA_VERSION
 from opx_chain.storage.cache import FilesystemCache
+from opx_chain.storage.memory import MemoryBackend
+from opx_chain.storage.models import DatasetWrite, RunContext, RunSummary, TickerFetchResult
 
 
 def make_vendor_frame(rows):
@@ -1178,6 +1184,30 @@ def test_held_expiry_beyond_horizon_keeps_only_exact_held_contract(monkeypatch, 
     assert "TEST260417C00100000" in set(result["contract_symbol"])
     assert result.attrs["raw_expiration_count"] == 2
     assert result.attrs["normalized_row_count"] == len(result) + result.attrs["filtered_row_count"]
+    scope = OptionChainRowScope(
+        schema_version=OPTION_CHAIN_ROW_SCOPE_SCHEMA_VERSION,
+        post_download_filters_enabled=enable_filters, max_expiration_weeks=34,
+        normalized_row_count=result.attrs["normalized_row_count"], kept_row_count=len(result),
+        filtered_row_count=result.attrs["filtered_row_count"], ticker_count=1,
+    )
+    assert scope.normalized_row_count == 4
+    assert result.attrs["raw_row_count"] == 6
+    if not enable_filters:
+        assert scope.filtered_row_count == 0
+    backend = MemoryBackend()
+    run_id = backend.create_run(RunContext("stub", ("TEST",), "config", "positions"))
+    backend.record_ticker_result(run_id, TickerFetchResult(
+        ticker="TEST", raw_row_count=6, normalized_row_count=scope.normalized_row_count,
+        kept_row_count=len(result), filtered_row_count=scope.filtered_row_count,
+        expiration_count=2, status="ok", error_summary=None,
+    ))
+    record = backend.write_dataset(
+        run_id, DatasetWrite(result, "stub", SCHEMA_VERSION, row_scope=scope),
+    )
+    backend.finalize_run(run_id, RunSummary("complete"))
+    loaded = backend.load_validated_option_chain_dataset(record.dataset_id)
+    assert loaded.handle.row_scope == scope
+    assert "TEST271217P00095000" in set(loaded.frame["contract_symbol"])
 
 
 def test_ordinary_expiry_horizon_does_not_expand_for_stock_only(monkeypatch):
@@ -1225,4 +1255,5 @@ def test_missing_outside_horizon_held_strike_does_not_publish_other_contracts(mo
     result = fetch.fetch_ticker_option_chain("TEST", position_set=positions)
     assert result.empty
     assert result.attrs["fetch_status"] == "skipped"
-    assert result.attrs["normalized_row_count"] == result.attrs["filtered_row_count"] == 3
+    assert result.attrs["normalized_row_count"] == result.attrs["filtered_row_count"] == 0
+    assert result.attrs["raw_row_count"] == 3

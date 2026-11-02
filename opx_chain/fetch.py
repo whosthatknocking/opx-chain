@@ -569,9 +569,6 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
         )
         if quote_report:
             _emit_fetch_info(f"{ticker}: quote_quality_warning {quote_report}", logger=logger)
-        # Row-scope counts describe validated canonical rows entering ordinary
-        # screening; excluded quote counts live in the durable quality report.
-        pre_filter_count = len(all_normalized)
         validate_option_chain_frame(
             all_normalized,
             boundary=OptionChainIntegrityBoundary.PRE_FILTER,
@@ -584,6 +581,9 @@ def fetch_ticker_option_chain(  # pylint: disable=too-many-arguments,too-many-po
         all_normalized = _restrict_expiration_scope(
             all_normalized, config.max_expiration, positions,
         )
+        # Only scoped canonical rows enter generic screening. Other strikes in
+        # extra held expiries are acquisition exclusions, not filter drops.
+        pre_filter_count = len(all_normalized)
 
         # Assess all received/cached quotes after acquisition and quote refresh.
         # Fetch-start time can legitimately precede a quote received in this call.

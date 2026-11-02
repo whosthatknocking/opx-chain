@@ -346,8 +346,13 @@ class TickerRunRecord:
     error_summary: str | None
 ```
 
-`normalized_row_count` captures the count after enrich/normalize and before the
-filter step, making it possible to distinguish normalization losses from filter losses.
+`normalized_row_count` captures validated canonical rows after acquisition horizon
+scoping and before generic post-download screening. Extra expirations fetched
+for held contracts retain only those exact contracts; their other strikes are
+acquisition exclusions, not generic-filter drops. `raw_row_count` still counts
+the original provider rows. Thus disabled generic filters have zero
+`filtered_row_count`, and normalized equals kept plus filtered. Structural
+validation still runs before the lossy acquisition-scope restriction.
 
 ### 6.4 Validation Record
 
