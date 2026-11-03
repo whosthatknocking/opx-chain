@@ -128,7 +128,7 @@ def test_provider_timestamp_memo_keeps_raw_errors_and_pass_local_scope(monkeypat
 
 def test_public_constants_and_enum_sets_are_exact():
     assert OPTION_CHAIN_INTEGRITY_SUMMARY_SCHEMA_VERSION == 1
-    assert OPTION_CHAIN_INTEGRITY_VALIDATOR_VERSION == 1
+    assert OPTION_CHAIN_INTEGRITY_VALIDATOR_VERSION == 2
     assert OPTION_CHAIN_DATASET_FACTS_SCHEMA_VERSION == 1
     assert {item.value for item in OptionChainIntegrityStatus} == {"valid", "invalid", "unknown"}
     assert {item.value for item in OptionChainDatasetFactsStatus} == {"available", "unknown"}

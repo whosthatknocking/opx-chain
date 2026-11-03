@@ -61,7 +61,7 @@ class CapturingLogger(StubLogger):
 def make_export_row(**overrides):
     """Build one minimal exported row for main-entrypoint tests."""
     row = {
-        "data_source": "stub",
+        "data_source": "yfinance",
         "underlying_symbol": "AAA",
         "contract_symbol": "AAA260417C00100000",
         "option_type": "call",

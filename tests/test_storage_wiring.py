@@ -1178,7 +1178,9 @@ def test_run_fetch_data_provider_override_replaces_config_provider(tmp_path: Pat
         data_provider="yfinance",
         marketdata_api_token="secret",
     )
-    patches = _fetcher_patches(tmp_path, config, backend)
+    frame = _make_ticker_df("TEST")
+    frame["data_source"] = "marketdata"
+    patches = _fetcher_patches(tmp_path, config, backend, ticker_df=frame)
 
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]
@@ -1199,7 +1201,9 @@ def test_run_fetch_data_provider_override_accepts_massive_credentials(tmp_path: 
         data_provider="yfinance",
         massive_api_key="secret",
     )
-    patches = _fetcher_patches(tmp_path, config, backend)
+    frame = _make_ticker_df("TEST")
+    frame["data_source"] = "massive"
+    patches = _fetcher_patches(tmp_path, config, backend, ticker_df=frame)
 
     with ExitStack() as stack:
         mocks = [stack.enter_context(p) for p in patches]

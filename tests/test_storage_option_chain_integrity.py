@@ -2,6 +2,7 @@
 # pylint: disable=protected-access
 
 from pathlib import Path
+from dataclasses import replace
 
 import pytest
 
@@ -14,8 +15,11 @@ from opx_chain.integrity import (
     OptionChainIntegrityStatus,
 )
 from opx_chain.storage.filesystem import FilesystemBackend
+from opx_chain.storage._disk import content_hash_for_bytes
+from opx_chain.storage.integrity import validate_stored_option_chain_snapshot
 from opx_chain.storage.memory import MemoryBackend
 from opx_chain.storage.models import DatasetWrite, RunContext, RunSummary
+from opx_chain.storage.serializers import get_serializer
 from opx_chain.storage.sqlite_indexed import SqliteIndexedBackend
 
 
@@ -163,3 +167,33 @@ def test_fatal_frame_prevents_any_dataset_record_or_visibility(
 
     assert backend.get_run(run_id).dataset_id is None
     assert backend.list_datasets() == []
+
+
+@pytest.mark.parametrize("backend_factory", BACKENDS)
+def test_uniform_wrong_row_provider_prevents_publication(backend_factory, tmp_path):
+    """Uniform rows from the wrong provider cannot acquire valid metadata."""
+    backend = backend_factory(tmp_path)
+    frame = make_option_chain_frame(rows=2, ticker="SYNTH", provider="other-provider")
+    with pytest.raises(OptionChainDataIntegrityError) as captured:
+        _write(backend, frame=frame)
+    assert any(
+        item.field == "data_source" and item.expected == "dataset provider synthetic-provider"
+        for item in captured.value.summary.samples
+    )
+    assert backend.list_datasets() == []
+
+
+def test_retained_matching_hash_cannot_bypass_provider_provenance():
+    """A matching content hash does not validate contradictory provider metadata."""
+    backend = MemoryBackend()
+    _run_id, record = _write(backend)
+    content = get_serializer(record.format).serialize_bytes(
+        make_option_chain_frame(rows=2, ticker="SYNTH", provider="synthetic-provider")
+    )
+    record = replace(
+        record, provider="other-provider", content_hash=content_hash_for_bytes(content)
+    )
+    outcome = validate_stored_option_chain_snapshot(record, content)
+    assert outcome.error is not None
+    assert outcome.frame is None
+    assert outcome.record.integrity_status is OptionChainIntegrityStatus.INVALID

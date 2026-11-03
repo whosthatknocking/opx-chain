@@ -683,6 +683,7 @@ def collect_option_chain_frame_findings(
     *,
     boundary: OptionChainIntegrityBoundary,
     requested_tickers: tuple[str, ...] | None = None,
+    provider: str | None = None,
 ) -> tuple[OptionChainIntegrityFinding, ...]:
     """Collect exhaustive applicable findings for one aligned canonical frame."""
     boundary = OptionChainIntegrityBoundary(boundary)
@@ -739,6 +740,16 @@ def collect_option_chain_frame_findings(
                     OptionChainIntegrityCode.DATASET_SCHEMA_INVALID,
                     field="data_source",
                     expected="one provider per dataset",
+                    actual=",".join(sorted(sources)),
+                )
+            )
+        if provider is not None and sources and sources != {provider.strip().lower()}:
+            findings.append(
+                _finding(
+                    boundary,
+                    OptionChainIntegrityCode.DATASET_SCHEMA_INVALID,
+                    field="data_source",
+                    expected=f"dataset provider {provider.strip().lower()}",
                     actual=",".join(sorted(sources)),
                 )
             )
@@ -822,6 +833,7 @@ def validate_option_chain_frame(
         frame,
         boundary=boundary,
         requested_tickers=requested_tickers,
+        provider=provider,
     )
     summary = project_option_chain_integrity_summary(
         findings,

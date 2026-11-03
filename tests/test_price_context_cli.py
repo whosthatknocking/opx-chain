@@ -163,7 +163,7 @@ def test_enabled_price_context_option_run_writes_independent_json(
     option_frame = make_option_chain_frame(
         rows=1,
         ticker="AAA",
-        provider="stub",
+        provider=config.data_provider,
         expiration="2026-04-17",
     )
 

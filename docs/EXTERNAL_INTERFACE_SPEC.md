@@ -307,6 +307,14 @@ layer without shelling out or scanning the filesystem directly.
 
 ### 3.1 Public surface
 
+Option-chain integrity validator revision 2 requires every nonempty canonical
+`data_source` to match the declared dataset/provider identity, not merely to be
+uniform across rows. Publication and validated retained reads reject a mismatch
+with `OptionChainDataIntegrityError` and `DATASET_SCHEMA_INVALID` on
+`data_source`. Provider comparison ignores surrounding whitespace and case.
+Older validation metadata must be revalidated under the current revision; this
+does not rewrite stored artifact bytes or infer a replacement provider.
+
 The stable public surface is:
 
 ```python
