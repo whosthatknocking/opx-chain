@@ -886,6 +886,12 @@ class MarketDataProvider(DataProvider):
             "dividend_amount": dividend_amount,
         }
 
+    def load_benchmark_price_history(self, request):
+        """Return bounded split-only daily SPY history for the benchmark producer."""
+        # The optional worker imports producer types; initialize it only on use.
+        from opx_chain.providers.benchmark_history import load_marketdata_spy  # pylint: disable=import-outside-toplevel
+        return load_marketdata_spy(request)
+
     def load_price_history(self, ticker: str, *, lookback_days: int) -> pd.DataFrame:
         """Load daily stock candles for optional price-context enrichment."""
         resolved_lookback = positive_int_arg(lookback_days, name="lookback_days")

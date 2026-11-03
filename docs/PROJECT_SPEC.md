@@ -33,6 +33,10 @@ The project currently supports:
 - a user-supplied portfolio positions input file at `$XDG_DATA_HOME/opx-chain/positions.csv` for ticker expansion and position-aware filter bypass
 - provider-backed fetches through `yfinance` or `massive`
 - provider-backed fetches through `marketdata`
+- an opt-in public daily benchmark producer, isolated from option runs and
+  ordinary ticker price history: split-only SPY via Market Data and official
+  Cboe daily VIX spot closes. Source-use approval is denied by default; see
+  [the public API contract](EXTERNAL_INTERFACE_SPEC.md#daily-benchmark-series).
 - canonical CSV export with shared derived metrics
 - provider-aware field reference documentation
 - a local viewer for exported dataset artifacts (`opx-view`); `--data-dir DIR` scans
@@ -209,6 +213,7 @@ class DataProvider(ABC):
     def debug_dump_payload(self, ticker: str, label: str, payload) -> Path | None: ...
     def load_ticker_events(self, ticker: str) -> dict: ...
     def load_price_history(self, ticker: str, *, lookback_days: int) -> pd.DataFrame: ...
+    def load_benchmark_price_history(self, request) -> list[dict]: ...
     def load_historical_option_chain_frame(
         self,
         ticker: str,

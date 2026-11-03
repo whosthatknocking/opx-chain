@@ -69,6 +69,8 @@ Runtime interface:
 - `DataProvider.debug_dump_payload`
 - `DataProvider.load_ticker_events`
 - `DataProvider.load_price_history`
+- `DataProvider.load_benchmark_price_history` (optional strict bounded daily
+  benchmark capability; call only from the approved public benchmark producer)
 - `DataProvider.load_historical_option_chain_frame`
 - `DataProvider.load_underlying_snapshot`
 - `DataProvider.list_option_expirations`

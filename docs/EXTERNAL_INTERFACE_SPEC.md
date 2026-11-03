@@ -1373,3 +1373,160 @@ Certifi CA bundle for HTTPS origin and proxy verification. The shared verified
 transport preserves browser impersonation and Yahoo cookie reuse. It does not
 change the canonical option-chain schema, provider selection, retry policy, or
 market-data ownership contract. No system trust-store modification is required.
+
+## Daily Benchmark Series
+
+The benchmark transport accepts HTTP 200 and Market Data's documented 203
+cached success for the exact SPY endpoint. Cboe still requires HTTP 200;
+204/no-content and other statuses remain typed failures with retained fallback.
+This does not enable retries, redirects, or a live-mode fallback.
+
+Added in `0.7.0`. Stable module: `opx_chain.benchmark_series`.
+Capability-check `BENCHMARK_SERIES_SCHEMA_VERSION == 1` and
+`acquire_daily_series` before calling; older installs need an unsupported
+capability result in the consumer, not private-provider fallback.
+The request/result/observation/snapshot/session/approval types and entry point
+are also exported from `opx_chain`. Source URL constants live in the stable
+module as `CBOE_VIX_URL` and `MARKETDATA_SPY_URL`.
+
+```python
+from opx_chain.benchmark_series import (
+    BENCHMARK_SERIES_SCHEMA_VERSION, ApprovedNetworkScope, SessionClose,
+    DailySeriesRequest, DailySeriesResult, DailySeriesSnapshot,
+    DailyObservation, RetainedFrom, acquire_daily_series,
+    CBOE_VIX_URL, MARKETDATA_SPY_URL,
+)
+```
+
+`DailySeriesRequest` is a frozen typed record with required fields:
+
+- `series_id`, `provider_id`, `price_basis`, `unit`: exact identities below;
+  no trimming, aliasing, automatic provider switching, or ticker substitution.
+- `calendar_id`, `calendar_revision`, `sessions: tuple[SessionClose, ...]`:
+  caller-owned versioned real regular-session schedule, including DST,
+  holidays and early closes. Each `SessionClose` has `session_date: date` and
+  `observed_at: datetime` (aware session-close instant). Missing calendar
+  capability must not be replaced with a weekday approximation.
+- `latest_allowed_session: date`: upper eligible session cutoff.
+- `acquisition_started_at: datetime`: aware pre-acquisition cutoff; an
+  observation must have closed by this instant, even if acquisition crosses
+  the next close. Availability is first verified local receipt, not the
+  source date or a historical availability assertion.
+- `deadline_monotonic: float`: absolute `time.monotonic()` deadline shared
+  across caller acquisition, including cache reads and lease waits. Each
+  invocation additionally caps itself at five seconds. Sequential calls using
+  one ten-second deadline bound a two-source preparation acquisition.
+
+Optional fields: `max_sessions=300` (strict integer 1..300),
+`fetch_mode="reuse_only"` (`reuse_only` or `reuse_or_fetch`),
+`network_scope=None`, `cache_dir=None`, `target_session=None`.
+`target_session` separates cache freshness from eligible cutoff: reuse a
+validated snapshot reaching `target_session or latest_allowed_session`, while
+always selecting observations no later than `latest_allowed_session`.
+The caller derives publication-grace targets from its canonical calendar.
+
+`ApprovedNetworkScope(provider_id, series_id, source_url, approval_reference)`
+requires exact source identity and a nonempty reference to a separately
+recorded review approving access, cache, local backup, operator display and
+run-evidence retention. It contains no credentials and is not a feature
+enablement boolean. No approval records or network permission are supplied by
+default. Review actual source terms before issuing it; a public URL or technical
+documentation is not redistribution permission. Unapproved sources stay
+disabled for live use. Existing Market Data credentials alone do not authorize
+this API. No additional subscription, background job or UI fetch is added.
+
+| Series | Provider | Basis | Unit | Exact URL constant |
+|---|---|---|---|---|
+| `SPY` | `marketdata` | `SPLIT_ADJUSTED_PRICE` | `USD` | `MARKETDATA_SPY_URL` |
+| `VIX_SPOT` | `cboe_daily_vix` | `INDEX_CLOSE` | `VOLATILITY_POINTS` | `CBOE_VIX_URL` |
+
+SPY uses the existing Market Data daily-candle provider endpoint through the
+additive `DataProvider.load_benchmark_price_history(request)` capability.
+Its bounded provider path explicitly requests `adjustsplits=true`,
+`adjustdividends=false`, `extended=false`, and at most 600 inclusive calendar
+dates. It uses existing credentials and configured provider mode, but not the
+ordinary history reconciler, SDK retries or debug dumps. Market Data's
+[daily-candle documentation](https://www.marketdata.app/docs/api/stocks/candles/)
+documents split-only adjustment and midnight Eastern date labels; labels are
+mapped to supplied real session-close times, not treated as receipt times.
+Yahoo's existing dividend-adjusted history cannot prove the requested basis:
+`SPY/yfinance` returns `UNSUPPORTED_BASIS`, without a network call. Other
+unimplemented providers return `UNSUPPORTED_PROVIDER`.
+
+VIX downloads only the official daily spot-index file named by `CBOE_VIX_URL`:
+`https://cdn-api.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv`.
+The [Cboe historical-data documentation](https://www.cboe.com/tradable-products/vix/vix-historical-data)
+links this daily file separately from futures. The parser accepts only
+`DATE,OPEN,HIGH,LOW,CLOSE` CSV and retains CLOSE in volatility points; it does
+not route VIX through an equity-symbol validator. No mirror or redirected
+destination is used. Documentation was checked without downloading live data;
+live availability, entitlement and permission remain activation prerequisites.
+
+`DailySeriesResult` fields:
+
+- `snapshot: DailySeriesSnapshot | None`.
+- `refresh_status`: `NOT_REQUESTED`, `REUSED`, `SUCCEEDED`, `FAILED`,
+  `NOT_PERMITTED` or `THROTTLED`.
+- `error_code`: null or sanitized `INVALID_REQUEST`, `UNSUPPORTED_PROVIDER`,
+  `UNSUPPORTED_BASIS`, `INVALID_SOURCE`, `SOURCE_NOT_APPROVED`,
+  `DEADLINE_EXCEEDED`, `SOURCE_TOO_LARGE`, `SOURCE_ERROR`, `CACHE_ERROR`,
+  `THROTTLED`, `MISSING_SOURCE`, `HISTORICAL_REPLAY_ONLY`.
+- `last_attempt_at: datetime | None`: UTC attempt provenance, distinct from
+  the retained evidence's receipt time.
+- `retained_from: RetainedFrom | None`: snapshot ID, content hash and original
+  fetch time when reusing/falling back. A source failure never fabricates empty
+  successful data or hides compatible retained observations.
+
+Snapshot fields: `schema_version`, `series_id`, `provider_id`, `source_url`,
+`price_basis`, `unit`, `exchange_calendar`, `calendar_revision`,
+`provider_revision`, `fetched_at`, `observations`, `source_revision`,
+`content_sha256`, `source_snapshot_id`. `to_dict()` returns JSON-compatible
+values. Observation fields are `session_date: date`, `observed_at: datetime`,
+`available_at: datetime`, `close: float`; observations are ascending, unique,
+finite and positive. Identical duplicates deduplicate; conflicting duplicates,
+invalid calendar dates and nonfinite values reject the source. Missing sessions
+are retained as gaps, never forward-filled. Consecutive-history calculations,
+freshness classification and all strategy policy remain consumer-owned.
+
+`content_sha256` (also `source_revision`) hashes exactly this canonical shape:
+`{series_id,price_basis,unit,observations:[{session_date,close}]}`. Dates use ISO
+dates; closes use finite binary64 rounded to eight decimals (ties to even).
+Hash strict UTF-8 JSON, sorted keys, separators `,`/`:`, no NaN. Provider/calendar,
+receipt and attempt metadata are excluded. `source_snapshot_id` separately
+hashes the full normalized snapshot except its own field. Thus provenance
+versions remain distinct even when the normalized source content is unchanged.
+
+The producer owns `$XDG_CACHE_HOME/opx-chain/benchmark-series/` (or the explicit
+`cache_dir` root), keyed by provider/series/basis/unit/calendar/calendar revision/
+adapter schema revision, never account/run/calculation policy. It does not add
+portfolio tickers or mutate ordinary price history, option rows, volatility
+inputs, provider selection or production run artifacts. No ordinary-history
+copy is attempted because that store does not prove this basis contract.
+Reuse-only and denied callers read already-published snapshots without writes,
+lease waits, provider initialization or network work. Old-date replays use only
+evidence received by their cutoff; they cannot acquire later revisions and
+backdate availability.
+
+Producer state atomically persists attempt time before I/O and a deadline-bound
+cross-process lease. All callers recheck the cache after acquiring the short
+state lock; only approved callers may wait for an active lease. A dead producer
+cannot reset the 15-minute shared throttle, which includes failed attempts.
+Expired owners cannot publish over a new owner. Snapshot publication is atomic,
+retains distinct immutable versions and cannot replace a newer valid session
+with an older response. Same-session receipt versions retain both files;
+unchanged observations preserve their first known availability. At most 16
+indexed versions are scanned per lookup; a corrupt newer file can fall back to
+an independently valid older one. Older immutable files are not automatically
+deleted; there is no retention scheduler. Corrupt control state fails closed
+rather than resetting throttles. After the deadline, only the already-read
+fallback is returned, with no further scan.
+
+Provider I/O runs in a killable spawned process, with no automatic retry or
+redirect. The five-second total includes provider initialization, DNS/TLS,
+trickling responses and lease waits, not merely socket inactivity. Source
+input is bounded to 16 MiB while decompressing; only identity/gzip/deflate
+encoding is accepted. Worker output and each accepted normalized snapshot are
+bounded to 256 KiB, and at most 300 sessions are retained. Deadline enforcement
+assumes a responsive local filesystem and OS process creation/termination;
+it cannot preempt an uninterruptible kernel/filesystem operation. No network
+source is called by package import, viewer requests, or cache reuse.

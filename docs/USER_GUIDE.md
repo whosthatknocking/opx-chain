@@ -21,6 +21,13 @@ Warning: Market Data support requires a Market Data account and API token. The p
 
 ## Quick Start
 
+The optional daily benchmark API is not activated by `opx-fetch`, `opx-view`,
+provider credentials, or a downstream feature checkbox. It requires explicit
+recorded source permission for access, local caching, backup, operator display
+and evidence retention. No source approvals ship with the package. See
+[Daily benchmark series](EXTERNAL_INTERFACE_SPEC.md#daily-benchmark-series)
+for supported sources, isolated cache behavior and offline operation.
+
 ```
 python -m venv .venv
 source .venv/bin/activate

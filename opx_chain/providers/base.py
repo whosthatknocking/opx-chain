@@ -256,6 +256,16 @@ class DataProvider(ABC):
         """Return daily OHLCV history for optional price context, when supported."""
         return pd.DataFrame()
 
+    def load_benchmark_price_history(self, request):  # pylint: disable=unused-argument
+        """Return strict bounded benchmark rows only when adjustment basis is proven.
+
+        Called by the approved public benchmark producer, not fetch orchestration.
+        Ordinary OHLCV history does not imply this capability.
+        """
+        # Keep the optional producer out of ordinary provider initialization.
+        from opx_chain.benchmark_series import BenchmarkSeriesError  # pylint: disable=import-outside-toplevel
+        raise BenchmarkSeriesError("UNSUPPORTED_PROVIDER")
+
     def load_historical_option_chain_frame(
         self,
         ticker: str,  # pylint: disable=unused-argument
