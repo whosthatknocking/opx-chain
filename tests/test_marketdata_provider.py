@@ -974,7 +974,9 @@ def test_fetch_ticker_option_chain_runs_with_marketdata_selected(monkeypatch, tm
     assert set(result["underlying_symbol"]) == {"TSLA"}
     assert "premium_reference_price" in result.columns
     assert result["delta"].notna().any()
-    assert result["underlying_day_change_pct"].tolist() == pytest.approx([0.025, 0.025])
+    assert result["underlying_day_change_pct"].isna().all()
+    assert result["underlying_price"].tolist() == pytest.approx([102.5, 102.5])
+    assert (result["underlying_price_time"] == result["option_quote_time"]).all()
     assert result["historical_volatility"].isna().all()
 
 
@@ -1333,8 +1335,9 @@ def test_marketdata_to_storage_pipeline_trace(monkeypatch, tmp_path):  # pylint:
     assert call_fetched["delta"] == pytest.approx(0.42)   # kept via _merge_provider_and_derived
     assert call_fetched["theta"] == pytest.approx(-0.11)  # kept via _merge_provider_and_derived
     assert call_fetched["strike"] == pytest.approx(100.0)
-    assert call_fetched["underlying_price"] == pytest.approx(103.0)
-    assert call_fetched["underlying_day_change_pct"] == pytest.approx(0.025)
+    assert call_fetched["underlying_price"] == pytest.approx(102.5)
+    assert pd.isna(call_fetched["underlying_day_change_pct"])
+    assert call_fetched["underlying_price_time"] == call_fetched["option_quote_time"]
     assert call_fetched["days_to_expiration"] == 28
     assert call_fetched["data_source"] == "marketdata"
 
@@ -1342,7 +1345,7 @@ def test_marketdata_to_storage_pipeline_trace(monkeypatch, tmp_path):  # pylint:
     assert call_fetched["mark_price_mid"] == pytest.approx(1.30)
     assert call_fetched["bid_ask_spread"] == pytest.approx(0.20)
     assert call_fetched["bid_ask_spread_pct_of_mid"] == pytest.approx(0.20 / 1.30, rel=1e-4)
-    assert call_fetched["strike_minus_spot"] == pytest.approx(100.0 - 103.0)
+    assert call_fetched["strike_minus_spot"] == pytest.approx(100.0 - 102.5)
     assert call_fetched["theta_dollars_per_day"] == pytest.approx(abs(-0.11) * 100)
 
     assert put_fetched["contract_symbol"] == "TSLA260417P00095000"
@@ -1415,8 +1418,9 @@ def test_marketdata_to_storage_pipeline_trace(monkeypatch, tmp_path):  # pylint:
     assert call_csv["implied_volatility"] == pytest.approx(0.31)
     assert call_csv["delta"] == pytest.approx(0.42)
     assert call_csv["strike"] == pytest.approx(100.0)
-    assert call_csv["underlying_price"] == pytest.approx(103.0)
-    assert call_csv["underlying_day_change_pct"] == pytest.approx(0.025)
+    assert call_csv["underlying_price"] == pytest.approx(102.5)
+    assert pd.isna(call_csv["underlying_day_change_pct"])
+    assert call_csv["underlying_price_time"] == call_csv["option_quote_time"]
     assert int(call_csv["days_to_expiration"]) == 28
     assert call_csv["data_source"] == "marketdata"
 
@@ -1424,11 +1428,11 @@ def test_marketdata_to_storage_pipeline_trace(monkeypatch, tmp_path):  # pylint:
     assert call_csv["mark_price_mid"] == pytest.approx(1.30)
     assert call_csv["bid_ask_spread"] == pytest.approx(0.20)
     assert call_csv["bid_ask_spread_pct_of_mid"] == pytest.approx(0.20 / 1.30, rel=1e-4)
-    assert call_csv["strike_minus_spot"] == pytest.approx(-3.0)
+    assert call_csv["strike_minus_spot"] == pytest.approx(-2.5)
     assert call_csv["theta_dollars_per_day"] == pytest.approx(11.0)  # abs(theta) * 100
 
     # Put side
     assert put_csv["contract_symbol"] == "TSLA260417P00095000"
     assert put_csv["bid"] == pytest.approx(0.8)
     assert put_csv["ask"] == pytest.approx(1.0)
-    assert put_csv["underlying_price"] == pytest.approx(103.0)
+    assert put_csv["underlying_price"] == pytest.approx(102.5)

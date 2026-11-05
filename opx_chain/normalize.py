@@ -50,7 +50,10 @@ def normalize_vendor_option_frame(  # pylint: disable=too-many-arguments,too-man
     df["time_to_expiration_years"] = time_to_expiration_years
     df["data_source"] = data_source
     df["risk_free_rate_used"] = config.risk_free_rate
-    df["underlying_price"] = underlying_price
+    if "underlying_price" not in df.columns:
+        df["underlying_price"] = underlying_price
+    else:
+        df["underlying_price"] = finite_numeric_series(df["underlying_price"])
 
     numeric_columns = [
         "bid",
@@ -76,6 +79,12 @@ def normalize_vendor_option_frame(  # pylint: disable=too-many-arguments,too-man
 def filter_strikes_near_spot(df, underlying_price):
     """Keep only strikes within the configured percentage band around spot."""
     config = get_runtime_config()
+    if "underlying_price" in df.columns:
+        spot = finite_numeric_series(df["underlying_price"])
+        return df[df["strike"].between(
+            spot * (1 - config.max_strike_distance_pct),
+            spot * (1 + config.max_strike_distance_pct), inclusive="both",
+        )].copy()
     if not is_finite_positive_number(underlying_price):
         return df
 

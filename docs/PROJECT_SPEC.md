@@ -306,10 +306,10 @@ Field-mapping rules already implemented for Market Data include:
 
 - `optionSymbol -> contract_symbol`
 - `underlying -> underlying_symbol`
-- `stocks/quotes/{symbol}/ last -> underlying_price`, with `updated` and `changepct` from the same quote row supplying `underlying_price_time` and `underlying_day_change_pct`
+- Each option row's `underlyingPrice -> underlying_price` and `updated -> underlying_price_time` preserve the stock/option snapshot pair. Row prices, not the independent ticker snapshot, drive pricing metrics, derived Greeks and strike-distance filters. The independent stock quote remains a fallback only when the chain has no native stock-price field; its actual timestamp remains distinct. Invalid native prices never fall back silently.
 - optional daily price context uses `stocks.candles/{resolution}/{symbol}/` via the official SDK with `resolution="D"`, `countback=price_context.lookback_days`, and split adjustment enabled; yfinance uses a buffered calendar-day request to satisfy the same trading-bar lookback contract; the artifact also derives deterministic RSI/EMA technical fields while leaving all strategy interpretation to downstream consumers
 - `last -> last_trade_price` for the option contract itself; `underlyingPrice` is not used for `last_trade_price`
-- `updated -> option_quote_time` for option rows; if stock quotes are unavailable, the latest chain row with a usable `underlyingPrice` is used as a fallback for `underlying_price` and `underlying_price_time`
+- `updated -> option_quote_time` for option rows. Native paired rows leave `underlying_day_change_pct` blank because the separate stock quote's daily change is not from that snapshot. Missing native timestamps remain missing. Quote refresh replaces the price and timestamp together; export retains both canonical fields.
 - `bid`, `ask`, `last`, `openInterest`, `volume`, `iv`, and greeks map directly into canonical fields
 - `stocks/earnings/{symbol}/ reportDate` supplies the projected earnings event date for upcoming Market Data rows; `date` is the fiscal period end for the report and is not used as the event date. Rows whose `reportedEPS` is already populated are treated as historical and excluded from upcoming-event selection even if a stale future estimate remains
 - `stocks/dividends/{symbol}/ exDate` supplies the next ex-dividend date and associated amount; event source/confidence metadata is preserved for both earnings and dividends

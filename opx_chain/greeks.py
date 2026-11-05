@@ -5,7 +5,7 @@ import pandas as pd
 from scipy.stats import norm
 
 from opx_chain.option_types import OPTION_TYPE_CALL
-from opx_chain.utils import finite_float, finite_numeric_series
+from opx_chain.utils import finite_numeric_series
 
 RISK_MODEL_DELTA_TOLERANCE = 0.15
 
@@ -49,7 +49,9 @@ def compute_greeks(  # pylint: disable=too-many-locals
 ):
     """Compute Black-Scholes Greeks and ITM probabilities for valid rows."""
     provider_greek_available = _provider_greek_available(df)
-    spot_price = finite_float(underlying_price)
+    spot_price = finite_numeric_series(
+        df.get("underlying_price", pd.Series(underlying_price, index=df.index))
+    ).to_numpy(dtype=float)
     has_valid_spot = spot_price > 0
     strike = finite_numeric_series(df["strike"]).to_numpy(dtype=float)
     time_to_expiration = finite_numeric_series(df["time_to_expiration_years"]).to_numpy(dtype=float)
@@ -69,7 +71,7 @@ def compute_greeks(  # pylint: disable=too-many-locals
     d2 = np.full(len(df), np.nan)
 
     d1[valid] = (
-        np.log(spot_price / strike[valid])
+        np.log(spot_price[valid] / strike[valid])
         + (risk_free_rate + 0.5 * sigma[valid] ** 2) * time_to_expiration[valid]
     ) / (sigma[valid] * np.sqrt(time_to_expiration[valid]))
     d2[valid] = d1[valid] - sigma[valid] * np.sqrt(time_to_expiration[valid])
@@ -94,15 +96,15 @@ def compute_greeks(  # pylint: disable=too-many-locals
     gamma = np.full(len(df), np.nan)
     gamma[valid] = (
         pdf_d1[valid]
-        / (spot_price * sigma[valid] * np.sqrt(time_to_expiration[valid]))
+        / (spot_price[valid] * sigma[valid] * np.sqrt(time_to_expiration[valid]))
     )
 
     vega = np.full(len(df), np.nan)
-    vega[valid] = spot_price * pdf_d1[valid] * np.sqrt(time_to_expiration[valid]) / 100
+    vega[valid] = spot_price[valid] * pdf_d1[valid] * np.sqrt(time_to_expiration[valid]) / 100
 
     theta = np.full(len(df), np.nan)
     theta[valid_calls] = (
-        -(spot_price * pdf_d1[valid_calls] * sigma[valid_calls])
+        -(spot_price[valid_calls] * pdf_d1[valid_calls] * sigma[valid_calls])
         / (2 * np.sqrt(time_to_expiration[valid_calls]))
         - risk_free_rate
         * strike[valid_calls]
@@ -110,7 +112,7 @@ def compute_greeks(  # pylint: disable=too-many-locals
         * cdf_d2[valid_calls]
     )
     theta[valid_puts] = (
-        -(spot_price * pdf_d1[valid_puts] * sigma[valid_puts])
+        -(spot_price[valid_puts] * pdf_d1[valid_puts] * sigma[valid_puts])
         / (2 * np.sqrt(time_to_expiration[valid_puts]))
         + risk_free_rate
         * strike[valid_puts]

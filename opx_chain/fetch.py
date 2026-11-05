@@ -245,14 +245,13 @@ def _frame_value_count(frame, column):
 
 def append_underlying_snapshot_fields(df, snapshot, fetched_at, stale_quote_seconds):
     """Add underlying snapshot metadata to each option row."""
-    df["underlying_price_time"] = snapshot["underlying_price_time"]
-    df["underlying_day_change_pct"] = snapshot["underlying_day_change_pct"]
+    paired = "underlying_price_time" in df.columns
+    if not paired:
+        df["underlying_price_time"] = snapshot["underlying_price_time"]
+    df["underlying_day_change_pct"] = np.nan if paired else snapshot["underlying_day_change_pct"]
     df["historical_volatility"] = snapshot["historical_volatility"]
-    df["underlying_price_age_seconds"] = (
-        (fetched_at - snapshot["underlying_price_time"]).total_seconds()
-        if pd.notna(snapshot["underlying_price_time"])
-        else np.nan
-    )
+    stock_times = pd.to_datetime(df["underlying_price_time"], utc=True, errors="coerce")
+    df["underlying_price_age_seconds"] = (fetched_at - stock_times).dt.total_seconds()
     df["is_stale_underlying_price"] = np.where(
         pd.notna(df["underlying_price_age_seconds"]),
         (df["underlying_price_age_seconds"] < 0)

@@ -32,6 +32,15 @@ policy remains outside this interface.
 
 ## 1. Scope
 
+Canonical option valuation uses the row's `underlying_price` and
+`underlying_price_time` together with its bid/ask and `option_quote_time`.
+MarketData rows preserve native `underlyingPrice` at the chain's `updated`
+snapshot; independent ticker quotes must not overwrite that pair during
+normalization, refresh, enrichment or export. Missing native fields use the
+existing explicitly timed fallback; missing/invalid evidence is not relabeled
+as synchronized. Published legacy datasets remain immutable and are not
+retroactively repaired by a package upgrade.
+
 Three integration points are in scope:
 
 1. **CLI invocation** — a downstream orchestrator can invoke `opx-fetch` as a

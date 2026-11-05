@@ -6,7 +6,7 @@ import pandas as pd
 from opx_chain.config import get_runtime_config
 from opx_chain.greeks import compute_greeks
 from opx_chain.option_types import OPTION_TYPE_CALL, OPTION_TYPES
-from opx_chain.utils import finite_float, finite_numeric_series, is_finite_positive_number
+from opx_chain.utils import finite_float, finite_numeric_series
 
 
 DAYS_BUCKET_THRESHOLDS = (10.0, 18.0, 26.0)
@@ -256,7 +256,9 @@ def add_quote_quality_metrics(df, underlying_price):
     for column in ("strike", "bid", "ask", "volume", "open_interest", "implied_volatility"):
         if column in df.columns:
             df[column] = _finite_numeric_series(df[column])
-    df["has_valid_underlying"] = is_finite_positive_number(underlying_price)
+    df["has_valid_underlying"] = _series_finite_positive(
+        df.get("underlying_price", pd.Series(underlying_price, index=df.index))
+    )
     df["has_valid_strike"] = _series_finite_positive(df["strike"])
     df["bid_le_ask"] = df["bid"] <= df["ask"]
     df["has_nonzero_bid"] = _series_finite_positive(df["bid"])
@@ -304,7 +306,9 @@ def add_quote_quality_metrics(df, underlying_price):
 def add_derived_pricing_metrics(df, underlying_price):
     """Add premium, moneyness, break-even, and Black-Scholes-derived fields."""
     config = get_runtime_config()
-    spot_price = finite_float(underlying_price)
+    spot_price = _finite_numeric_series(
+        df.get("underlying_price", pd.Series(underlying_price, index=df.index))
+    )
     has_valid_spot = spot_price > 0
     df["strike_minus_spot"] = np.where(
         has_valid_spot,
@@ -400,7 +404,7 @@ def add_derived_pricing_metrics(df, underlying_price):
     )
     margin_floor = np.where(
         df["option_type"] == OPTION_TYPE_CALL,
-        np.nan if not has_valid_spot else 0.10 * spot_price,
+        np.where(has_valid_spot, 0.10 * spot_price, np.nan),
         0.10 * df["strike"],
     )
     df["estimated_margin_requirement"] = df["premium_reference_price"] + np.maximum(

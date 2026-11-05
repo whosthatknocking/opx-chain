@@ -270,10 +270,10 @@ Legend:
 
 | Field | yfinance | massive | marketdata |
 | --- | --- | --- | --- |
-| `underlying_price` | Transformed: `fast_info.lastPrice`, fallback `info.regularMarketPrice` / `info.previousClose` | Transformed: `underlying_asset.price`, fallback `underlying_asset.value` | Transformed: `stocks/quotes/{symbol}/ last`, fallback latest chain row with usable `underlyingPrice` |
-| `underlying_day_change_pct` | Derived from provider values: `(last_price - previous_close) / previous_close` | Derived from provider values: `(underlying_price - day.previous_close) / previous_close` | Direct: `changepct` from `stocks/quotes/{symbol}/`, matched to the same stock quote that supplies `underlying_price_time` |
+| `underlying_price` | Transformed: `fast_info.lastPrice`, fallback `info.regularMarketPrice` / `info.previousClose` | Transformed: `underlying_asset.price`, fallback `underlying_asset.value` | Direct: each chain row's `underlyingPrice`; independent stock snapshot only when the native field is absent |
+| `underlying_day_change_pct` | Derived from provider values: `(last_price - previous_close) / previous_close` | Derived from provider values: `(underlying_price - day.previous_close) / previous_close` | Blank for native chain-paired prices; fallback stock snapshots retain their own `changepct` |
 | `historical_volatility` | Derived from provider history: trailing daily log returns | Blank: not yet implemented for this provider | Blank: not yet implemented for this provider |
-| `underlying_price_time` | Transformed: `info.regularMarketTime` normalized to UTC timestamp | Transformed: `underlying_asset.last_updated`, fallback day/trade/quote timestamps | Transformed: `stocks/quotes/{symbol}/ updated`, fallback latest chain row `updated`, normalized to UTC |
+| `underlying_price_time` | Transformed: `info.regularMarketTime` normalized to UTC timestamp | Transformed: `underlying_asset.last_updated`, fallback day/trade/quote timestamps | Transformed: each chain row's `updated`, normalized to UTC; missing native clocks stay missing, independent fallback keeps its actual stock time |
 | `underlying_price_age_seconds` | Derived: fetch time minus `underlying_price_time` | Derived: fetch time minus `underlying_price_time` | Derived: fetch time minus `underlying_price_time` |
 | `is_stale_underlying_price` | Derived: age compared to `stale_quote_seconds` | Derived: age compared to `stale_quote_seconds` | Derived: age compared to `stale_quote_seconds` |
 

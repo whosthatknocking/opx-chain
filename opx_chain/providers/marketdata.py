@@ -1039,8 +1039,16 @@ class MarketDataProvider(DataProvider):
                 "openInterest": "open_interest",
                 "inTheMoney": "is_in_the_money",
                 "iv": "implied_volatility",
+                "underlyingPrice": "underlying_price",
             }
         )
+        if "underlyingPrice" in df.columns:
+            # The chain's stock price belongs to this option snapshot, not the
+            # independently fetched (potentially delayed) ticker quote.
+            normalized = normalized.copy()
+            normalized["underlying_price_time"] = normalized["option_quote_time"].map(
+                normalize_timestamp
+            ) if "option_quote_time" in normalized else pd.NaT
         return normalize_provider_frame(
             df=normalized,
             underlying_price=underlying_price,
