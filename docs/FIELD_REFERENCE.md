@@ -2,6 +2,13 @@
 
 Schema note: the export is pinned to the canonical column set documented here. Provider-specific scratch fields or debug fields should not expand the CSV schema unless the spec is updated deliberately.
 
+Since 0.7.2, normal fetches additionally retain a version-1 `.valuation.json`
+receipt, independent of debug dumping and without adding CSV columns. It binds
+native stock/option observations, provenance and canonical valuation inputs to
+the dataset hash. Independent stock clocks are never relabeled as native paired
+clocks. See `EXTERNAL_INTERFACE_SPEC.md`, Retained Valuation Evidence, for the
+public reader, source kinds and consumer-owned replay inputs.
+
 The exported CSV contains both provider-supplied and app-derived fields. Some values may be blank when the active provider does not expose the required source data or when a calculation is not valid for that row.
 
 Implementation-status note:

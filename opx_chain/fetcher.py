@@ -67,6 +67,7 @@ from opx_chain.storage.models import (
 from opx_chain.tickers import is_valid_ticker
 from opx_chain.timestamps import format_utc_compact, format_utc_z_seconds
 from opx_chain.validate import ValidationFinding, emit_validation_report, validate_export_frame
+from opx_chain.valuation_evidence import build_option_valuation_evidence
 
 _DATA_DIR = get_data_dir()
 RUNS_DIR = _DATA_DIR / "runs"
@@ -628,13 +629,16 @@ def _run_log_reference(run_id: str, log_path: Path) -> bytes:
     return dumps_strict_json(payload, sort_keys=True, indent=2).encode()
 
 
-def _write_validated_csv_artifacts(
+def _write_validated_csv_artifacts(  # pylint: disable=too-many-arguments
     export_df: pd.DataFrame,
     *,
     provider: str,
     output_path: Path,
     latest_path: Path,
     publication_id: str,
+    source_frame: pd.DataFrame | None = None,
+    positions_content_hash: str | None = None,
+    positions_content: bytes | None = None,
 ) -> int:
     """Validate exact CSV bytes before atomically replacing either artifact."""
     prepared = prepare_option_chain_dataset(
@@ -646,7 +650,21 @@ def _write_validated_csv_artifacts(
         ),
         dataset_id=publication_id,
     )
+    evidence = build_option_valuation_evidence(
+        source_frame if source_frame is not None else export_df, prepared.frame,
+        dataset_id=publication_id, dataset_content_hash=prepared.content_hash,
+        provider=provider, assessed_at=datetime.now(tz=timezone.utc).isoformat(),
+        positions_content_hash=positions_content_hash,
+    )
+    if positions_content is not None:
+        if hashlib.sha256(positions_content).hexdigest() != positions_content_hash:
+            raise ValueError("positions snapshot does not match valuation receipt")
+        atomic_write_bytes(output_path.with_suffix(".positions.csv"), positions_content)
+    atomic_write_bytes(output_path.with_suffix(".valuation.json"), evidence)
     atomic_write_bytes(output_path, prepared.content)
+    if positions_content is not None:
+        atomic_write_bytes(latest_path.with_suffix(".positions.csv"), positions_content)
+    atomic_write_bytes(latest_path.with_suffix(".valuation.json"), evidence)
     atomic_write_bytes(latest_path, prepared.content)
     return len(prepared.content)
 
@@ -706,7 +724,12 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-arguments,too-many-bra
             positions_path,
             default=DEFAULT_POSITIONS_PATH,
         )
+        positions_content = (resolved_positions_path.read_bytes()
+                             if resolved_positions_path.exists() else None)
         position_set = load_positions(resolved_positions_path)
+        if positions_content != (resolved_positions_path.read_bytes()
+                                  if resolved_positions_path.exists() else None):
+            raise ValueError("positions changed while loading the fetch input")
         extra_tickers = tuple(
             t for t in sorted(position_set.tickers) if t not in set(config.tickers)
         )
@@ -864,6 +887,8 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-arguments,too-many-bra
         output_path = csv_output_dir / f"options_engine_output_{timestamp}.csv"
         latest_path = runs_dir / "options_engine_output_latest.csv"
         export_df = prepare_export_frame([combined])
+        positions_content_hash = (hashlib.sha256(positions_content).hexdigest()
+                                  if positions_content is not None else None)
         file_size_bytes = 0
         if storage is None:
             file_size_bytes = _write_validated_csv_artifacts(
@@ -872,6 +897,9 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-arguments,too-many-bra
                 output_path=output_path,
                 latest_path=latest_path,
                 publication_id=f"csv-only-{timestamp}",
+                source_frame=combined,
+                positions_content_hash=positions_content_hash,
+                positions_content=positions_content,
             )
             csv_written = True
 
@@ -897,10 +925,10 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-arguments,too-many-bra
                 filtered_row_count=sum(item.filtered_row_count for item in ticker_results),
                 ticker_count=len(ticker_results),
             )
-            if resolved_positions_path.exists():
+            if positions_content is not None:
                 storage.write_artifact(run_id, ArtifactWrite(
                     artifact_type="sidecar",
-                    content=resolved_positions_path.read_bytes(),
+                    content=positions_content,
                     filename="positions.csv",
                 ))
             if log_path is not None:
@@ -916,6 +944,16 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-arguments,too-many-bra
                 format=config.storage_dataset_format,
                 row_scope=row_scope,
             ))
+            storage.write_artifact(run_id, ArtifactWrite(
+                artifact_type="sidecar",
+                filename=f"{dataset_record.dataset_id}.valuation.json",
+                content=build_option_valuation_evidence(
+                    combined, export_df, dataset_id=dataset_record.dataset_id,
+                    dataset_content_hash=dataset_record.content_hash, provider=config.data_provider,
+                    assessed_at=datetime.now(tz=timezone.utc).isoformat(),
+                    positions_content_hash=positions_content_hash,
+                ),
+            ))
             storage.finalize_run(run_id, RunSummary(status="complete"))
             dataset_handle = storage.get_dataset(dataset_record.dataset_id)
             if write_csv:
@@ -926,6 +964,9 @@ def _do_fetch_with_lock_held(  # pylint: disable=too-many-arguments,too-many-bra
                         output_path=output_path,
                         latest_path=latest_path,
                         publication_id=f"compatibility-{dataset_record.dataset_id}",
+                        source_frame=combined,
+                        positions_content_hash=positions_content_hash,
+                        positions_content=positions_content,
                     )
                     csv_written = True
                 except Exception as exc:  # pylint: disable=broad-exception-caught

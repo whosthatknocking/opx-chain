@@ -2,6 +2,7 @@
 
 INTEGER_DATASET_FIELDS = ("days_to_expiration",)
 TIMESTAMP_FIELDS = ("option_quote_time", "underlying_price_time")
+SOURCE_QUOTE_COLUMN = "_option_quote_source"
 
 QUALITY_FLAG_FIELDS = (
     "has_valid_underlying",

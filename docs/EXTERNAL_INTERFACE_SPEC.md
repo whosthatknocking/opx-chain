@@ -41,6 +41,51 @@ existing explicitly timed fallback; missing/invalid evidence is not relabeled
 as synchronized. Published legacy datasets remain immutable and are not
 retroactively repaired by a package upgrade.
 
+### Retained Valuation Evidence (0.7.2)
+
+Every normal fetch publication retains a bounded, allowlisted valuation receipt,
+independent of optional raw debug dumps. The receipt schema is version 1; the
+canonical CSV column set and chain schema version are unchanged.
+
+Public Python surface: `opx_chain.valuation_evidence` exports
+`build_option_valuation_evidence(source, canonical, *, dataset_id,
+dataset_content_hash, provider, assessed_at, positions_content_hash=None)` and
+`parse_option_valuation_evidence(content, dataset)`. The latter accepts bytes
+and a freshly validated `ValidatedOptionChainDataset`, returns a dictionary,
+and raises `ValueError` on invalid evidence. It verifies schema, checksum,
+dataset ID/content hash/provider, row coverage, canonical valuation values and
+native-pair agreement. Checksums detect corruption; they are not signatures.
+
+The receipt records package version, assessment clock, optional positions-byte
+SHA-256, and one record per retained chain row. Each row holds `canonical`
+valuation inputs and `source_quote`: native stock price and clocks, option
+bid/ask and identity, plus available provider intrinsic/extrinsic, delta and IV.
+`source_quote.kind` distinguishes `OPTION_CHAIN_SNAPSHOT`,
+`INDEPENDENT_STOCK_SNAPSHOT` and `CANONICAL_ONLY`. Missing observations remain
+null/missing, never reconstructed. Receipts exclude unbounded raw responses,
+headers and URLs; they are capped at 128 MiB. They cover retained rows, not
+contracts absent from the fetched/filtered dataset.
+
+Storage-backed normal fetches save `<dataset_id>.valuation.json` as a run-root
+sidecar before completion. CSV-only and compatibility exports save the sibling
+`<csv-stem>.valuation.json`, and, when positions exist,
+`<csv-stem>.positions.csv`; the `_latest` aliases have corresponding siblings.
+The positions bytes are frozen when loaded, not reread after acquisition.
+Existing low-level `write_dataset` callers validate canonical serialization but
+cannot manufacture unavailable native evidence; they may use the builder when
+they own source observations. Normal fetch publication requires the receipt.
+
+Offline consumers first validate the exact dataset and receipt, then verify any
+positions hash. The public `MARKET_VALUATION_FIELDS` tuple identifies market
+fields suitable for joining by canonical contract identity to saved holdings.
+Keep the saved strategy run's quantity, multiplier, exercise-style facts,
+authoritative event snapshot, assessment clock and policy/version. In particular,
+do not overwrite strategy-owned event context with nullable chain event fields.
+The receipt also records available chain event fields for inspection, not as a
+replacement for consumer policy. A dataset alone cannot reproduce an arbitrary
+strategy assessment without those consumer-owned inputs. No network request is
+needed when all inputs exist; legacy missing evidence must remain unavailable.
+
 Three integration points are in scope:
 
 1. **CLI invocation** — a downstream orchestrator can invoke `opx-fetch` as a

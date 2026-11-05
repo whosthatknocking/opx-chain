@@ -181,6 +181,26 @@ When storage is disabled, the timestamped CSV and latest copy land directly in `
 All three tools (`opx-fetch`, `opx-check`, `opx-view`) discover artifacts through the
 storage backend automatically — no `--data-dir` flag is needed.
 
+### Offline Valuation Evidence
+
+Normal fetches also retain `<dataset-id>.valuation.json` in the owning run
+directory, whether or not raw debug dumping is enabled. CSV-only and compatibility
+exports have sibling `<csv-stem>.valuation.json` and, when positions exist,
+`<csv-stem>.positions.csv` files, including latest aliases. Keep these together
+with the immutable dataset. The receipt preserves native paired prices/clocks,
+bid/ask, provenance and canonical recalculation inputs, bound to the exact
+dataset hash and frozen positions-byte hash. Receipt persistence is required
+before primary publication; no additional provider call is introduced.
+
+For offline recalculation, use the validated dataset loader and
+`opx_chain.valuation_evidence.parse_option_valuation_evidence`, check the saved
+positions hash, and join market fields by contract identity to the saved strategy
+run. Retain that run's quantities, multiplier, event context, exercise-style
+facts, assessment time and policy/version; the market-data receipt does not
+replace them. A mismatched latest alias set must not be used. Older datasets
+that discarded native observations cannot be repaired retrospectively without
+new evidence; do not shift timestamps or infer stock prices from Greeks.
+
 Operational details that are not row-specific are written to:
 
 ```text

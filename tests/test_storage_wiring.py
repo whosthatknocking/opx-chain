@@ -6,6 +6,8 @@ from contextlib import ExitStack, nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+import hashlib
+import json
 
 import pandas as pd
 import pytest
@@ -20,6 +22,9 @@ from opx_chain.integrity import (
 from opx_chain.providers.base import ProviderQuotaError
 from opx_chain.runlog import logger_name
 from opx_chain.storage.memory import MemoryBackend
+from opx_chain.storage.filesystem import FilesystemBackend
+from opx_chain.storage.sqlite_indexed import SqliteIndexedBackend
+from opx_chain.valuation_evidence import parse_option_valuation_evidence
 from opx_chain.validate import ValidationFinding
 
 
@@ -116,6 +121,118 @@ def test_run_fetch_returns_the_exact_published_dataset_handle(tmp_path: Path):
 
     assert handle is not None
     assert handle.dataset_id == backend.list_datasets()[0].dataset_id
+
+
+@pytest.mark.parametrize("backend_name", ["filesystem", "sqlite"])
+@pytest.mark.parametrize("format_name", ["csv", "parquet"])
+def test_fetch_always_saves_bound_valuation_receipt(tmp_path, backend_name, format_name):
+    """Normal publication retains receipts even when debug dumps are disabled."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+    if backend_name == "sqlite":
+        backend = SqliteIndexedBackend(tmp_path / "chain.db", tmp_path / "runs", tmp_path / "debug")
+    else:
+        backend = FilesystemBackend(tmp_path / "runs", tmp_path / "debug")
+    config = make_runtime_config(storage_enabled=True, storage_dataset_format=format_name,
+                                 debug_dump_provider_payload=False, storage_also_write_csv=False)
+    positions_file = tmp_path / "positions.csv"
+    positions_file.write_bytes(b"Symbol\nTSLA\n")
+    with ExitStack() as stack:
+        for item in _fetcher_patches(tmp_path, config, backend):
+            stack.enter_context(item)
+        handle = fetcher.run_fetch(positions_path=positions_file)
+    dataset = backend.load_validated_option_chain_dataset(handle.dataset_id)
+    receipt_path = Path(handle.location).parent.parent / f"{handle.dataset_id}.valuation.json"
+    receipt = parse_option_valuation_evidence(receipt_path.read_bytes(), dataset)
+    positions_hash = hashlib.sha256(positions_file.read_bytes()).hexdigest()
+    assert receipt["positions_content_hash"] == positions_hash
+    assert (receipt_path.parent / "positions.csv").read_bytes() == positions_file.read_bytes()
+    assert len(receipt["rows"]) == len(dataset.frame)
+
+
+def test_receipt_write_failure_prevents_completed_publication(tmp_path):
+    """A dataset with missing replay evidence must never become discoverable."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+    backend = MemoryBackend()
+    config = make_runtime_config(storage_enabled=True)
+    original = backend.write_artifact
+
+    def write(run_id, artifact):
+        if artifact.filename.endswith(".valuation.json"):
+            raise OSError("receipt disk unavailable")
+        return original(run_id, artifact)
+
+    with ExitStack() as stack:
+        for item in _fetcher_patches(tmp_path, config, backend):
+            stack.enter_context(item)
+        stack.enter_context(patch.object(backend, "write_artifact", side_effect=write))
+        with pytest.raises(OSError, match="receipt disk"):
+            fetcher.run_fetch()
+    assert backend.list_datasets() == []
+
+
+def test_positions_receipt_uses_input_frozen_before_acquisition(tmp_path):
+    """A later portfolio upload must not replace the fetch's saved holdings."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+    backend = FilesystemBackend(tmp_path / "runs", tmp_path / "debug")
+    config = make_runtime_config(storage_enabled=True, storage_also_write_csv=False)
+    positions_file = tmp_path / "positions.csv"
+    original = b"Symbol\nTSLA\n"
+    positions_file.write_bytes(original)
+
+    def fetch(ticker, *_args, **_kwargs):
+        positions_file.write_bytes(b"Symbol\nORCL\n")
+        return _make_ticker_df(ticker)
+
+    with ExitStack() as stack:
+        for item in _fetcher_patches(tmp_path, config, backend):
+            stack.enter_context(item)
+        stack.enter_context(patch.object(fetcher, "fetch_ticker_option_chain", side_effect=fetch))
+        handle = fetcher.run_fetch(positions_path=positions_file)
+    receipt_path = Path(handle.location).parent.parent / f"{handle.dataset_id}.valuation.json"
+    receipt = parse_option_valuation_evidence(receipt_path.read_bytes(),
+        backend.load_validated_option_chain_dataset(handle.dataset_id))
+    assert receipt["positions_content_hash"] == hashlib.sha256(original).hexdigest()
+    assert (receipt_path.parent / "positions.csv").read_bytes() == original
+
+
+def test_positions_change_during_parsing_prevents_fetch(tmp_path):
+    """A load-time race must fail before any provider or publication work."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+    backend = MemoryBackend()
+    positions_file = tmp_path / "positions.csv"
+    positions_file.write_bytes(b"Symbol\nTSLA\n")
+
+    def load(_path):
+        positions_file.write_bytes(b"Symbol\nORCL\n")
+        return MagicMock()
+
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(item) for item in
+                 _fetcher_patches(tmp_path, make_runtime_config(storage_enabled=True), backend)]
+        stack.enter_context(patch.object(fetcher, "load_positions", side_effect=load))
+        with pytest.raises(ValueError, match="positions changed"):
+            fetcher.run_fetch(positions_path=positions_file)
+    mocks[9].assert_not_called()
+    assert backend.list_datasets() == []
+
+
+def test_csv_only_publication_retains_receipt_and_positions(tmp_path):
+    """CSV-only users receive the same durable source/quantity evidence."""
+    from opx_chain import fetcher  # pylint: disable=import-outside-toplevel
+    backend = None
+    config = make_runtime_config(storage_enabled=False, debug_dump_provider_payload=False)
+    positions_file = tmp_path / "positions.csv"
+    positions_file.write_bytes(b"Symbol\nTSLA\n")
+    with ExitStack() as stack:
+        for item in _fetcher_patches(tmp_path, config, backend):
+            stack.enter_context(item)
+        fetcher.run_fetch(positions_path=positions_file)
+    latest = tmp_path / "output" / "options_engine_output_latest.csv"
+    receipt = json.loads(latest.with_suffix(".valuation.json").read_bytes())
+    assert receipt["dataset_content_hash"] == hashlib.sha256(latest.read_bytes()).hexdigest()
+    positions_hash = hashlib.sha256(positions_file.read_bytes()).hexdigest()
+    assert receipt["positions_content_hash"] == positions_hash
+    assert latest.with_suffix(".positions.csv").read_bytes() == positions_file.read_bytes()
 
 
 def test_compatibility_csv_failure_does_not_retract_published_handle(tmp_path: Path):
@@ -422,7 +539,8 @@ def test_fetcher_snapshots_positions_only_after_success(tmp_path: Path):
     assert result == 0
     run_id = backend.list_datasets()[0].run_id
     artifacts = backend._artifacts[run_id]  # pylint: disable=protected-access
-    sidecars = [artifact for artifact in artifacts if artifact.artifact_type == "sidecar"]
+    sidecars = [artifact for artifact in artifacts if artifact.artifact_type == "sidecar"
+                and artifact.location.endswith("/positions.csv")]
     assert len(sidecars) == 1
     assert sidecars[0].location.endswith("/positions.csv")
 

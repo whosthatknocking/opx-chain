@@ -575,10 +575,24 @@ transition. If those artifact writes fail, `delete_run_artifacts` removes any
 earlier sidecar, run-log, or pre-publication output artifacts for that run,
 then `fail_run` records the failure and no dataset is discoverable.
 
-Serialization checks all supplied canonical values, including nullable
-values and UTC clocks, not only contract identity/count, for every
-backend and CSV/Parquet format. Changed values or lost columns fail
-with SERIALIZATION_INTEGRITY_FAILED before publication.
+Since 0.7.2, the normal fetch artifact set includes the mandatory version-1
+`<dataset_id>.valuation.json` run-root sidecar, even with debug dumping disabled.
+It binds allowlisted native observations and canonical valuation inputs to the
+exact dataset ID/provider/content hash and frozen positions bytes when present.
+Failure to write it occurs before completion and prevents dataset discovery.
+This is a fetch-publication contract, not a requirement to invent native source
+data in arbitrary low-level `write_dataset` calls. Serialization itself checks
+all supplied canonical values (including nullable values and UTC clocks), not
+only contract identity/count, for every backend and CSV/Parquet format.
+
+CSV-only publications write the timestamped `.positions.csv` (when present) and
+`.valuation.json` siblings before the timestamped CSV; they update corresponding
+latest siblings before replacing the latest CSV. Each file replacement is atomic,
+not the multi-file set: consumers must check receipt/dataset and positions hashes
+and fail closed on a mismatched alias set after interrupted publication. The
+timestamped set remains the durable reference. Compatibility-copy failures after
+primary publication remain warnings and do not retract a completed dataset.
+See `EXTERNAL_INTERFACE_SPEC.md` for the receipt reader and replay ownership.
 
 The fetch coordinator also supplies one strict `OptionChainRowScope` in the
 same `DatasetWrite`. Backends persist it atomically beside the dataset record

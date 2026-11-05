@@ -29,7 +29,7 @@ from opx_chain.config import (
     get_provider_credentials,
     get_runtime_config,
 )
-from opx_chain.json_utils import loads_strict_json
+from opx_chain.json_utils import loads_strict_json, sanitize_json_payload
 from opx_chain.option_types import OPTION_TYPE_CALL, OPTION_TYPE_PUT, OPTION_TYPES
 from opx_chain.paths import get_default_config_path
 from opx_chain.providers.base import (
@@ -48,6 +48,7 @@ from opx_chain.providers.base import (
 )
 from opx_chain.providers._dates import parse_event_date as _parse_event_date
 from opx_chain.runlog import get_logger, logger_name
+from opx_chain.schema import SOURCE_QUOTE_COLUMN
 from opx_chain.utils import coerce_float, finite_float_or_none, normalize_timestamp
 
 CALLER_USER_AGENT = f"opx-chain/{SCRIPT_VERSION}"
@@ -1049,7 +1050,7 @@ class MarketDataProvider(DataProvider):
             normalized["underlying_price_time"] = normalized["option_quote_time"].map(
                 normalize_timestamp
             ) if "option_quote_time" in normalized else pd.NaT
-        return normalize_provider_frame(
+        result = normalize_provider_frame(
             df=normalized,
             underlying_price=underlying_price,
             expiration_date=expiration_date,
@@ -1057,3 +1058,20 @@ class MarketDataProvider(DataProvider):
             ticker=ticker,
             data_source=self.name,
         )
+        native = "underlyingPrice" in df.columns
+        result[SOURCE_QUOTE_COLUMN] = [sanitize_json_payload({
+            "kind": "OPTION_CHAIN_SNAPSHOT" if native else "INDEPENDENT_STOCK_SNAPSHOT",
+            "contract_symbol": row.get("optionSymbol", row.get("contract_symbol")),
+            "underlying_price": row.get("underlyingPrice") if native
+                else row.get("underlying_price", underlying_price),
+            "underlying_price_time": normalize_timestamp(
+                row.get("updated", row.get("option_quote_time"))) if native
+                else row.get("underlying_price_time"),
+            "option_quote_time": normalize_timestamp(
+                row.get("updated", row.get("option_quote_time"))),
+            "bid": row.get("bid"), "ask": row.get("ask"),
+            "provider_intrinsic_value": row.get("intrinsicValue"),
+            "provider_extrinsic_value": row.get("extrinsicValue"),
+            "provider_delta": row.get("delta"), "provider_iv": row.get("iv"),
+        }) for row in df.to_dict("records")]
+        return result
