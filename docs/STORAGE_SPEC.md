@@ -575,6 +575,11 @@ transition. If those artifact writes fail, `delete_run_artifacts` removes any
 earlier sidecar, run-log, or pre-publication output artifacts for that run,
 then `fail_run` records the failure and no dataset is discoverable.
 
+Serialization checks all supplied canonical values, including nullable
+values and UTC clocks, not only contract identity/count, for every
+backend and CSV/Parquet format. Changed values or lost columns fail
+with SERIALIZATION_INTEGRITY_FAILED before publication.
+
 The fetch coordinator also supplies one strict `OptionChainRowScope` in the
 same `DatasetWrite`. Backends persist it atomically beside the dataset record
 and mirror it onto every handle. It records the resolved generic-filter flag,

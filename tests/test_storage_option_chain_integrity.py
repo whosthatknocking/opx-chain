@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -40,6 +41,43 @@ def _sqlite_backend(tmp_path: Path):
 
 
 BACKENDS = (_memory_backend, _filesystem_backend, _sqlite_backend)
+
+
+@pytest.mark.parametrize("backend_factory", BACKENDS)
+@pytest.mark.parametrize("format_name", ["csv", "parquet"])
+@pytest.mark.parametrize("field,value", [
+    ("underlying_price", 126.), ("bid", 3.1), ("ask", 3.3),
+    ("option_quote_time", "2026-08-21T15:31:00Z"),
+    ("underlying_price_time", "2026-08-21T15:31:00Z"),
+    ("delta", .5), ("days_to_expiration", 408), ("contract_size", None),
+    ("option_quote_time", None), ("option_quote_time", "DROP_COLUMN"),
+])
+def test_serialized_valuation_input_changes_are_rejected(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    backend_factory, format_name, field, value, tmp_path, monkeypatch,
+):
+    """Plausible quote corruption must fail even when identity remains valid."""
+    backend = backend_factory(tmp_path)
+    run_id = backend.create_run(RunContext("synthetic-provider", ("SYNTH",), "config", "positions"))
+    frame = make_option_chain_frame(rows=1, ticker="SYNTH", provider="synthetic-provider")
+    frame["option_quote_time"] = "2026-08-21T15:30:00Z"
+    frame["delta"] = .4
+    frame["days_to_expiration"] = 407
+    serializer = get_serializer(format_name)
+
+    def corrupt(content):
+        restored = serializer.deserialize_bytes(content)
+        if value == "DROP_COLUMN":
+            return restored.drop(columns=field)
+        restored.loc[0, field] = value
+        return restored
+
+    monkeypatch.setattr("opx_chain.storage.integrity.get_serializer", lambda _format:
+        SimpleNamespace(serialize_bytes=serializer.serialize_bytes, deserialize_bytes=corrupt))
+    with pytest.raises(OptionChainDataIntegrityError) as error:
+        backend.write_dataset(run_id, DatasetWrite(frame, "synthetic-provider", SCHEMA_VERSION,
+                                                  format=format_name))
+    assert "SERIALIZATION_INTEGRITY_FAILED" in error.value.summary.counts_by_code
+    assert backend.list_datasets() == []
 
 
 def _write(backend, *, frame=None):

@@ -8,8 +8,12 @@ from datetime import datetime, timezone
 from typing import Mapping
 
 import pandas as pd
+import numpy as np
 
 from opx_chain import SCHEMA_VERSION
+from opx_chain.export import CANONICAL_EXPORT_COLUMNS
+from opx_chain.schema import TIMESTAMP_FIELDS
+from opx_chain.validate import NUMERIC_FIELDS
 from opx_chain._integrity_validation import (
     project_option_chain_integrity_summary,
     validate_option_chain_frame,
@@ -175,6 +179,7 @@ def prepare_option_chain_dataset(
             raise ValueError(f"row count {len(dataset.data)} became {len(frame)}")
         if _canonical_identities(frame) != _canonical_identities(dataset.data):
             raise ValueError("canonical contract identity or row order changed")
+        _assert_canonical_values_preserved(dataset.data, frame)
     except OptionChainDataIntegrityError:
         raise
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -199,6 +204,36 @@ def prepare_option_chain_dataset(
             content_hash=content_hash,
         ),
     )
+
+
+def _assert_canonical_values_preserved(source: pd.DataFrame, restored: pd.DataFrame) -> None:
+    """A valid serializer must preserve valuation evidence, not only identity."""
+    for field in set(CANONICAL_EXPORT_COLUMNS).intersection(source.columns):
+        if field not in restored.columns:
+            raise ValueError(f"canonical field lost during serialization: {field}")
+        before, after = source[field].reset_index(drop=True), restored[field].reset_index(drop=True)
+        if field in TIMESTAMP_FIELDS:
+            equal = pd.to_datetime(before, utc=True).dt.as_unit("ns").equals(
+                pd.to_datetime(after, utc=True).dt.as_unit("ns"))
+        elif field in NUMERIC_FIELDS:
+            left = pd.to_numeric(before).to_numpy(dtype=float, na_value=np.nan)
+            right = pd.to_numeric(after).to_numpy(dtype=float, na_value=np.nan)
+            equal = np.isclose(left, right, rtol=1e-12, atol=1e-12, equal_nan=True).all()
+        else:
+            equal = before.map(_comparison_value).equals(after.map(_comparison_value))
+        if not equal:
+            raise ValueError(f"canonical values changed during serialization: {field}")
+
+
+def _comparison_value(value: object) -> str | None:
+    if pd.isna(value) or value == "":
+        return None
+    if isinstance(value, (datetime,)):
+        return value.isoformat()
+    try:
+        return str(float(value))
+    except (ValueError, TypeError):
+        return str(value)
 
 
 def record_with_validated_metadata(
