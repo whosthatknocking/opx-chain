@@ -1577,6 +1577,11 @@ finite and positive. Identical duplicates deduplicate; conflicting duplicates,
 invalid calendar dates and nonfinite values reject the source. Missing sessions
 are retained as gaps, never forward-filled. Consecutive-history calculations,
 freshness classification and all strategy policy remain consumer-owned.
+For the exact `VIX_SPOT/cboe_daily_vix` source, observations on dates outside
+the caller's calendar are excluded: Cboe publishes on some XNYS holidays.
+No close time is inferred for excluded dates. Malformed dates/values,
+conflicting duplicates and future dates remain invalid, and SPY retains strict
+calendar validation. This filtering does not add sessions or fill gaps.
 
 `content_sha256` (also `source_revision`) hashes exactly this canonical shape:
 `{series_id,price_basis,unit,observations:[{session_date,close}]}`. Dates use ISO

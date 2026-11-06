@@ -300,6 +300,10 @@ def _normalize(request, rows, fetched_at, previous=None):
         if day < first_day:
             continue
         if day not in schedule:
+            # Cboe also publishes on some XNYS holidays. Its wider calendar
+            # must not invalidate closes belonging to the caller's sessions.
+            if (request.series_id, request.provider_id) == ("VIX_SPOT", "cboe_daily_vix"):
+                continue
             raise BenchmarkSeriesError("INVALID_SOURCE")
         # A valid daily file may contain a close newer than this request's cutoff.
         if day > request.latest_allowed_session or schedule[day] > request.acquisition_started_at:

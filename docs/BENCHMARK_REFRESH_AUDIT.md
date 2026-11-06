@@ -46,3 +46,31 @@ runs the complete offline tests and tracked-source lint before publication.
 No live source call,
 credential change, provider switch or source-access approval is part of this
 verification.
+
+## Cboe Calendar Delivery
+
+Status: closed. AUD-01a1b1d0-a0e6-7bb6-90db-72ab62f9f4d0, 2026-11-06.
+
+An explicitly approved live acquisition delivered Marketdata SPY, but Cboe VIX
+returned INVALID_SOURCE. The official CSV passes strict schema/numeric/duplicate
+validation (9,310 rows; SHA-256
+`89d2c4f6015903fa1c86f0ace7d37393d2eb9fd037183688eb35bdeb25b2f0b7`).
+It includes valid Cboe observations on XNYS holidays: eleven within the supplied
+600-day window, including 2025-05-26 and 2026-09-07. The normalizer rejects all
+history because those dates lack caller-supplied XNYS closes.
+
+Remedy: filter out-of-calendar observations only for VIX_SPOT/cboe_daily_vix.
+Do not admit invented sessions, change SPY validation, ignore malformed source
+values/conflicting duplicates/future dates, or relax permission, receipt,
+deadline and throttle guards. Pair a real holiday fixture and public acquisition
+test with rejection and ordinary-source compatibility cases before closure.
+
+Implemented the Cboe-only filter in 0.8.2 and documented the public calendar
+contract. Focused benchmark tests pass (76 cases), including the official
+Memorial Day sample, public acquisition/cache reuse, unchanged SPY rejection,
+and malformed/future/conflicting source rejection. Offline replay of the
+captured official CSV now yields 300 valid calendar-aligned observations. With
+the independently verified retained SPY source, the downstream aggregate is
+READY, HIGH stress, DETERIORATING direction for session 2026-11-05. This is
+captured-input verification, not a claim that a historical run was backfilled.
+The normal commit gate runs the full offline suite and tracked-source lint.
