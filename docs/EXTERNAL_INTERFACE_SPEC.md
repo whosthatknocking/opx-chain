@@ -1620,3 +1620,36 @@ bounded to 256 KiB, and at most 300 sessions are retained. Deadline enforcement
 assumes a responsive local filesystem and OS process creation/termination;
 it cannot preempt an uninterruptible kernel/filesystem operation. No network
 source is called by package import, viewer requests, or cache reuse.
+
+## Provider-credit observations
+
+`opx_chain.provider_usage` (0.8.0) exposes network-free
+`get_provider_usage(provider) -> ProviderUsageState` and explicit synchronous
+`refresh_provider_usage(provider, timeout_seconds=5) -> ProviderUsageRefreshResult`.
+Call refresh off asynchronous event loops. Refresh makes at most one unversioned
+`https://api.marketdata.app/user/` request, with no redirects/retries and a total
+five-second deadline including configured pacing and response reads.
+
+State carries `capability` (`supported`, `not_configured`, `not_supported`),
+nullable `observation`, nullable `entitlement`, and an opaque `generation` handle.
+Never serialize generation. Unknown providers raise ValueError. MarketData is
+supported; yfinance/massive return not_supported. The refresh result carries
+`state` and nullable allowlisted `error_code`: AUTHENTICATION_FAILED,
+CREDIT_EXHAUSTED, CONCURRENCY_LIMIT, TIMEOUT, PROVIDER_ERROR,
+INVALID_USAGE_RESPONSE. It never exposes raw provider bodies or exceptions.
+
+Observation fields: observed_at (UTC receipt), source (response_headers or
+user_endpoint), credit_limit, credits_remaining, credits_consumed_by_request,
+and reset_at (UTC). Missing/invalid individual headers are null. Remaining may
+be negative; consumed is per response, not cumulative usage. Values come only
+from X-Api-Ratelimit headers. Entitlement separately dates allowlisted
+options_data_permissions from the user body. Missing entitlement is unknown.
+
+The process-local registry captures ordinary SDK HTTP responses including
+retries without extra calls. It is credential-scoped, atomically ordered by
+reset window then lowest remaining balance; incomplete responses cannot erase
+complete evidence in the same window. Same-window top-ups remain conservative.
+Credential rotation and restart discard observations. Old generation responses
+cannot repopulate them. No database/persistent cache or strategy dependency is
+introduced. Callers own freshness, warnings, refresh single-flight/cooldown,
+and UI. Opening views must call only the network-free getter.

@@ -29,6 +29,7 @@ from opx_chain.config import (
     get_provider_credentials,
     get_runtime_config,
 )
+from opx_chain.provider_usage import response_observer
 from opx_chain.json_utils import loads_strict_json, sanitize_json_payload
 from opx_chain.option_types import OPTION_TYPE_CALL, OPTION_TYPE_PUT, OPTION_TYPES
 from opx_chain.paths import get_default_config_path
@@ -80,6 +81,11 @@ _BLANK_EVENT_DATE = _EventDateMetadata(None, None, None, None)
 
 class OpxMarketDataClient(MarketDataClient):  # pylint: disable=too-few-public-methods
     """Disable the SDK startup rate-limit probe so provider init does not spend an API call."""
+
+    def _get_client(self):
+        client = super()._get_client()
+        client.event_hooks.setdefault("response", []).append(response_observer(self.token))
+        return client
 
     def _setup_rate_limits(self):
         self.rate_limits = None
