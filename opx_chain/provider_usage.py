@@ -20,6 +20,7 @@ from typing import Any, Mapping
 import httpx
 
 from opx_chain.config import get_provider_credentials, get_runtime_config
+from opx_chain.json_utils import loads_strict_json
 
 
 @dataclass(frozen=True)
@@ -184,7 +185,7 @@ async def _request_user(token: str, timeout_seconds: float) -> tuple[int, Mappin
                     if len(body) > 65536:
                         return response.status_code, response.headers, _INVALID_BODY
                 try:
-                    payload = httpx.Response(200, content=body).json()
+                    payload = loads_strict_json(bytes(body).decode("utf-8"))
                 except ValueError:
                     payload = _INVALID_BODY
                 return response.status_code, response.headers, payload

@@ -1623,7 +1623,7 @@ source is called by package import, viewer requests, or cache reuse.
 
 ## Provider-credit observations
 
-`opx_chain.provider_usage` (0.8.0) exposes network-free
+`opx_chain.provider_usage` (0.8.1) exposes network-free
 `get_provider_usage(provider) -> ProviderUsageState` and explicit synchronous
 `refresh_provider_usage(provider, timeout_seconds=5) -> ProviderUsageRefreshResult`.
 Call refresh off asynchronous event loops. Refresh makes at most one unversioned
@@ -1636,7 +1636,9 @@ Never serialize generation. Unknown providers raise ValueError. MarketData is
 supported; yfinance/massive return not_supported. The refresh result carries
 `state` and nullable allowlisted `error_code`: AUTHENTICATION_FAILED,
 CREDIT_EXHAUSTED, CONCURRENCY_LIMIT, TIMEOUT, PROVIDER_ERROR,
-INVALID_USAGE_RESPONSE. It never exposes raw provider bodies or exceptions.
+INVALID_USAGE_RESPONSE. Bounded streamed bodies are decoded directly with
+strict JSON parsing; malformed/non-finite JSON preserves valid credit headers
+but reports INVALID_USAGE_RESPONSE. It never exposes raw provider bodies or exceptions.
 
 Observation fields: observed_at (UTC receipt), source (response_headers or
 user_endpoint), credit_limit, credits_remaining, credits_consumed_by_request,

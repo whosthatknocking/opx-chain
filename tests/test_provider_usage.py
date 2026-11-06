@@ -161,3 +161,38 @@ def test_total_deadline_includes_pacing(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient",
                         lambda **_: pytest.fail("deadline exceeded before I/O"))
     assert usage.refresh_provider_usage("marketdata", timeout_seconds=0.01).error_code == "TIMEOUT"
+
+
+@pytest.mark.parametrize("status,body,error,permission", [
+    (200,b'{"optionsDataPermissions":"delayed","email":"private"}',None,"delayed"),
+    (203,b'{"optionsDataPermissions":""}',None,""),
+    (200,b'null',None,None),
+    (200,b'NaN',"INVALID_USAGE_RESPONSE",None),
+    (200,b'{"other":Infinity}',"INVALID_USAGE_RESPONSE",None),
+    (200,b'{invalid',"INVALID_USAGE_RESPONSE",None),
+    (200,b'\xff',"INVALID_USAGE_RESPONSE",None),
+    (200,b' ' * 65537,"INVALID_USAGE_RESPONSE",None),
+    (401,b'{"message":"secret"}',"AUTHENTICATION_FAILED",None),
+    (429,b'{"errmsg":"API credit limit"}',"CREDIT_EXHAUSTED",None),
+    (429,b'{"errmsg":"concurrent requests"}',"CONCURRENCY_LIMIT",None),
+])
+def test_actual_refresh_transport_decodes_bounded_json(
+    monkeypatch, status, body, error, permission,
+):
+    calls = []
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(status, content=body, headers=headers("199"))
+    client = httpx.AsyncClient
+    monkeypatch.setattr(usage.httpx, "AsyncClient", lambda **kw: client(
+        **kw, transport=httpx.MockTransport(respond)))
+    result = usage.refresh_provider_usage("marketdata")
+    assert len(calls) == 1
+    assert result.error_code == error
+    assert result.state.observation["credits_remaining"] == 199
+    if permission is None:
+        assert result.state.entitlement is None
+    else:
+        assert result.state.entitlement["options_data_permissions"] == permission
+    assert "private" not in repr(result)
+    assert "secret" not in repr(result)
