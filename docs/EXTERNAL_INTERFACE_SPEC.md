@@ -1456,6 +1456,7 @@ from opx_chain.benchmark_series import (
     BENCHMARK_SERIES_SCHEMA_VERSION, ApprovedNetworkScope, SessionClose,
     DailySeriesRequest, DailySeriesResult, DailySeriesSnapshot,
     DailyObservation, RetainedFrom, acquire_daily_series,
+    DailySeriesCapability, daily_series_capability, DAILY_SERIES_FETCH_MODES,
     CBOE_VIX_URL, MARKETDATA_SPY_URL,
 )
 ```
@@ -1480,12 +1481,39 @@ from opx_chain.benchmark_series import (
   one ten-second deadline bound a two-source preparation acquisition.
 
 Optional fields: `max_sessions=300` (strict integer 1..300),
-`fetch_mode="reuse_only"` (`reuse_only` or `reuse_or_fetch`),
+`fetch_mode="reuse_only"` (`reuse_only`, `reuse_or_fetch` or `fetch_latest`),
 `network_scope=None`, `cache_dir=None`, `target_session=None`.
 `target_session` separates cache freshness from eligible cutoff: reuse a
 validated snapshot reaching `target_session or latest_allowed_session`, while
 always selecting observations no later than `latest_allowed_session`.
 The caller derives publication-grace targets from its canonical calendar.
+
+`DAILY_SERIES_FETCH_MODES` advertises the accepted modes as an immutable tuple.
+Consumers must capability-check it before offering `fetch_latest` against older
+installations; never silently translate an unsupported forced refresh into Auto.
+`reuse_or_fetch` reuses current compatible evidence, otherwise attempts bounded
+approved acquisition. `fetch_latest` skips ordinary pre-request cache-hit reuse
+and requests acquisition even if the retained series already reaches the target.
+It does not bypass source permission, historical replay, the 15-minute shared
+attempt throttle, response validation, deadlines or lease ownership. A concurrent
+response fetched at or after the caller's acquisition start may satisfy the
+request without a duplicate provider call (`REUSED`). Reuse of a pre-request
+cache hit alone cannot satisfy `fetch_latest`.
+
+Denied, throttled and failed refreshes retain usable snapshots and return their
+explicit outcome/error with `retained_from`; a retained snapshot is not proof
+that fresh acquisition succeeded. Offline callers use `reuse_only` and never
+grant source permission, regardless of a previously saved consumer preference.
+
+`daily_series_capability(series_id, provider_id) -> DailySeriesCapability` is
+pure discovery: no configuration/credentials, filesystem/cache access, provider
+construction or network I/O. Its frozen record contains `series_id`,
+`provider_id`, required `price_basis`/`unit`, exact `source_url`, `error_code`,
+and `fetch_modes`. A supported source has a null error and the advertised modes;
+unsupported sources have a typed error, no URL and an empty mode tuple. This
+does not establish permission, entitlement, freshness or data availability.
+Do not call acquisition merely to inspect capabilities. SPY/yfinance returns
+`UNSUPPORTED_BASIS`, not a substitute Market Data source or Yahoo VIX request.
 
 `ApprovedNetworkScope(provider_id, series_id, source_url, approval_reference)`
 requires exact source identity and a nonempty reference to a separately

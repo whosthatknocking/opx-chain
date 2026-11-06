@@ -6,6 +6,7 @@ from opx_chain.analyst_forecast import (
 )
 from opx_chain.version import __version__
 from opx_chain.benchmark_series import (
+    DAILY_SERIES_FETCH_MODES,
     BENCHMARK_SERIES_SCHEMA_VERSION,
     CBOE_VIX_URL,
     MARKETDATA_SPY_URL,
@@ -13,11 +14,13 @@ from opx_chain.benchmark_series import (
     BenchmarkSeriesError,
     DailyObservation,
     DailySeriesRequest,
+    DailySeriesCapability,
     DailySeriesResult,
     DailySeriesSnapshot,
     RetainedFrom,
     SessionClose,
     acquire_daily_series,
+    daily_series_capability,
 )
 
 SCHEMA_VERSION: int = 2
@@ -41,11 +44,14 @@ __all__ = [
     "BenchmarkSeriesError",
     "DailyObservation",
     "DailySeriesRequest",
+    "DailySeriesCapability",
+    "DAILY_SERIES_FETCH_MODES",
     "DailySeriesResult",
     "DailySeriesSnapshot",
     "RetainedFrom",
     "SessionClose",
     "acquire_daily_series",
+    "daily_series_capability",
     "OPTION_CHAIN_ROW_SCOPE_SCHEMA_VERSION",
     "OptionChainRowScope",
     "OptionChainRowScopeIntegrityError",

@@ -70,6 +70,101 @@ def test_default_denied_and_reuse_only_are_read_only(request_series, monkeypatch
     assert not request_series.cache_dir.exists()
 
 
+@pytest.mark.parametrize("series,provider,error,url", [
+    ("SPY", "marketdata", None, b.MARKETDATA_SPY_URL),
+    ("SPY", "yfinance", "UNSUPPORTED_BASIS", None),
+    ("SPY", "massive", "UNSUPPORTED_PROVIDER", None),
+    ("VIX_SPOT", "cboe_daily_vix", None, b.CBOE_VIX_URL),
+    ("VIX_SPOT", "yfinance", "UNSUPPORTED_PROVIDER", None),
+    ("VXX", "cboe_daily_vix", "UNSUPPORTED_PROVIDER", None),
+])
+def test_public_capabilities_are_pure(monkeypatch, series, provider, error, url):
+    monkeypatch.setattr(b, "get_cache_dir", lambda: pytest.fail("cache discovery"))
+    monkeypatch.setattr(b, "_fetch", lambda *_: pytest.fail("provider work"))
+    monkeypatch.setattr(b, "_state", lambda *_: pytest.fail("cache read"))
+    capability = b.daily_series_capability(series, provider)
+    assert (capability.series_id, capability.provider_id) == (series, provider)
+    assert (capability.error_code, capability.source_url) == (error, url)
+    assert capability.fetch_modes == (b.DAILY_SERIES_FETCH_MODES if error is None else ())
+    import opx_chain
+    assert opx_chain.daily_series_capability(series, provider) == capability
+
+
+@pytest.mark.parametrize("mode", ["reuse_only", "reuse_or_fetch"])
+def test_current_auto_and_retained_only_do_not_refresh(request_series, monkeypatch, mode):
+    old, root = seed(request_series)
+    before = (root / "state.json").read_bytes()
+    monkeypatch.setattr(b, "_fetch", lambda *_: pytest.fail("current series refetched"))
+    monkeypatch.setattr(b, "acquire_nonblocking_file_lock", lambda *_: pytest.fail("lock wait"))
+    result = b.acquire_daily_series(replace(approved(request_series), fetch_mode=mode))
+    assert result.refresh_status == "REUSED"
+    assert result.snapshot == old
+    assert (root / "state.json").read_bytes() == before
+
+
+def test_fetch_latest_refreshes_current_cache_keeps_versions(request_series, monkeypatch):
+    old, root = seed(request_series)
+    calls = []
+    monkeypatch.setattr(b, "_fetch", lambda *_: calls.append(1) or rows_for(request_series))
+    request = replace(approved(request_series), fetch_mode="fetch_latest")
+    result = b.acquire_daily_series(request)
+    assert calls == [1]
+    assert result.refresh_status == "SUCCEEDED"
+    assert result.snapshot.fetched_at == NOW
+    assert result.snapshot.observations[0].available_at == old.observations[0].available_at
+    assert result.snapshot.source_snapshot_id != old.source_snapshot_id
+    assert (root / (old.source_snapshot_id + ".json")).exists()
+    assert set(json.loads((root / "state.json").read_bytes())["versions"]) == {
+        old.source_snapshot_id, result.snapshot.source_snapshot_id,
+    }
+
+
+def test_fetch_latest_denied_current_cache_remains_read_only(request_series, monkeypatch):
+    old, root = seed(request_series)
+    before = (root / "state.json").read_bytes()
+    monkeypatch.setattr(b, "_fetch", lambda *_: pytest.fail("permission bypass"))
+    monkeypatch.setattr(b, "acquire_nonblocking_file_lock", lambda *_: pytest.fail("lock wait"))
+    result = b.acquire_daily_series(replace(request_series, fetch_mode="fetch_latest"))
+    assert (result.refresh_status, result.error_code) == ("NOT_PERMITTED", "SOURCE_NOT_APPROVED")
+    assert result.snapshot == old
+    assert result.retained_from.source_snapshot_id == old.source_snapshot_id
+    assert (root / "state.json").read_bytes() == before
+
+
+def test_fetch_latest_does_not_bypass_replay_or_attempt_throttle(request_series, monkeypatch):
+    old, root = seed(request_series, receipt=NOW - timedelta(minutes=2))
+    before = (root / "state.json").read_bytes()
+    monkeypatch.setattr(b, "_fetch", lambda *_: pytest.fail("safeguard bypass"))
+    request = replace(approved(request_series), fetch_mode="fetch_latest",
+                      acquisition_started_at=NOW - timedelta(minutes=1))
+    result = b.acquire_daily_series(request)
+    assert (result.refresh_status, result.error_code) == ("NOT_PERMITTED", "HISTORICAL_REPLAY_ONLY")
+    assert result.snapshot == old
+    assert (root / "state.json").read_bytes() == before
+    state = json.loads(before)
+    state["last_attempt_at"] = (NOW - timedelta(seconds=1)).isoformat()
+    atomic_write_bytes(root / "state.json", b._encode(state))
+    result = b.acquire_daily_series(replace(request, acquisition_started_at=NOW))
+    assert (result.refresh_status, result.error_code) == ("THROTTLED", "THROTTLED")
+    assert result.snapshot == old
+
+
+@pytest.mark.parametrize("failure", ["SOURCE_ERROR", "INVALID_SOURCE"])
+def test_fetch_latest_failure_retains_current_facts(request_series, monkeypatch, failure):
+    old, _ = seed(request_series)
+
+    def fetch(*_):
+        if failure == "SOURCE_ERROR":
+            raise b.BenchmarkSeriesError(failure)
+        return rows_for(request_series)[:1]
+
+    monkeypatch.setattr(b, "_fetch", fetch)
+    result = b.acquire_daily_series(replace(approved(request_series), fetch_mode="fetch_latest"))
+    assert (result.refresh_status, result.error_code) == ("FAILED", failure)
+    assert result.snapshot == old
+    assert result.retained_from.source_snapshot_id == old.source_snapshot_id
+
+
 @pytest.mark.parametrize("field,value", [
     ("provider_id", "cboe"), ("series_id", "VXX"), ("unit", "USD"),
     ("price_basis", "FUTURES_CLOSE"), ("calendar_revision", ""),
@@ -363,10 +458,14 @@ def _acquire_process(request, queue):
     queue.put((result.refresh_status, result.error_code, digest))
 
 
-def test_crossprocess_singleflight_rechecks_public_cache(request_series):
+@pytest.mark.parametrize("mode", ["reuse_or_fetch", "fetch_latest"])
+def test_crossprocess_singleflight_rechecks_public_cache(request_series, mode):
     context = multiprocessing.get_context("spawn")
     queue = context.Queue()
-    request = approved(replace(request_series, deadline_monotonic=time.monotonic() + 5))
+    request = replace(approved(request_series), fetch_mode=mode,
+                      deadline_monotonic=time.monotonic() + 5)
+    if mode == "fetch_latest":
+        seed(request)
     processes = [context.Process(target=_acquire_process, args=(request, queue)) for _ in range(2)]
     for process in processes:
         process.start()

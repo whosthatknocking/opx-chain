@@ -31,6 +31,7 @@ MAX_CACHE_VERSIONS = 16
 ADAPTER_REVISION = "daily-benchmark-v1"
 CBOE_VIX_URL = "https://cdn-api.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv"
 MARKETDATA_SPY_URL = "https://api.marketdata.app/v1/stocks/candles/D/SPY/"
+DAILY_SERIES_FETCH_MODES = ("reuse_only", "reuse_or_fetch", "fetch_latest")
 
 RefreshStatus = Literal[
     "NOT_REQUESTED", "REUSED", "SUCCEEDED", "FAILED", "NOT_PERMITTED", "THROTTLED"
@@ -79,7 +80,7 @@ class DailySeriesRequest:  # pylint: disable=too-many-instance-attributes
     acquisition_started_at: datetime
     deadline_monotonic: float
     max_sessions: int = 300
-    fetch_mode: Literal["reuse_only", "reuse_or_fetch"] = "reuse_only"
+    fetch_mode: Literal["reuse_only", "reuse_or_fetch", "fetch_latest"] = "reuse_only"
     network_scope: ApprovedNetworkScope | None = None
     cache_dir: Path | None = None
     target_session: date | None = None
@@ -147,6 +148,39 @@ class BenchmarkSeriesError(ValueError):
         self.code = code
 
 
+@dataclass(frozen=True)
+class DailySeriesCapability:
+    """Pure source support, not permission, freshness or evidence availability."""
+
+    series_id: str
+    provider_id: str
+    price_basis: str | None
+    unit: str | None
+    source_url: str | None
+    error_code: ErrorCode | None
+    fetch_modes: tuple[str, ...]
+
+
+def daily_series_capability(series_id: str, provider_id: str) -> DailySeriesCapability:
+    """Describe a source without inspecting configuration, cache or network."""
+    basis: str | None = None
+    unit: str | None = None
+    url: str | None = None
+    error: ErrorCode | None = "UNSUPPORTED_PROVIDER"
+    if series_id == "SPY":
+        basis, unit = "SPLIT_ADJUSTED_PRICE", "USD"
+        if provider_id == "marketdata":
+            url, error = MARKETDATA_SPY_URL, None
+        elif provider_id == "yfinance":
+            error = "UNSUPPORTED_BASIS"
+    elif series_id == "VIX_SPOT":
+        basis, unit = "INDEX_CLOSE", "VOLATILITY_POINTS"
+        if provider_id == "cboe_daily_vix":
+            url, error = CBOE_VIX_URL, None
+    modes = DAILY_SERIES_FETCH_MODES if error is None else ()
+    return DailySeriesCapability(series_id, provider_id, basis, unit, url, error, modes)
+
+
 def _encode(value) -> bytes:
     def scalar(item):
         if isinstance(item, (date, datetime)):
@@ -166,26 +200,17 @@ def _aware(value) -> bool:
 
 
 def _source(request: DailySeriesRequest) -> str:
-    if request.series_id == "SPY":
-        if request.provider_id == "yfinance":
-            raise BenchmarkSeriesError("UNSUPPORTED_BASIS")
-        if request.provider_id != "marketdata":
-            raise BenchmarkSeriesError("UNSUPPORTED_PROVIDER")
-        if (request.price_basis, request.unit) != ("SPLIT_ADJUSTED_PRICE", "USD"):
-            raise BenchmarkSeriesError("UNSUPPORTED_BASIS")
-        return MARKETDATA_SPY_URL
-    if request.series_id == "VIX_SPOT":
-        if request.provider_id != "cboe_daily_vix":
-            raise BenchmarkSeriesError("UNSUPPORTED_PROVIDER")
-        if (request.price_basis, request.unit) != ("INDEX_CLOSE", "VOLATILITY_POINTS"):
-            raise BenchmarkSeriesError("UNSUPPORTED_BASIS")
-        return CBOE_VIX_URL
-    raise BenchmarkSeriesError("UNSUPPORTED_PROVIDER")
+    capability = daily_series_capability(request.series_id, request.provider_id)
+    if capability.error_code is not None or capability.source_url is None:
+        raise BenchmarkSeriesError(capability.error_code or "UNSUPPORTED_PROVIDER")
+    if (request.price_basis, request.unit) != (capability.price_basis, capability.unit):
+        raise BenchmarkSeriesError("UNSUPPORTED_BASIS")
+    return capability.source_url
 
 
 def _network_permitted(request: DailySeriesRequest, source_url: str) -> bool:
     scope = request.network_scope
-    return (request.fetch_mode == "reuse_or_fetch"
+    return (request.fetch_mode in ("reuse_or_fetch", "fetch_latest")
             and isinstance(scope, ApprovedNetworkScope)
             and (scope.provider_id, scope.series_id, scope.source_url) == (
                 request.provider_id, request.series_id, source_url)
@@ -198,7 +223,7 @@ def _network_permitted(request: DailySeriesRequest, source_url: str) -> bool:
 def _validate_request(request: DailySeriesRequest) -> None:
     if (not isinstance(request, DailySeriesRequest)
             or type(request.max_sessions) is not int or not 1 <= request.max_sessions <= 300
-            or request.fetch_mode not in ("reuse_only", "reuse_or_fetch")
+            or request.fetch_mode not in DAILY_SERIES_FETCH_MODES
             or not _aware(request.acquisition_started_at)
             or type(request.latest_allowed_session) is not date
             or type(request.deadline_monotonic) not in (int, float)
@@ -483,7 +508,8 @@ def acquire_daily_series(request: DailySeriesRequest) -> DailySeriesResult:
         cutoff = utc_now() if live else request.acquisition_started_at
         fallback = _cached(root, state, request, cutoff, deadline, origins)
         target = request.target_session or request.latest_allowed_session
-        if fallback and fallback.observations[-1].session_date >= target:
+        if (request.fetch_mode != "fetch_latest" and fallback
+                and fallback.observations[-1].session_date >= target):
             return finish(fallback, "REUSED")
         if request.fetch_mode == "reuse_only":
             return finish(fallback, "NOT_REQUESTED", None if fallback else "MISSING_SOURCE")
@@ -500,7 +526,9 @@ def acquire_daily_series(request: DailySeriesRequest) -> DailySeriesResult:
                 state = _state(state_path)
                 newer = _cached(root, state, request, utc_now(), deadline, origins)
                 fallback = newer or fallback
-                if fallback and fallback.observations[-1].session_date >= target:
+                if (fallback and fallback.observations[-1].session_date >= target
+                        and (request.fetch_mode != "fetch_latest"
+                             or fallback.fetched_at >= request.acquisition_started_at)):
                     return finish(fallback, "REUSED")
                 if time.monotonic() >= deadline:
                     return finish(fallback, "FAILED", "DEADLINE_EXCEEDED", attempt)
@@ -572,5 +600,6 @@ __all__ = [
     "BENCHMARK_SERIES_SCHEMA_VERSION", "ApprovedNetworkScope", "SessionClose",
     "DailySeriesRequest", "DailyObservation", "DailySeriesSnapshot", "DailySeriesResult",
     "RetainedFrom", "BenchmarkSeriesError", "acquire_daily_series",
+    "DailySeriesCapability", "daily_series_capability", "DAILY_SERIES_FETCH_MODES",
     "CBOE_VIX_URL", "MARKETDATA_SPY_URL",
 ]
