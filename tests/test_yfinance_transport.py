@@ -5,7 +5,7 @@ import ssl
 from threading import Barrier, Event
 
 import certifi
-from curl_cffi import Curl, CurlInfo, CurlOpt, ffi
+from curl_cffi import Curl, CurlOpt, ffi
 import pytest
 from test_yfinance_provider import FakeTicker
 
@@ -36,28 +36,30 @@ def test_corrected_transport_roots_and_normal_verification():
 def test_actual_prepared_request_keeps_peer_and_proxy_verification(monkeypatch):
     """Effective native options use the fixed bundle before any external I/O."""
     options = {}
+    prepared = {}
     original = Curl.setopt
 
     def setopt(handle, option, value):
         options[option] = value
         return original(handle, option, value)
 
-    def stop(handle, *_args, **_kwargs):
-        assert handle.getinfo(CurlInfo.CAPATH) == b""
+    def stop(_handle, *_args, **_kwargs):
+        # CURLINFO_CAPATH describes the libcurl build, independent of this request.
+        prepared.update(options)
         raise BeforeNetwork()
 
     monkeypatch.setattr(Curl, "setopt", setopt)
     monkeypatch.setattr(Curl, "perform", stop)
     with pytest.raises(BeforeNetwork):
         transport.yfinance_session().get("https://example.invalid/", verify=False)
-    assert options[CurlOpt.CAPATH] is ffi.NULL
-    assert options[CurlOpt.PROXY_CAPATH] is ffi.NULL
-    assert options[CurlOpt.CAINFO] == certifi.where()
-    assert options[CurlOpt.PROXY_CAINFO] == certifi.where()
+    assert prepared[CurlOpt.CAPATH] is ffi.NULL
+    assert prepared[CurlOpt.PROXY_CAPATH] is ffi.NULL
+    assert prepared[CurlOpt.CAINFO] == certifi.where()
+    assert prepared[CurlOpt.PROXY_CAINFO] == certifi.where()
     for option in (CurlOpt.SSL_VERIFYPEER, CurlOpt.PROXY_SSL_VERIFYPEER):
-        assert options[option] == 1
+        assert prepared[option] == 1
     for option in (CurlOpt.SSL_VERIFYHOST, CurlOpt.PROXY_SSL_VERIFYHOST):
-        assert options[option] == 2
+        assert prepared[option] == 2
 
 
 def test_every_yahoo_provider_entry_uses_the_verified_session(monkeypatch):
