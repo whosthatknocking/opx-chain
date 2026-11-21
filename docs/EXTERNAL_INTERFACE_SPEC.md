@@ -429,6 +429,7 @@ from opx_chain.iv_history import (
     build_iv_observation_frame,
     check_iv_history_integrity,
     get_iv_history_db_path,
+    get_iv_history_read_store,
     get_iv_history_store,
 )
 from opx_chain.iv_history_backfill import (
@@ -543,7 +544,11 @@ builders.
 
 `IVHistoryStore`, `build_iv_observation_frame`, and `get_iv_history_store` are
 the stable durable-IV history surface for downstream consumers that need to
-populate or inspect provider-scoped historical IV percentiles.
+populate provider-scoped historical IV percentiles. Use
+`get_iv_history_read_store` for read-only inspection through `stats` and
+`load_history`. It raises `FileNotFoundError` when the configured database is
+missing, rejects unsupported schemas and never initializes or migrates the
+store. Close it after use.
 `get_iv_history_db_path`, `check_iv_history_integrity`, and
 `IVHistoryIntegrity` expose the producer-owned path and read-only
 `OK`/`ERROR`/`MISSING` health result without constructing the writable store.

@@ -1,11 +1,17 @@
 """Tests for the durable implied-volatility history store."""
 
 from datetime import date, datetime, timedelta, timezone
+import sqlite3
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
 
-from opx_chain.iv_history import IVHistoryStore, build_iv_observation_frame
+from opx_chain.iv_history import (
+    IVHistoryStore,
+    build_iv_observation_frame,
+    get_iv_history_read_store,
+)
 from opx_chain.price_history import PriceHistoryStore
 from opx_chain.volatility_features import (
     SOURCE_READY,
@@ -46,6 +52,45 @@ def _price_history(*, periods: int = 120, end: str = "2026-05-22") -> pd.DataFra
             "volume": [1000 + index for index in range(periods)],
         }
     )
+
+
+def test_read_store_keeps_missing_path_absent_and_reads_existing_history(tmp_path):
+    """Report reads preserve both missing paths and existing history."""
+    directory = tmp_path / "history with spaces"
+    config = SimpleNamespace(storage_dir=directory)
+    with pytest.raises(FileNotFoundError):
+        get_iv_history_read_store(config)
+    assert not directory.exists()
+
+    path = directory / "iv-history.db"
+    writer = IVHistoryStore(path)
+    observed = date(2026, 5, 22)
+    observations = build_iv_observation_frame(
+        _chain(),
+        provider="marketdata",
+        dataset_id="dataset-1",
+        run_id="run-1",
+        observed_at=observed,
+    )
+    writer.upsert_observations(observations)
+    expected = writer.load_history(
+        provider="marketdata", ticker="TSLA", lookback_days=30, end_date=observed,
+    )
+    writer.close()
+    before = path.read_bytes()
+    reader = get_iv_history_read_store(config)
+    try:
+        assert reader.stats(provider="marketdata", ticker="TSLA").latest_date == observed
+        history = reader.load_history(
+            provider="marketdata", ticker="TSLA", lookback_days=30, end_date=observed,
+        )
+        pd.testing.assert_frame_equal(history, expected)
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            reader.upsert_observations(observations)
+    finally:
+        reader.close()
+    assert path.read_bytes() == before
+    assert list(directory.iterdir()) == [path]
 
 
 def test_iv_history_store_persists_ticker_and_dte_aggregates(tmp_path):
