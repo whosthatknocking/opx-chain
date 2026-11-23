@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from opx_chain.paths import get_data_dir
+from opx_chain.storage.history_snapshot import HistorySnapshotWindow, MAX_SNAPSHOT_ROWS
 from opx_chain.tickers import is_valid_ticker
 from opx_chain.timestamps import parse_iso_datetime, utc_now
 from opx_chain.utils import finite_float_or_none
@@ -256,13 +257,24 @@ class IVHistoryIntegrity:
 class IVHistoryStore:
     """SQLite-backed local store of daily IV aggregate observations."""
 
-    def __init__(self, db_path: Path) -> None:
+    def __init__(self, db_path: Path, *, read_only: bool = False) -> None:
         self._db_path = Path(db_path)
+        self._read_only = read_only
         self._connection: sqlite3.Connection | None = None
         self._connection_finalizer: weakref.finalize | None = None
         self._lock = threading.RLock()
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_schema()
+        if read_only:
+            try:
+                with self._open_connection() as conn:
+                    version = self._read_schema_version(conn)
+                    if version != IV_HISTORY_SCHEMA_VERSION:
+                        raise RuntimeError(f"Unsupported IV history schema version: {version!r}")
+            except (OSError, sqlite3.Error, RuntimeError):
+                self.close()
+                raise
+        else:
+            self._db_path.parent.mkdir(parents=True, exist_ok=True)
+            self._init_schema()
 
     def close(self) -> None:
         """Close the pooled SQLite connection."""
@@ -281,10 +293,14 @@ class IVHistoryStore:
             pass
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self._db_path), check_same_thread=False)
+        path = str(self._db_path)
+        if self._read_only:
+            path = self._db_path.resolve(strict=True).as_uri() + "?mode=ro"
+        conn = sqlite3.connect(path, uri=self._read_only, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA busy_timeout = 5000")
-        conn.execute("PRAGMA journal_mode = DELETE")
+        if not self._read_only:
+            conn.execute("PRAGMA journal_mode = DELETE")
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
@@ -436,6 +452,21 @@ class IVHistoryStore:
             )
             conn.commit()
         return len(rows)
+
+    def snapshot_bundle_rows(self, window: HistorySnapshotWindow) -> list[dict]:
+        """Read exact retained IV aggregates known by a portable bundle cutoff."""
+        placeholders = ",".join("?" for _ in window.tickers)
+        with self._lock:
+            rows = self._connection_for_use().execute(
+                "SELECT provider,ticker,observation_date,option_type,dte_bucket,delta_bucket,"
+                "representative_iv,observation_count,dataset_id,run_id,"
+                "source_created_at,fetched_at "
+                "FROM iv_observations WHERE provider=? AND ticker IN (" + placeholders + ") "
+                "AND observation_date BETWEEN ? AND ? AND julianday(fetched_at)<=julianday(?) "
+                "ORDER BY ticker,observation_date,option_type,dte_bucket,delta_bucket LIMIT ?",
+                (*window.arguments(), MAX_SNAPSHOT_ROWS + 1),
+            ).fetchall()
+        return window.retain(rows)
 
     def load_history(
         self,
@@ -833,6 +864,11 @@ def get_iv_history_store(config=None) -> IVHistoryStore:
     return IVHistoryStore(_history_db_path(config))
 
 
+def get_iv_history_read_store(config=None) -> IVHistoryStore:
+    """Read an existing local IV history without creating or migrating it."""
+    return IVHistoryStore(_history_db_path(config), read_only=True)
+
+
 def get_iv_history_db_path(config=None) -> Path:
     """Return the configured durable IV-history database path."""
     return _history_db_path(config)
@@ -912,5 +948,6 @@ __all__ = [
     "build_iv_observation_frame",
     "check_iv_history_integrity",
     "get_iv_history_db_path",
+    "get_iv_history_read_store",
     "get_iv_history_store",
 ]

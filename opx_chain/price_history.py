@@ -18,6 +18,7 @@ import pandas as pd
 from opx_chain.error_summary import compact_exception_summary
 from opx_chain.paths import get_data_dir
 from opx_chain.price_context import normalize_price_history_frame
+from opx_chain.storage.history_snapshot import HistorySnapshotWindow, MAX_SNAPSHOT_ROWS
 from opx_chain.tickers import is_valid_ticker
 from opx_chain.timestamps import parse_iso_datetime, utc_now
 from opx_chain.utils import finite_float_or_none
@@ -332,6 +333,18 @@ class PriceHistoryStore:
                 "UPDATE _schema_meta SET value = ? WHERE key = 'schema_version'",
                 (str(next_version),),
             )
+
+    def snapshot_bundle_rows(self, window: HistorySnapshotWindow) -> list[dict]:
+        """Read exact retained OHLCV rows known by a portable bundle cutoff."""
+        placeholders = ",".join("?" for _ in window.tickers)
+        with self._lock:
+            rows = self._connection_for_use().execute(
+                "SELECT provider,ticker,trading_date AS date,open,high,low,close,volume,fetched_at "
+                "FROM daily_price_bars WHERE provider=? AND ticker IN (" + placeholders + ") "
+                "AND trading_date BETWEEN ? AND ? AND julianday(fetched_at)<=julianday(?) "
+                "ORDER BY ticker,trading_date LIMIT ?", (*window.arguments(), MAX_SNAPSHOT_ROWS + 1)
+            ).fetchall()
+        return window.retain(rows)
 
     def load_bars(
         self,

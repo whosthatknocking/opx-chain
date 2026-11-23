@@ -429,6 +429,7 @@ from opx_chain.iv_history import (
     build_iv_observation_frame,
     check_iv_history_integrity,
     get_iv_history_db_path,
+    get_iv_history_read_store,
     get_iv_history_store,
 )
 from opx_chain.iv_history_backfill import (
@@ -543,7 +544,11 @@ builders.
 
 `IVHistoryStore`, `build_iv_observation_frame`, and `get_iv_history_store` are
 the stable durable-IV history surface for downstream consumers that need to
-populate or inspect provider-scoped historical IV percentiles.
+populate provider-scoped historical IV percentiles. Use
+`get_iv_history_read_store` for read-only inspection through `stats` and
+`load_history`. It raises `FileNotFoundError` when the configured database is
+missing, rejects unsupported schemas and never initializes or migrates the
+store. Close it after use.
 `get_iv_history_db_path`, `check_iv_history_integrity`, and
 `IVHistoryIntegrity` expose the producer-owned path and read-only
 `OK`/`ERROR`/`MISSING` health result without constructing the writable store.
@@ -816,6 +821,46 @@ on CSV/parquet and normalizes format-sensitive dtypes, but it does not establish
 storage publication state or bind bytes to metadata. Do not use it as a
 replacement for the validated loader in calculations, retained-history replay,
 position checks, or downstream decision systems.
+
+#### 3.7.1 Portable retained producer bundles
+
+`opx_chain.producer_bundle` (opx-chain 0.8.3+) exports one explicitly selected
+completed dataset and its fetch provenance without altering the source catalog:
+
+- `export_producer_bundle(storage, dataset_id, runs_root=..., entitlement=...,
+  as_of=..., components=..., history_as_of=...)` returns immutable bytes.
+  Provide an existing filesystem or SQLite-indexed producer backend, the
+  canonical directory that owns the retained dataset file, a non-secret
+  entitlement identifier and a timezone-aware producer cutoff. Do not pass
+  credentials or a latest alias.
+- The component mapping explicitly names `event_snapshot`, `price_context`,
+  `price_history`, and `iv_history`. Values are original snapshot bytes,
+  schema-1 logical history bytes, or `missing`, `compacted`, or
+  `not_configured`. A single optional `history_as_of` freezes the observation
+  instant for combined-history replay, even if one or both histories are absent.
+- `HistorySnapshotWindow(provider, tickers, start, end, observed_at)` and
+  `capture_history_component(kind, store, window)` read existing scopes from
+  the explicit PriceHistoryStore or IVHistoryStore. They preserve row provenance,
+  exclude later-fetched versions regardless of market date, and return
+  `missing` when no qualifying rows remain. They do not reconstruct overwritten
+  versions. `encode_history_component` serializes already retained logical rows.
+- `import_producer_bundle(content, provider=..., entitlement=...,
+  dataset_id=..., expected_sha256=..., required=...)` verifies a candidate
+  container in memory. It returns a read-only `ProducerBundle` with capability
+  states and immutable component bytes. The reader exposes the same semantic
+  `load_validated_option_chain_dataset`, plus dataset/run/ticker metadata.
+  The handle's `bundle://<sha256>/chain` location is an opaque identity, not a
+  filesystem path or a network endpoint. Repeat imports have no write effects.
+
+The schema-1 envelope contains a bounded JSON manifest and an ordered, exhaustive
+inventory of fixed-name raw members. It neither extracts archives nor opens a
+database from untrusted input. Whole-bundle size is at most 32 MiB; larger
+retained sets require a separately versioned storage contract. Provider scope,
+schema, run completion, data integrity, row scope, source timestamps, member
+hashes and lengths must agree. Callers may require named components, but absent
+components never authorize refresh. Import verifies integrity, not entitlement
+ownership: the caller must derive expected identity and digest from its own
+trusted scope. This API performs no network calls.
 
 ### 3.8 Parsing positions consistently
 

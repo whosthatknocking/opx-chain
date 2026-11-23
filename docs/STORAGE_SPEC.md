@@ -15,6 +15,12 @@ This spec is intentionally forward-looking. It describes the target architecture
 and the path to reach it, independent from any downstream strategy or decision
 engine.
 
+Portable retained replay is a separate, effect-free read surface. See the
+[producer bundle contract](EXTERNAL_INTERFACE_SPEC.md#371-portable-retained-producer-bundles).
+It relocates exact selected dataset bytes and logical snapshot/history evidence;
+it is not a backup of all producer caches, an import into the mutable catalog,
+or a provider refresh.
+
 ## 1. Goals
 
 The storage design should:
