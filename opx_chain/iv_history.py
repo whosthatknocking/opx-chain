@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from opx_chain.paths import get_data_dir
+from opx_chain.storage.history_snapshot import HistorySnapshotWindow, MAX_SNAPSHOT_ROWS
 from opx_chain.tickers import is_valid_ticker
 from opx_chain.timestamps import parse_iso_datetime, utc_now
 from opx_chain.utils import finite_float_or_none
@@ -451,6 +452,21 @@ class IVHistoryStore:
             )
             conn.commit()
         return len(rows)
+
+    def snapshot_bundle_rows(self, window: HistorySnapshotWindow) -> list[dict]:
+        """Read exact retained IV aggregates known by a portable bundle cutoff."""
+        placeholders = ",".join("?" for _ in window.tickers)
+        with self._lock:
+            rows = self._connection_for_use().execute(
+                "SELECT provider,ticker,observation_date,option_type,dte_bucket,delta_bucket,"
+                "representative_iv,observation_count,dataset_id,run_id,"
+                "source_created_at,fetched_at "
+                "FROM iv_observations WHERE provider=? AND ticker IN (" + placeholders + ") "
+                "AND observation_date BETWEEN ? AND ? AND julianday(fetched_at)<=julianday(?) "
+                "ORDER BY ticker,observation_date,option_type,dte_bucket,delta_bucket LIMIT ?",
+                (*window.arguments(), MAX_SNAPSHOT_ROWS + 1),
+            ).fetchall()
+        return window.retain(rows)
 
     def load_history(
         self,
